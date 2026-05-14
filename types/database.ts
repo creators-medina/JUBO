@@ -18,6 +18,7 @@ export type GoalType = "closings" | "volume" | "calls" | "appointments" | "reven
 export type IntegrationStatus = "active" | "inactive" | "error" | "pending";
 export type TaskPriority = "none" | "low" | "medium" | "high";
 export type AppVisibility = "all_members" | "admins_only" | "owner_only";
+export type WidgetType = "metric" | "list" | "board_summary";
 
 export interface Database {
   public: {
@@ -375,6 +376,84 @@ export interface Database {
         };
         Update: Partial<Omit<Database["public"]["Tables"]["embedded_apps"]["Insert"], "id" | "organization_id">>;
       };
+      dashboards: {
+        Row: {
+          id: string;
+          organization_id: string;
+          name: string;
+          slug: string;
+          description: string | null;
+          icon: string | null;
+          color: string | null;
+          is_default: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          name: string;
+          slug: string;
+          description?: string | null;
+          icon?: string | null;
+          color?: string | null;
+          is_default?: boolean;
+          created_by?: string | null;
+        };
+        Update: Partial<Omit<Database["public"]["Tables"]["dashboards"]["Insert"], "id" | "organization_id">>;
+      };
+      dashboard_widgets: {
+        Row: {
+          id: string;
+          dashboard_id: string;
+          widget_type: WidgetType;
+          title: string;
+          position_x: number;
+          position_y: number;
+          width: number;
+          height: number;
+          config: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          dashboard_id: string;
+          widget_type: WidgetType;
+          title: string;
+          position_x?: number;
+          position_y?: number;
+          width?: number;
+          height?: number;
+          config?: Json;
+        };
+        Update: Partial<Omit<Database["public"]["Tables"]["dashboard_widgets"]["Insert"], "id" | "dashboard_id">>;
+      };
+      saved_views: {
+        Row: {
+          id: string;
+          organization_id: string;
+          board_id: string | null;
+          name: string;
+          filters: Json;
+          sort: Json;
+          visible_fields: Json;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          board_id?: string | null;
+          name: string;
+          filters?: Json;
+          sort?: Json;
+          visible_fields?: Json;
+          created_by?: string | null;
+        };
+        Update: Partial<Omit<Database["public"]["Tables"]["saved_views"]["Insert"], "id" | "organization_id">>;
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -385,6 +464,14 @@ export interface Database {
       is_org_admin: {
         Args: { org_id: string };
         Returns: boolean;
+      };
+      create_organization_with_owner: {
+        Args: { org_name: string; org_slug: string };
+        Returns: string;
+      };
+      move_record: {
+        Args: { p_record_id: string; p_to_group_id: string; p_user_id: string };
+        Returns: void;
       };
     };
     Enums: {

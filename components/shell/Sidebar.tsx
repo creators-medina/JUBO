@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
   Columns3,
@@ -19,6 +19,8 @@ import { cn } from '@/lib/utils'
 import { SidebarSection } from './SidebarSection'
 import { SidebarItem } from './SidebarItem'
 import { DynamicBoardsSidebarSection } from '@/features/boards/components/DynamicBoardsSidebarSection'
+import { DynamicDashboardsSidebarSection } from '@/features/dashboards/components/DynamicDashboardsSidebarSection'
+import { CreateDashboardModal } from '@/features/dashboards/components/CreateDashboardModal'
 import { useOrganization } from '@/providers/OrganizationProvider'
 
 const toolItems = [
@@ -35,7 +37,9 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { currentOrganization } = useOrganization()
+  const [showCreateDashboard, setShowCreateDashboard] = useState(false)
 
   return (
     <aside
@@ -63,16 +67,22 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-3 space-y-4 px-2">
-        {/* Dashboard */}
+        {/* Dashboard hub link */}
         <SidebarSection label="" collapsed={collapsed}>
           <SidebarItem
             href="/dashboard"
             label="Dashboard"
             icon={LayoutDashboard}
-            active={pathname === '/dashboard'}
+            active={pathname === '/dashboard' || pathname.startsWith('/dashboards/')}
             collapsed={collapsed}
           />
         </SidebarSection>
+
+        {/* Dynamic dashboards */}
+        <DynamicDashboardsSidebarSection
+          collapsed={collapsed}
+          onCreateClick={() => setShowCreateDashboard(true)}
+        />
 
         {/* Boards */}
         <div className="space-y-0.5">
@@ -119,6 +129,17 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       >
         {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
       </button>
+
+      {showCreateDashboard && currentOrganization && (
+        <CreateDashboardModal
+          organizationId={currentOrganization.id}
+          onClose={() => setShowCreateDashboard(false)}
+          onSuccess={(id) => {
+            setShowCreateDashboard(false)
+            router.push(`/dashboards/${id}`)
+          }}
+        />
+      )}
     </aside>
   )
 }

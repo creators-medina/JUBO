@@ -1,9 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { ContentContainer } from '@/components/primitives/ContentContainer'
-import { PageHeader } from '@/components/primitives/PageHeader'
-import { MetricCard } from '@/components/primitives/MetricCard'
-import { Activity, Target, Columns3, FileText } from 'lucide-react'
+import { getDashboards } from '@/features/dashboards/queries'
+import { DashboardHubClient } from './DashboardHubClient'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -20,28 +18,15 @@ export default async function DashboardPage() {
   if (!membership) redirect('/onboarding')
 
   const orgId = membership.organization_id
+  const dashboards = await getDashboards(orgId)
 
-  const [boardsRes, recordsRes, tasksRes, goalsRes] = await Promise.all([
-    supabase.from('boards').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).eq('is_archived', false),
-    supabase.from('records').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).eq('is_archived', false),
-    supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).is('completed_at', null),
-    supabase.from('goals').select('id', { count: 'exact', head: true }).eq('organization_id', orgId).eq('is_active', true),
-  ])
+  // Redirect to the first dashboard if one exists
+  if (dashboards.length > 0) {
+    const defaultDash = dashboards.find(d => d.is_default) ?? dashboards[0]
+    redirect(`/dashboards/${defaultDash.id}`)
+  }
 
+  // No dashboards yet — show create-first-dashboard hub
   const org = membership.organizations as any
-
-  return (
-    <ContentContainer>
-      <PageHeader
-        title={`${org?.name ?? 'Dashboard'}`}
-        description="Your workspace overview"
-      />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <MetricCard label="Boards" value={boardsRes.count ?? 0} icon={Columns3} />
-        <MetricCard label="Active Records" value={recordsRes.count ?? 0} icon={FileText} />
-        <MetricCard label="Open Tasks" value={tasksRes.count ?? 0} icon={Activity} />
-        <MetricCard label="Active Goals" value={goalsRes.count ?? 0} icon={Target} />
-      </div>
-    </ContentContainer>
-  )
+  return <DashboardHubClient organizationId={orgId} orgName={org?.name ?? 'Your workspace'} />
 }
