@@ -37,3 +37,34 @@ export async function createBoardGroup(data: {
   if (error) throw new Error(error.message)
   revalidatePath(`/boards/${data.board_id}`)
 }
+
+export async function updateBoard(boardId: string, updates: {
+  name?: string
+  description?: string
+  color?: string
+  icon?: string
+}) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('boards').update(updates).eq('id', boardId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/boards')
+  revalidatePath(`/boards/${boardId}`)
+}
+
+export async function updateBoardGroup(groupId: string, boardId: string, updates: {
+  name?: string
+  color?: string
+  position?: number
+}) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('board_groups').update(updates).eq('id', groupId)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/boards/${boardId}`)
+}
+
+export async function deleteBoardGroup(groupId: string, boardId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('board_groups').update({ is_archived: true }).eq('id', groupId)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/boards/${boardId}`)
+}

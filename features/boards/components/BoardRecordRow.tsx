@@ -2,9 +2,11 @@
 
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal, GripVertical } from 'lucide-react'
+import { useDraggable } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { FieldValueCell } from './FieldValueCell'
+import { EditableCell } from './EditableCell'
 import { moveRecord } from '@/features/records/actions'
 import { cn } from '@/lib/utils'
 
@@ -27,34 +29,65 @@ const STATUS_BADGE: Record<string, string> = {
 interface Props {
   record: any
   fields: any[]
-  fieldValueMap: Record<string, any> // field_id -> field_value row
+  fieldValueMap: Record<string, any>
   groups: any[]
   boardId: string
   onClick: () => void
+  onOptimisticMove?: (recordId: string, toGroupId: string) => void
 }
 
-export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId, onClick }: Props) {
+export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId, onClick, onOptimisticMove }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
+  const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
+    id: record.id,
+    data: { groupId: record.group_id, record },
+  })
+
+  const style = transform
+    ? { transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : 1 }
+    : undefined
+
   const handleMove = (toGroupId: string) => {
+    onOptimisticMove?.(record.id, toGroupId)
     startTransition(async () => {
-      await moveRecord(record.id, toGroupId, boardId)
-      router.refresh()
+      try {
+        await moveRecord(record.id, toGroupId, boardId)
+        router.refresh()
+      } catch {
+        router.refresh() // rollback via server data
+      }
     })
   }
 
   return (
     <tr
-      onClick={onClick}
+      ref={setDragRef}
+      style={style}
       className={cn(
         'group border-b border-border cursor-pointer transition-colors',
         'hover:bg-surface-1',
-        isPending && 'opacity-50'
+        isDragging && 'opacity-40',
+        isPending && 'opacity-60'
       )}
     >
+      {/* Drag handle */}
+      <td className="w-6 pl-1 pr-0 py-2" onClick={e => e.stopPropagation()}>
+        <button
+          {...attributes}
+          {...listeners}
+          className="opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing p-0.5 rounded text-muted-foreground hover:text-foreground transition-all"
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
+      </td>
+
       {/* Title column */}
-      <td className="sticky left-0 z-10 bg-card group-hover:bg-surface-1 transition-colors px-3 py-2 min-w-[220px] max-w-[300px]">
+      <td
+        className="sticky left-0 z-10 bg-card group-hover:bg-surface-1 transition-colors px-3 py-2 min-w-[200px] max-w-[280px]"
+        onClick={onClick}
+      >
         <div className="flex items-center gap-2">
           {record.priority !== 'none' && PRIORITY_COLORS[record.priority] && (
             <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', PRIORITY_COLORS[record.priority])} />
@@ -64,31 +97,36 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
       </td>
 
       {/* Status */}
-      <td className="px-3 py-2 w-28">
+      <td className="px-3 py-2 w-28" onClick={onClick}>
         <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-medium border capitalize', STATUS_BADGE[record.status] ?? STATUS_BADGE.active)}>
           {record.status?.replace('_', ' ')}
         </span>
       </td>
 
       {/* Priority */}
-      <td className="px-3 py-2 w-24">
+      <td className="px-3 py-2 w-24" onClick={onClick}>
         <span className="text-xs text-muted-foreground capitalize">{record.priority}</span>
       </td>
 
       {/* Value */}
-      <td className="px-3 py-2 w-28 tabular-nums text-xs text-muted-foreground">
+      <td className="px-3 py-2 w-28 tabular-nums text-xs text-muted-foreground" onClick={onClick}>
         {record.value != null ? `$${Number(record.value).toLocaleString()}` : '—'}
       </td>
 
-      {/* Dynamic field columns */}
+      {/* Dynamic field columns — inline editable */}
       {fields.map(field => (
-        <td key={field.id} className="px-3 py-2 w-36 text-xs text-foreground">
-          <FieldValueCell field={field} fieldValue={fieldValueMap[field.id] ?? null} />
+        <td key={field.id} className="px-2 py-1.5 w-36 text-xs text-foreground" onClick={e => e.stopPropagation()}>
+          <EditableCell
+            field={field}
+            fieldValue={fieldValueMap[field.id] ?? null}
+            recordId={record.id}
+            boardId={boardId}
+          />
         </td>
       ))}
 
       {/* Row actions */}
-      <td className="px-2 py-2 w-8 text-right" onClick={e => e.stopPropagation()}>
+      <td className="px-2 py-2 w-8" onClick={e => e.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-all">
             <MoreHorizontal className="w-3.5 h-3.5" />
