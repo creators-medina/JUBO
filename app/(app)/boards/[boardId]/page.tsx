@@ -3,10 +3,13 @@ import { createClient } from '@/lib/supabase/server'
 import { getBoard, getBoardGroups } from '@/features/boards/queries'
 import { getBoardFields } from '@/features/fields/actions'
 import { getRecordsByBoard } from '@/features/records/queries'
-import { ContentContainer } from '@/components/primitives/ContentContainer'
 import { BoardDetailClient } from '@/features/boards/components/BoardDetailClient'
 
-export default async function BoardDetailPage({ params }: { params: Promise<{ boardId: string }> }) {
+export default async function BoardDetailPage({
+  params,
+}: {
+  params: Promise<{ boardId: string }>
+}) {
   const { boardId } = await params
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -30,15 +33,22 @@ export default async function BoardDetailPage({ params }: { params: Promise<{ bo
 
   if (!board) notFound()
 
+  // Fetch all field values for all records on this board in one query
+  const recordIds = records.map((r: any) => r.id)
+  const { data: fieldValues } = recordIds.length > 0
+    ? await supabase.from('field_values').select('*').in('record_id', recordIds)
+    : { data: [] }
+
   return (
-    <ContentContainer maxWidth="full" className="p-4">
+    <div className="flex flex-col h-full overflow-hidden">
       <BoardDetailClient
         board={board}
         groups={groups}
         fields={fields}
         records={records}
+        fieldValues={fieldValues ?? []}
         organizationId={membership.organization_id}
       />
-    </ContentContainer>
+    </div>
   )
 }
