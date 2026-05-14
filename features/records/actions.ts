@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import type { RecordType, RecordPriority } from '@/types/database'
+import type { RecordType, RecordPriority, RecordStatus } from '@/types/database'
 
 export async function createRecord(data: {
   organization_id: string
@@ -50,6 +50,71 @@ export async function createRecord(data: {
 
   revalidatePath(`/boards/${data.board_id}`)
   return record
+}
+
+export async function updateRecord(
+  recordId: string,
+  boardId: string,
+  updates: {
+    title?: string
+    status?: RecordStatus
+    priority?: RecordPriority
+    value?: number | null
+    assigned_user_id?: string | null
+  },
+  previousValues?: Record<string, unknown>
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data: record, error } = await supabase
+    .from('records')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', recordId)
+    .select('organization_id')
+    .single()
+
+  if (error) throw new Error(error.message)
+
+  // Log activity for significant changes
+  const significantFields = ['title', 'status', 'priority']
+  const changed = significantFields.filter(f => updates[f as keyof typeof updates] !== undefined)
+  if (changed.length > 0) {
+    await supabase.from('activities').insert({
+      organization_id: record.organization_id,
+      record_id: recordId,
+      user_id: user.id,
+      activity_type: 'field_change',
+      content: changed.map(f => `${f} updated`).join(', '),
+      metadata: { changes: updates, previous: previousValues ?? {} },
+    })
+  }
+
+  revalidatePath(`/boards/${boardId}`)
+}
+
+export async function upsertFieldValue(
+  fieldId: string,
+  recordId: string,
+  boardId: string,
+  value: {
+    value_text?: string | null
+    value_number?: number | null
+    value_boolean?: boolean | null
+    value_date?: string | null
+    value_json?: unknown | null
+  }
+) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('field_values')
+    .upsert(
+      { field_id: fieldId, record_id: recordId, ...value },
+      { onConflict: 'field_id,record_id' }
+    )
+  if (error) throw new Error(error.message)
+  revalidatePath(`/boards/${boardId}`)
 }
 
 export async function moveRecord(recordId: string, toGroupId: string, boardId: string) {
