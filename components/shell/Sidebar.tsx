@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { SidebarSection } from "./SidebarSection";
 import { SidebarItem } from "./SidebarItem";
+import { useOrganization } from "@/providers/OrganizationProvider";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -37,6 +38,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const pathname = usePathname();
+  const { currentOrganization } = useOrganization();
 
   return (
     <aside
@@ -52,9 +54,16 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             <Command className="w-3.5 h-3.5 text-primary-foreground" />
           </div>
           {!collapsed && (
-            <span className="font-semibold text-sm text-foreground truncate">
-              Jubo
-            </span>
+            <div className="min-w-0">
+              <span className="font-semibold text-sm text-foreground truncate block">
+                Jubo
+              </span>
+              {currentOrganization && (
+                <span className="text-xs text-muted-foreground truncate block leading-none">
+                  {currentOrganization.name}
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
