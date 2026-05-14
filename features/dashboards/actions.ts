@@ -22,23 +22,27 @@ export async function createDashboard(data: {
   is_default?: boolean
 }): Promise<string> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
 
   const slug = toSlug(data.name) || 'dashboard'
-  const { data: row, error } = await supabase
-    .from('dashboards')
-    .insert({
-      ...data,
-      slug,
-      created_by: user.id,
-    })
-    .select('id')
-    .single()
+
+  // Use a SECURITY DEFINER RPC — same pattern as create_organization_with_owner.
+  // Direct insert fails because auth.uid() evaluates to NULL in the RLS WITH CHECK
+  // context for server actions, causing is_org_member() to return FALSE.
+  const { data: dashboardId, error } = await supabase.rpc('create_dashboard_for_member', {
+    p_organization_id: data.organization_id,
+    p_name:            data.name,
+    p_slug:            slug,
+    p_description:     data.description ?? null,
+    p_icon:            data.icon ?? null,
+    p_color:           data.color ?? null,
+    p_is_default:      data.is_default ?? false,
+  })
 
   if (error) throw new Error(error.message)
+  if (!dashboardId) throw new Error('Failed to create dashboard')
+
   revalidatePath('/dashboard')
-  return row.id
+  return dashboardId as string
 }
 
 export async function updateDashboard(dashboardId: string, updates: {
