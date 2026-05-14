@@ -6,29 +6,14 @@ import { redirect } from 'next/navigation'
 
 export async function createOrganization(name: string, slug: string) {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
 
-  // Create org
-  const { data: org, error: orgError } = await supabase
-    .from('organizations')
-    .insert({ name, slug, owner_user_id: user.id })
-    .select()
-    .single()
+  const { data: orgId, error } = await supabase.rpc('create_organization_with_owner', {
+    org_name: name,
+    org_slug: slug,
+  })
 
-  if (orgError) throw new Error(orgError.message)
-
-  // Add user as owner member
-  const { error: memberError } = await supabase
-    .from('organization_members')
-    .insert({
-      organization_id: org.id,
-      user_id: user.id,
-      role: 'owner',
-      joined_at: new Date().toISOString(),
-    })
-
-  if (memberError) throw new Error(memberError.message)
+  if (error) throw new Error(error.message)
+  if (!orgId) throw new Error('Failed to create organization')
 
   revalidatePath('/dashboard')
   redirect('/dashboard')
