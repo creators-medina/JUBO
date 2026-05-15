@@ -25,9 +25,8 @@ export async function createDashboard(data: {
 
   const slug = toSlug(data.name) || 'dashboard'
 
-  // Use a SECURITY DEFINER RPC — same pattern as create_organization_with_owner.
-  // Direct insert fails because auth.uid() evaluates to NULL in the RLS WITH CHECK
-  // context for server actions, causing is_org_member() to return FALSE.
+  // SECURITY DEFINER RPC — direct insert fails because auth.uid() evaluates to
+  // NULL in the RLS WITH CHECK context for server actions.
   const { data: dashboardId, error } = await supabase.rpc('create_dashboard_for_member', {
     p_organization_id: data.organization_id,
     p_name:            data.name,
@@ -50,6 +49,7 @@ export async function updateDashboard(dashboardId: string, updates: {
   description?: string
   icon?: string
   color?: string
+  is_default?: boolean
 }) {
   const supabase = await createClient()
   const { error } = await supabase
@@ -58,6 +58,15 @@ export async function updateDashboard(dashboardId: string, updates: {
     .eq('id', dashboardId)
   if (error) throw new Error(error.message)
   revalidatePath(`/dashboards/${dashboardId}`)
+  revalidatePath('/dashboard')
+}
+
+export async function archiveDashboard(dashboardId: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('archive_dashboard', {
+    p_dashboard_id: dashboardId,
+  })
+  if (error) throw new Error(error.message)
   revalidatePath('/dashboard')
 }
 
@@ -77,41 +86,26 @@ export async function addWidget(data: {
   title: string
   width: number
   height?: number
-  position_x?: number
-  position_y?: number
   config: Record<string, unknown>
 }): Promise<string> {
   const supabase = await createClient()
 
-  // Place at end: find max position_y for this dashboard
-  const { data: existing } = await supabase
-    .from('dashboard_widgets')
-    .select('position_y')
-    .eq('dashboard_id', data.dashboard_id)
-    .order('position_y', { ascending: false })
-    .limit(1)
-
-  const nextY = existing && existing.length > 0 ? (existing[0].position_y + 1) : 0
-
-  const { data: row, error } = await supabase
-    .from('dashboard_widgets')
-    .insert({
-      dashboard_id: data.dashboard_id,
-      widget_type: data.widget_type,
-      title: data.title,
-      width: data.width,
-      height: data.height ?? 1,
-      position_x: data.position_x ?? 0,
-      position_y: data.position_y ?? nextY,
-      config: data.config,
-    })
-    .select('id')
-    .single()
+  // SECURITY DEFINER RPC handles auto-position and RLS
+  const { data: widgetId, error } = await supabase.rpc('add_dashboard_widget', {
+    p_dashboard_id: data.dashboard_id,
+    p_widget_type:  data.widget_type,
+    p_title:        data.title,
+    p_width:        data.width,
+    p_height:       data.height ?? 1,
+    p_config:       data.config,
+  })
 
   if (error) throw new Error(error.message)
+  if (!widgetId) throw new Error('Failed to add widget')
+
   revalidatePath(`/dashboards/${data.dashboard_id}`)
   revalidatePath('/dashboard')
-  return row.id
+  return widgetId as string
 }
 
 export async function updateWidget(widgetId: string, dashboardId: string, updates: {
@@ -127,6 +121,18 @@ export async function updateWidget(widgetId: string, dashboardId: string, update
   if (error) throw new Error(error.message)
   revalidatePath(`/dashboards/${dashboardId}`)
   revalidatePath('/dashboard')
+}
+
+export async function reorderWidgets(
+  positions: { id: string; position_y: number }[],
+  dashboardId: string,
+) {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('reorder_dashboard_widgets', {
+    p_positions: positions,
+  })
+  if (error) throw new Error(error.message)
+  revalidatePath(`/dashboards/${dashboardId}`)
 }
 
 export async function removeWidget(widgetId: string, dashboardId: string) {

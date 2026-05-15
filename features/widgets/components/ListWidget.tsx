@@ -17,9 +17,20 @@ const PRIORITY_BADGE: Record<string, string> = {
   none:   'text-muted-foreground',
 }
 
-function RecordRow({ record }: { record: ListRecord }) {
+interface RecordRowProps {
+  record: ListRecord
+  onClick?: (id: string) => void
+}
+
+function RecordRow({ record, onClick }: RecordRowProps) {
   return (
-    <div className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-surface-1 transition-colors cursor-default">
+    <div
+      onClick={() => onClick?.(record.id)}
+      className={cn(
+        'flex items-center gap-3 px-2 py-2 rounded-md hover:bg-surface-1 transition-colors',
+        onClick ? 'cursor-pointer' : 'cursor-default',
+      )}
+    >
       <span className={cn(
         'w-1.5 h-1.5 rounded-full flex-shrink-0',
         STATUS_DOT[record.status] ?? 'bg-zinc-500',
@@ -48,9 +59,10 @@ function RecordRow({ record }: { record: ListRecord }) {
 
 interface ListWidgetProps {
   data: ListWidgetData
+  onRecordClick?: (recordId: string) => void
 }
 
-export function ListWidget({ data }: ListWidgetProps) {
+export function ListWidget({ data, onRecordClick }: ListWidgetProps) {
   if (data.records.length === 0) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -62,13 +74,11 @@ export function ListWidget({ data }: ListWidgetProps) {
   return (
     <div className="space-y-0.5 -mx-2">
       {data.records.map(record => (
-        <RecordRow key={record.id} record={record} />
+        <RecordRow key={record.id} record={record} onClick={onRecordClick} />
       ))}
-      {data.total > 0 && (
-        <p className="text-2xs text-muted-foreground pt-2 px-2">
-          {data.total} record{data.total !== 1 ? 's' : ''}
-        </p>
-      )}
+      <p className="text-2xs text-muted-foreground pt-2 px-2">
+        {data.total} record{data.total !== 1 ? 's' : ''}
+      </p>
     </div>
   )
 }

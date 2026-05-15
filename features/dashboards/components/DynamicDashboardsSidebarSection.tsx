@@ -32,6 +32,7 @@ export function DynamicDashboardsSidebarSection({
       .from('dashboards')
       .select('id, name, icon')
       .eq('organization_id', currentOrganization.id)
+      .eq('is_archived', false)
       .order('created_at', { ascending: true })
       .then(({ data }) => setDashboards((data ?? []) as DashboardItem[]))
   }, [currentOrganization])

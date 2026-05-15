@@ -38,6 +38,30 @@ export type BoardSummaryWidgetConfig = {
   group_by: 'group' | 'status' | 'priority'
 }
 
+export type ActivityFeedWidgetConfig = {
+  max_items: number
+  activity_types?: string[]
+}
+
+export type SavedViewWidgetConfig = {
+  saved_view_id: string | null
+}
+
+// ── Activity feed data ────────────────────────────────────────────────────────
+
+export type ActivityFeedItem = {
+  id: string
+  activity_type: string
+  record_title: string | null
+  user_name: string | null
+  content: string | null
+  created_at: string
+}
+
+export type ActivityFeedData = {
+  items: ActivityFeedItem[]
+}
+
 // ── Row shapes from DB ────────────────────────────────────────────────────────
 
 export type DashboardRow = {
@@ -49,9 +73,22 @@ export type DashboardRow = {
   icon: string | null
   color: string | null
   is_default: boolean
+  is_archived: boolean
   created_by: string | null
   created_at: string
   updated_at: string
+}
+
+export type SavedViewRow = {
+  id: string
+  organization_id: string
+  board_id: string | null
+  name: string
+  filters: unknown
+  sort: unknown
+  visible_fields: unknown
+  created_by: string | null
+  created_at: string
 }
 
 export type DashboardWidgetRow = {
@@ -110,6 +147,8 @@ export type WidgetData =
   | { type: 'metric'; data: MetricWidgetData }
   | { type: 'list'; data: ListWidgetData }
   | { type: 'board_summary'; data: BoardSummaryData }
+  | { type: 'activity_feed'; data: ActivityFeedData }
+  | { type: 'saved_view'; data: ListWidgetData }
   | { type: 'error'; message: string }
 
 // ── Icon names usable in widget configs ───────────────────────────────────────
@@ -149,12 +188,16 @@ export const WIDGET_COLORS: Record<WidgetColor, { bg: string; text: string }> = 
 
 // ── Default configs per widget type ──────────────────────────────────────────
 
-export function defaultConfig(type: WidgetType): MetricWidgetConfig | ListWidgetConfig | BoardSummaryWidgetConfig {
-  if (type === 'metric') {
+export function defaultConfig(type: WidgetType): Record<string, unknown> {
+  if (type === 'metric')
     return { board_id: null, aggregation: 'count', filters: [], icon: 'BarChart2', color: 'blue' } satisfies MetricWidgetConfig
-  }
-  if (type === 'list') {
+  if (type === 'list')
     return { board_id: null, filters: [], sort_field: 'updated_at', sort_direction: 'desc', max_records: 10 } satisfies ListWidgetConfig
-  }
-  return { board_id: null, group_by: 'group' } satisfies BoardSummaryWidgetConfig
+  if (type === 'board_summary')
+    return { board_id: null, group_by: 'group' } satisfies BoardSummaryWidgetConfig
+  if (type === 'activity_feed')
+    return { max_items: 10 } satisfies ActivityFeedWidgetConfig
+  if (type === 'saved_view')
+    return { saved_view_id: null } satisfies SavedViewWidgetConfig
+  return {}
 }

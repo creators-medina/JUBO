@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import type { DashboardRow, DashboardWidgetRow } from '@/features/widgets/types'
+import type { DashboardRow, DashboardWidgetRow, SavedViewRow } from '@/features/widgets/types'
 
 export async function getDashboards(organizationId: string): Promise<DashboardRow[]> {
   const supabase = await createClient()
@@ -7,6 +7,7 @@ export async function getDashboards(organizationId: string): Promise<DashboardRo
     .from('dashboards')
     .select('*')
     .eq('organization_id', organizationId)
+    .eq('is_archived', false)
     .order('created_at', { ascending: true })
   return (data ?? []) as DashboardRow[]
 }
@@ -30,4 +31,14 @@ export async function getDashboardWidgets(dashboardId: string): Promise<Dashboar
     .order('position_y', { ascending: true })
     .order('position_x', { ascending: true })
   return (data ?? []) as DashboardWidgetRow[]
+}
+
+export async function getSavedViews(organizationId: string): Promise<SavedViewRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('saved_views')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .order('created_at', { ascending: true })
+  return (data ?? []) as SavedViewRow[]
 }

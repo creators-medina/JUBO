@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3 } from 'lucide-react'
+import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark } from 'lucide-react'
 import Link from 'next/link'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
@@ -17,6 +17,7 @@ import { BoardSettingsModal } from './BoardSettingsModal'
 import { DragOverlayRow } from './DragOverlayRow'
 import { useBoardRealtime } from '@/hooks/useBoardRealtime'
 import { moveRecord } from '@/features/records/actions'
+import { createSavedView } from '../actions'
 import { cn } from '@/lib/utils'
 import type { RecordPriority, RecordStatus } from '@/types/database'
 
@@ -113,6 +114,36 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
   const hasActiveFilters = !!(search || filterPriority || filterStatus)
   const clearFilters = () => { setSearch(''); setFilterPriority(''); setFilterStatus('') }
 
+  const [showSaveView, setShowSaveView] = useState(false)
+  const [saveViewName, setSaveViewName] = useState('')
+  const [saveViewError, setSaveViewError] = useState('')
+  const [isSavingView, startSaveViewTransition] = useTransition()
+
+  const handleSaveView = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!saveViewName.trim()) { setSaveViewError('Name is required'); return }
+    setSaveViewError('')
+
+    const filters: Array<{ field: string; operator: string; value: string }> = []
+    if (filterPriority) filters.push({ field: 'priority', operator: 'eq', value: filterPriority })
+    if (filterStatus) filters.push({ field: 'status', operator: 'eq', value: filterStatus })
+
+    startSaveViewTransition(async () => {
+      try {
+        await createSavedView({
+          organization_id: organizationId,
+          board_id: board.id,
+          name: saveViewName.trim(),
+          filters,
+        })
+        setShowSaveView(false)
+        setSaveViewName('')
+      } catch (err) {
+        setSaveViewError(err instanceof Error ? err.message : 'Failed to save view')
+      }
+    })
+  }
+
   // Build field values index
   const fieldValuesIndex = useMemo(() => {
     const index: Record<string, Record<string, any>> = {}
@@ -202,6 +233,38 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
             {(filterPriority || filterStatus) && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
           </Button>
           {hasActiveFilters && <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Clear</button>}
+          {(filterPriority || filterStatus) && !showSaveView && (
+            <button
+              onClick={() => { setShowSaveView(true); setSaveViewName('') }}
+              className="flex items-center gap-1 h-7 px-2 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md hover:bg-surface-1 transition-colors"
+            >
+              <Bookmark className="w-3 h-3" />
+              Save view
+            </button>
+          )}
+          {showSaveView && (
+            <form onSubmit={handleSaveView} className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={saveViewName}
+                onChange={e => setSaveViewName(e.target.value)}
+                placeholder="View name…"
+                autoFocus
+                className="h-7 px-2 text-xs bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary w-32"
+              />
+              {saveViewError && <span className="text-2xs text-red-400">{saveViewError}</span>}
+              <button type="submit" disabled={isSavingView}
+                className="h-7 px-2 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {isSavingView ? '…' : 'Save'}
+              </button>
+              <button type="button" onClick={() => setShowSaveView(false)}
+                className="h-7 px-1 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </form>
+          )}
           {showFilters && (
             <>
               <select value={filterPriority} onChange={e => setFilterPriority(e.target.value as RecordPriority | '')} className="h-7 px-2 text-xs bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:border-primary">

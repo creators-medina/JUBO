@@ -1,6 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getDashboard, getDashboardWidgets } from '@/features/dashboards/queries'
+import { getDashboard, getDashboardWidgets, getSavedViews } from '@/features/dashboards/queries'
 import { getDashboardWidgetData } from '@/features/widgets/queries'
 import { getBoards } from '@/features/boards/queries'
 import { DashboardClient } from '@/features/dashboards/components/DashboardClient'
@@ -27,15 +27,16 @@ export default async function DashboardDetailPage({ params }: PageProps) {
 
   const orgId = membership.organization_id
 
-  const [dashboard, widgets, boards] = await Promise.all([
+  const [dashboard, widgets, boards, savedViews] = await Promise.all([
     getDashboard(dashboardId),
     getDashboardWidgets(dashboardId),
     getBoards(orgId),
+    getSavedViews(orgId),
   ])
 
   if (!dashboard || dashboard.organization_id !== orgId) notFound()
+  if (dashboard.is_archived) redirect('/dashboard')
 
-  // Fetch all widget data server-side in one pass
   const widgetData = await getDashboardWidgetData(widgets, orgId)
 
   return (
@@ -44,6 +45,8 @@ export default async function DashboardDetailPage({ params }: PageProps) {
       widgets={widgets}
       widgetData={widgetData}
       boards={boards.map(b => ({ id: b.id, name: b.name }))}
+      savedViews={savedViews}
+      organizationId={orgId}
     />
   )
 }

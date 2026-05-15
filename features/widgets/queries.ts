@@ -4,6 +4,8 @@ import type {
   MetricWidgetConfig,
   ListWidgetConfig,
   BoardSummaryWidgetConfig,
+  ActivityFeedWidgetConfig,
+  SavedViewWidgetConfig,
   MetricWidgetData,
   ListWidgetData,
   BoardSummaryData,
@@ -254,6 +256,120 @@ export async function getBoardSummaryData(
 // Re-export BoardSummaryRow so callers don't have to import from types too
 export type { BoardSummaryRow }
 
+// ── Activity feed widget ──────────────────────────────────────────────────────
+
+export async function getActivityFeedData(
+  config: { max_items?: number; activity_types?: string[] },
+  orgId: string,
+) {
+  const supabase = await createClient()
+  const limit = config.max_items ?? 10
+
+  let q = supabase
+    .from('activities')
+    .select('id, activity_type, content, created_at, record_id, user_id')
+    .eq('organization_id', orgId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (config.activity_types && config.activity_types.length > 0) {
+    q = q.in('activity_type', config.activity_types)
+  }
+
+  const { data: activities } = await q
+
+  const userIds = [...new Set((activities ?? []).map((a: any) => a.user_id).filter(Boolean))]
+  const recordIds = [...new Set((activities ?? []).map((a: any) => a.record_id).filter(Boolean))]
+
+  const [profilesRes, recordsRes] = await Promise.all([
+    userIds.length > 0
+      ? supabase.from('profiles').select('id, first_name, last_name').in('id', userIds)
+      : Promise.resolve({ data: [] }),
+    recordIds.length > 0
+      ? supabase.from('records').select('id, title').in('id', recordIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const profileMap = Object.fromEntries(
+    ((profilesRes.data ?? []) as any[]).map((p: any) => [p.id, `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Unknown'])
+  )
+  const recordMap = Object.fromEntries(
+    ((recordsRes.data ?? []) as any[]).map((r: any) => [r.id, r.title])
+  )
+
+  const items = (activities ?? []).map((a: any) => ({
+    id: a.id,
+    activity_type: a.activity_type,
+    record_title: a.record_id ? (recordMap[a.record_id] ?? null) : null,
+    user_name: a.user_id ? (profileMap[a.user_id] ?? null) : null,
+    content: a.content,
+    created_at: a.created_at,
+  }))
+
+  return { items }
+}
+
+// ── Saved view widget ─────────────────────────────────────────────────────────
+
+export async function getSavedViewWidgetData(
+  config: { saved_view_id: string | null },
+  orgId: string,
+) {
+  if (!config.saved_view_id) return { records: [], total: 0 }
+
+  const supabase = await createClient()
+
+  const { data: view } = await supabase
+    .from('saved_views')
+    .select('board_id, filters')
+    .eq('id', config.saved_view_id)
+    .single()
+
+  if (!view) return { records: [], total: 0 }
+
+  const filters = (view.filters as any[]) ?? []
+
+  // Build the records query using saved filters.
+  // Typed as `any` to prevent TS hitting its instantiation depth limit on chained Supabase generics.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let q: any = supabase
+    .from('records')
+    .select('id, title, status, priority, value, group_id, updated_at')
+    .eq('organization_id', orgId)
+    .eq('is_archived', false)
+
+  if (view.board_id) q = q.eq('board_id', view.board_id)
+  for (const f of filters) {
+    if (f.operator === 'eq')  q = q.eq(f.field, f.value)
+    if (f.operator === 'neq') q = q.neq(f.field, f.value)
+  }
+  q = q.order('updated_at', { ascending: false }).limit(20)
+
+  const { data: records } = await q
+
+  const groupIds = [...new Set((records ?? []).map((r: any) => r.group_id).filter(Boolean))]
+  let groupNames: Record<string, string> = {}
+  if (groupIds.length > 0) {
+    const { data: groups } = await supabase
+      .from('board_groups')
+      .select('id, name')
+      .in('id', groupIds)
+    groupNames = Object.fromEntries((groups ?? []).map((g: any) => [g.id, g.name]))
+  }
+
+  const rows = (records ?? []).map((r: any) => ({
+    id: r.id,
+    title: r.title,
+    status: r.status,
+    priority: r.priority,
+    value: r.value,
+    group_name: r.group_id ? (groupNames[r.group_id] ?? null) : null,
+    updated_at: r.updated_at,
+  }))
+
+  return { records: rows, total: rows.length }
+}
+
 // ── Bulk data fetch for all widgets on a dashboard ────────────────────────────
 
 export async function getDashboardWidgetData(
@@ -274,6 +390,14 @@ export async function getDashboardWidgetData(
         if (w.widget_type === 'board_summary') {
           const data = await getBoardSummaryData(w.config as BoardSummaryWidgetConfig, orgId)
           return [w.id, { type: 'board_summary', data }]
+        }
+        if (w.widget_type === 'activity_feed') {
+          const data = await getActivityFeedData(w.config as ActivityFeedWidgetConfig, orgId)
+          return [w.id, { type: 'activity_feed', data }]
+        }
+        if (w.widget_type === 'saved_view') {
+          const data = await getSavedViewWidgetData(w.config as SavedViewWidgetConfig, orgId)
+          return [w.id, { type: 'saved_view', data }]
         }
         return [w.id, { type: 'error', message: 'Unknown widget type' }]
       } catch (err) {

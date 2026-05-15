@@ -68,3 +68,25 @@ export async function deleteBoardGroup(groupId: string, boardId: string) {
   if (error) throw new Error(error.message)
   revalidatePath(`/boards/${boardId}`)
 }
+
+export async function createSavedView(data: {
+  organization_id: string
+  board_id: string
+  name: string
+  filters: unknown
+  sort?: unknown
+  visible_fields?: unknown
+}): Promise<string> {
+  const supabase = await createClient()
+  const { data: viewId, error } = await supabase.rpc('create_saved_view', {
+    p_organization_id: data.organization_id,
+    p_board_id:        data.board_id,
+    p_name:            data.name,
+    p_filters:         data.filters,
+    p_sort:            data.sort ?? null,
+    p_visible_fields:  data.visible_fields ?? null,
+  })
+  if (error) throw new Error(error.message)
+  if (!viewId) throw new Error('Failed to create saved view')
+  return viewId as string
+}

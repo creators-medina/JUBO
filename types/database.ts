@@ -18,7 +18,7 @@ export type GoalType = "closings" | "volume" | "calls" | "appointments" | "reven
 export type IntegrationStatus = "active" | "inactive" | "error" | "pending";
 export type TaskPriority = "none" | "low" | "medium" | "high";
 export type AppVisibility = "all_members" | "admins_only" | "owner_only";
-export type WidgetType = "metric" | "list" | "board_summary";
+export type WidgetType = "metric" | "list" | "board_summary" | "activity_feed" | "saved_view";
 
 export interface Database {
   public: {
@@ -386,6 +386,7 @@ export interface Database {
           icon: string | null;
           color: string | null;
           is_default: boolean;
+          is_archived: boolean;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -399,6 +400,7 @@ export interface Database {
           icon?: string | null;
           color?: string | null;
           is_default?: boolean;
+          is_archived?: boolean;
           created_by?: string | null;
         };
         Update: Partial<Omit<Database["public"]["Tables"]["dashboards"]["Insert"], "id" | "organization_id">>;

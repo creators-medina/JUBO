@@ -1,17 +1,22 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, BarChart2, List, LayoutGrid, Check } from 'lucide-react'
+import { X, BarChart2, List, LayoutGrid, Activity, Bookmark } from 'lucide-react'
 import { addWidget } from '../actions'
 import { WIDGET_META } from '@/features/widgets/registry'
 import { defaultConfig, WIDGET_ICON_NAMES, WIDGET_COLORS } from '@/features/widgets/types'
 import type { WidgetType } from '@/types/database'
-import type { MetricWidgetConfig, ListWidgetConfig, BoardSummaryWidgetConfig } from '@/features/widgets/types'
+import type {
+  MetricWidgetConfig, ListWidgetConfig, BoardSummaryWidgetConfig,
+  ActivityFeedWidgetConfig, SavedViewRow,
+} from '@/features/widgets/types'
 
 const TYPE_ICONS: Record<WidgetType, React.ElementType> = {
   metric:        BarChart2,
   list:          List,
   board_summary: LayoutGrid,
+  activity_feed: Activity,
+  saved_view:    Bookmark,
 }
 
 const WIDTH_OPTIONS = [
@@ -34,11 +39,12 @@ interface Board { id: string; name: string }
 interface AddWidgetModalProps {
   dashboardId: string
   boards: Board[]
+  savedViews: SavedViewRow[]
   onClose: () => void
   onSuccess: () => void
 }
 
-export function AddWidgetModal({ dashboardId, boards, onClose, onSuccess }: AddWidgetModalProps) {
+export function AddWidgetModal({ dashboardId, boards, savedViews, onClose, onSuccess }: AddWidgetModalProps) {
   const [step, setStep] = useState<'type' | 'config'>('type')
   const [selectedType, setSelectedType] = useState<WidgetType | null>(null)
   const [title, setTitle] = useState('')
@@ -80,6 +86,8 @@ export function AddWidgetModal({ dashboardId, boards, onClose, onSuccess }: AddW
   const setConfigField = (key: string, value: unknown) => {
     setConfig(prev => ({ ...prev, [key]: value }))
   }
+
+  const hasBoard = selectedType === 'metric' || selectedType === 'list' || selectedType === 'board_summary'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -166,24 +174,26 @@ export function AddWidgetModal({ dashboardId, boards, onClose, onSuccess }: AddW
               </div>
             </div>
 
-            {/* Source board */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                Source Board {selectedType !== 'metric' ? '*' : '(optional)'}
-              </label>
-              <select
-                value={(config.board_id as string) ?? ''}
-                onChange={e => setConfigField('board_id', e.target.value || null)}
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="">All boards</option>
-                {boards.map(b => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-            </div>
+            {/* Source board — only for board-backed widgets */}
+            {hasBoard && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Source Board {selectedType !== 'metric' ? '*' : '(optional)'}
+                </label>
+                <select
+                  value={(config.board_id as string) ?? ''}
+                  onChange={e => setConfigField('board_id', e.target.value || null)}
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">All boards</option>
+                  {boards.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-            {/* Metric-specific: aggregation */}
+            {/* Metric-specific */}
             {selectedType === 'metric' && (
               <>
                 <div className="space-y-1.5">
@@ -296,6 +306,38 @@ export function AddWidgetModal({ dashboardId, boards, onClose, onSuccess }: AddW
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Activity Feed-specific */}
+            {selectedType === 'activity_feed' && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Max items</label>
+                <select
+                  value={(config as ActivityFeedWidgetConfig).max_items ?? 10}
+                  onChange={e => setConfigField('max_items', Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {[5, 10, 20, 30].map(n => <option key={n} value={n}>{n} items</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Saved View-specific */}
+            {selectedType === 'saved_view' && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Saved View</label>
+                <select
+                  value={(config.saved_view_id as string) ?? ''}
+                  onChange={e => setConfigField('saved_view_id', e.target.value || null)}
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="">Select a saved view…</option>
+                  {savedViews.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </select>
+                {savedViews.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No saved views yet. Save a view from a board to use it here.</p>
+                )}
               </div>
             )}
 
