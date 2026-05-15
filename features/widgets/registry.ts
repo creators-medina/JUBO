@@ -3,13 +3,19 @@ import { MetricWidget } from './components/MetricWidget'
 import { ListWidget } from './components/ListWidget'
 import { BoardSummaryWidget } from './components/BoardSummaryWidget'
 import { ActivityFeedWidget } from './components/ActivityFeedWidget'
+import { GoalProgressWidget } from '@/features/goals/widgets/components/GoalProgressWidget'
+import { FunnelPaceWidget } from '@/features/goals/widgets/components/FunnelPaceWidget'
+import { GapAnalysisWidget } from '@/features/goals/widgets/components/GapAnalysisWidget'
 
 export const WIDGET_REGISTRY: Record<WidgetType, React.ElementType> = {
   metric:        MetricWidget,
   list:          ListWidget,
   board_summary: BoardSummaryWidget,
   activity_feed: ActivityFeedWidget,
-  saved_view:    ListWidget, // reuses list rendering
+  saved_view:    ListWidget,
+  goal_progress: GoalProgressWidget,
+  funnel_pace:   FunnelPaceWidget,
+  gap_analysis:  GapAnalysisWidget,
 }
 
 export const WIDGET_META: Record<WidgetType, { label: string; description: string; defaultWidth: number }> = {
@@ -36,6 +42,21 @@ export const WIDGET_META: Record<WidgetType, { label: string; description: strin
   saved_view: {
     label: 'Saved View',
     description: 'Records from a saved board filter',
+    defaultWidth: 2,
+  },
+  goal_progress: {
+    label: 'Goal Progress',
+    description: 'Pacing toward a production goal — current, target, projected',
+    defaultWidth: 1,
+  },
+  funnel_pace: {
+    label: 'Funnel Pace',
+    description: 'Required activity pace by stage (e.g. leads/day)',
+    defaultWidth: 2,
+  },
+  gap_analysis: {
+    label: 'Gap Analysis',
+    description: 'Where production is ahead or behind by stage',
     defaultWidth: 2,
   },
 }

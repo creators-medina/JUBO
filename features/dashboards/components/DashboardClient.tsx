@@ -15,6 +15,7 @@ import { EditWidgetModal } from './EditWidgetModal'
 import { DashboardSettingsModal } from './DashboardSettingsModal'
 import { RecordDetailDrawer } from '@/features/records/components/RecordDetailDrawer'
 import type { DashboardRow, DashboardWidgetRow, WidgetData, SavedViewRow } from '@/features/widgets/types'
+import type { ProductionGoalRow } from '@/features/goals/types'
 
 const GRID_COL_CLASS: Record<number, string> = {
   1: 'col-span-12 lg:col-span-3',
@@ -29,6 +30,9 @@ const MIN_HEIGHT: Record<string, string> = {
   board_summary: 'min-h-[200px]',
   activity_feed: 'min-h-[240px]',
   saved_view:    'min-h-[240px]',
+  goal_progress: 'min-h-[200px]',
+  funnel_pace:   'min-h-[240px]',
+  gap_analysis:  'min-h-[240px]',
 }
 
 type DrawerState = {
@@ -43,10 +47,11 @@ interface DashboardClientProps {
   widgetData: Record<string, WidgetData>
   boards: Array<{ id: string; name: string }>
   savedViews: SavedViewRow[]
+  productionGoals: ProductionGoalRow[]
   organizationId: string
 }
 
-export function DashboardClient({ dashboard, widgets: serverWidgets, widgetData, boards, savedViews, organizationId }: DashboardClientProps) {
+export function DashboardClient({ dashboard, widgets: serverWidgets, widgetData, boards, savedViews, productionGoals, organizationId }: DashboardClientProps) {
   const router = useRouter()
   const [localWidgets, setLocalWidgets] = useState(serverWidgets)
   const [showAddWidget, setShowAddWidget] = useState(false)
@@ -199,6 +204,7 @@ export function DashboardClient({ dashboard, widgets: serverWidgets, widgetData,
           dashboardId={dashboard.id}
           boards={boards}
           savedViews={savedViews}
+          productionGoals={productionGoals}
           onClose={() => setShowAddWidget(false)}
           onSuccess={() => {
             setShowAddWidget(false)
@@ -212,6 +218,7 @@ export function DashboardClient({ dashboard, widgets: serverWidgets, widgetData,
           widget={editingWidget}
           boards={boards}
           savedViews={savedViews}
+          productionGoals={productionGoals}
           onClose={() => setEditingWidget(null)}
           onSuccess={() => {
             setEditingWidget(null)

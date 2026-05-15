@@ -5,10 +5,12 @@ import { MetricWidget } from './MetricWidget'
 import { ListWidget } from './ListWidget'
 import { BoardSummaryWidget } from './BoardSummaryWidget'
 import { ActivityFeedWidget } from './ActivityFeedWidget'
+import { GoalProgressWidget } from '@/features/goals/widgets/components/GoalProgressWidget'
+import { FunnelPaceWidget } from '@/features/goals/widgets/components/FunnelPaceWidget'
+import { GapAnalysisWidget } from '@/features/goals/widgets/components/GapAnalysisWidget'
 import type {
   DashboardWidgetRow, WidgetData,
-  MetricWidgetConfig, ListWidgetConfig, BoardSummaryWidgetConfig,
-  ActivityFeedWidgetConfig,
+  MetricWidgetConfig,
 } from '../types'
 
 interface WidgetRendererProps {
@@ -55,6 +57,30 @@ export function WidgetRenderer({ widget, data, onRemove, onEdit, onRecordClick, 
     return (
       <WidgetShell {...shellProps}>
         <ActivityFeedWidget data={data.data} />
+      </WidgetShell>
+    )
+  }
+
+  if (data.type === 'goal_progress') {
+    return (
+      <WidgetShell {...shellProps}>
+        <GoalProgressWidget data={data.data} />
+      </WidgetShell>
+    )
+  }
+
+  if (data.type === 'funnel_pace') {
+    return (
+      <WidgetShell {...shellProps}>
+        <FunnelPaceWidget data={data.data} />
+      </WidgetShell>
+    )
+  }
+
+  if (data.type === 'gap_analysis') {
+    return (
+      <WidgetShell {...shellProps}>
+        <GapAnalysisWidget data={data.data} />
       </WidgetShell>
     )
   }

@@ -1,6 +1,17 @@
 import type { WidgetType } from '@/types/database'
+import type {
+  GoalProgressWidgetConfig, FunnelPaceWidgetConfig, GapAnalysisWidgetConfig,
+  GoalProgressData, FunnelPaceData, GapAnalysisData,
+} from '@/features/goals/types'
+import {
+  defaultGoalProgressConfig, defaultFunnelPaceConfig, defaultGapAnalysisConfig,
+} from '@/features/goals/types'
 
 export type { WidgetType }
+export type {
+  GoalProgressWidgetConfig, FunnelPaceWidgetConfig, GapAnalysisWidgetConfig,
+  GoalProgressData, FunnelPaceData, GapAnalysisData,
+}
 
 // ── Filter primitives ─────────────────────────────────────────────────────────
 
@@ -149,6 +160,9 @@ export type WidgetData =
   | { type: 'board_summary'; data: BoardSummaryData }
   | { type: 'activity_feed'; data: ActivityFeedData }
   | { type: 'saved_view'; data: ListWidgetData }
+  | { type: 'goal_progress'; data: GoalProgressData }
+  | { type: 'funnel_pace'; data: FunnelPaceData }
+  | { type: 'gap_analysis'; data: GapAnalysisData }
   | { type: 'error'; message: string }
 
 // ── Icon names usable in widget configs ───────────────────────────────────────
@@ -199,5 +213,11 @@ export function defaultConfig(type: WidgetType): Record<string, unknown> {
     return { max_items: 10 } satisfies ActivityFeedWidgetConfig
   if (type === 'saved_view')
     return { saved_view_id: null } satisfies SavedViewWidgetConfig
+  if (type === 'goal_progress')
+    return defaultGoalProgressConfig() as unknown as Record<string, unknown>
+  if (type === 'funnel_pace')
+    return defaultFunnelPaceConfig() as unknown as Record<string, unknown>
+  if (type === 'gap_analysis')
+    return defaultGapAnalysisConfig() as unknown as Record<string, unknown>
   return {}
 }

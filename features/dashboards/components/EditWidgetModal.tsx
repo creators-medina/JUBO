@@ -8,7 +8,9 @@ import { WIDGET_ICON_NAMES, WIDGET_COLORS } from '@/features/widgets/types'
 import type {
   DashboardWidgetRow, SavedViewRow,
   MetricWidgetConfig, ListWidgetConfig, ActivityFeedWidgetConfig,
+  GoalProgressWidgetConfig, FunnelPaceWidgetConfig, GapAnalysisWidgetConfig,
 } from '@/features/widgets/types'
+import type { ProductionGoalRow } from '@/features/goals/types'
 
 const WIDTH_OPTIONS = [
   { value: 1, label: '¼ width' },
@@ -31,11 +33,12 @@ interface EditWidgetModalProps {
   widget: DashboardWidgetRow
   boards: Board[]
   savedViews: SavedViewRow[]
+  productionGoals: ProductionGoalRow[]
   onClose: () => void
   onSuccess: () => void
 }
 
-export function EditWidgetModal({ widget, boards, savedViews, onClose, onSuccess }: EditWidgetModalProps) {
+export function EditWidgetModal({ widget, boards, savedViews, productionGoals, onClose, onSuccess }: EditWidgetModalProps) {
   const [title, setTitle] = useState(widget.title)
   const [width, setWidth] = useState(widget.width)
   const [config, setConfig] = useState<Record<string, unknown>>({ ...widget.config })
@@ -232,6 +235,54 @@ export function EditWidgetModal({ widget, boards, savedViews, onClose, onSuccess
             </div>
           )}
 
+          {type === 'goal_progress' && (
+            <>
+              <GoalSelect value={(config.production_goal_id as string) ?? ''} onChange={v => setConfigField('production_goal_id', v || null)} goals={productionGoals} />
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Metric</label>
+                <div className="flex gap-2">
+                  {(['units', 'volume', 'revenue'] as const).map(m => (
+                    <button key={m} type="button" onClick={() => setConfigField('metric', m)}
+                      className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
+                        (config as GoalProgressWidgetConfig).metric === m
+                          ? 'bg-primary/20 border-primary text-primary'
+                          : 'border-border text-muted-foreground hover:text-foreground'
+                      }`}
+                    >{m}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Display</label>
+                <div className="flex gap-2">
+                  {(['bar', 'radial', 'compact'] as const).map(d => (
+                    <button key={d} type="button" onClick={() => setConfigField('display', d)}
+                      className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
+                        (config as GoalProgressWidgetConfig).display === d
+                          ? 'bg-primary/20 border-primary text-primary'
+                          : 'border-border text-muted-foreground hover:text-foreground'
+                      }`}
+                    >{d}</button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {type === 'funnel_pace' && (
+            <>
+              <GoalSelect value={(config.production_goal_id as string) ?? ''} onChange={v => setConfigField('production_goal_id', v || null)} goals={productionGoals} />
+              <CadenceSelect value={(config as FunnelPaceWidgetConfig).cadence ?? 'daily'} onChange={v => setConfigField('cadence', v)} />
+            </>
+          )}
+
+          {type === 'gap_analysis' && (
+            <>
+              <GoalSelect value={(config.production_goal_id as string) ?? ''} onChange={v => setConfigField('production_goal_id', v || null)} goals={productionGoals} />
+              <CadenceSelect value={(config as GapAnalysisWidgetConfig).cadence ?? 'weekly'} onChange={v => setConfigField('cadence', v)} />
+            </>
+          )}
+
           {type === 'saved_view' && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Saved View</label>
@@ -264,6 +315,44 @@ export function EditWidgetModal({ widget, boards, savedViews, onClose, onSuccess
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+function GoalSelect({ value, onChange, goals }: { value: string; onChange: (v: string) => void; goals: ProductionGoalRow[] }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-muted-foreground">Production Goal *</label>
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+      >
+        <option value="">Select a goal…</option>
+        {goals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+      </select>
+      {goals.length === 0 && (
+        <p className="text-xs text-muted-foreground">No production goals yet. Create one in /goals first.</p>
+      )}
+    </div>
+  )
+}
+
+function CadenceSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-muted-foreground">Cadence</label>
+      <div className="flex gap-2">
+        {(['daily', 'weekly', 'monthly'] as const).map(c => (
+          <button key={c} type="button" onClick={() => onChange(c)}
+            className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
+              value === c
+                ? 'bg-primary/20 border-primary text-primary'
+                : 'border-border text-muted-foreground hover:text-foreground'
+            }`}
+          >{c}</button>
+        ))}
       </div>
     </div>
   )

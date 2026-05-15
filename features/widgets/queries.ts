@@ -12,7 +12,13 @@ import type {
   BoardSummaryRow,
   WidgetData,
   WidgetFilter,
+  GoalProgressWidgetConfig,
+  FunnelPaceWidgetConfig,
+  GapAnalysisWidgetConfig,
 } from './types'
+import {
+  getGoalProgressData, getFunnelPaceData, getGapAnalysisData,
+} from '@/features/goals/widgets/queries'
 
 // ── Filter application helper ─────────────────────────────────────────────────
 
@@ -398,6 +404,21 @@ export async function getDashboardWidgetData(
         if (w.widget_type === 'saved_view') {
           const data = await getSavedViewWidgetData(w.config as SavedViewWidgetConfig, orgId)
           return [w.id, { type: 'saved_view', data }]
+        }
+        if (w.widget_type === 'goal_progress') {
+          const data = await getGoalProgressData(w.config as GoalProgressWidgetConfig, orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Select a production goal in widget settings.' }]
+          return [w.id, { type: 'goal_progress', data }]
+        }
+        if (w.widget_type === 'funnel_pace') {
+          const data = await getFunnelPaceData(w.config as FunnelPaceWidgetConfig, orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Goal needs a funnel and assumptions to compute pace.' }]
+          return [w.id, { type: 'funnel_pace', data }]
+        }
+        if (w.widget_type === 'gap_analysis') {
+          const data = await getGapAnalysisData(w.config as GapAnalysisWidgetConfig, orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Goal needs a funnel and assumptions for gap analysis.' }]
+          return [w.id, { type: 'gap_analysis', data }]
         }
         return [w.id, { type: 'error', message: 'Unknown widget type' }]
       } catch (err) {

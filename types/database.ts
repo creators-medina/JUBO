@@ -18,7 +18,8 @@ export type GoalType = "closings" | "volume" | "calls" | "appointments" | "reven
 export type IntegrationStatus = "active" | "inactive" | "error" | "pending";
 export type TaskPriority = "none" | "low" | "medium" | "high";
 export type AppVisibility = "all_members" | "admins_only" | "owner_only";
-export type WidgetType = "metric" | "list" | "board_summary" | "activity_feed" | "saved_view";
+export type WidgetType = "metric" | "list" | "board_summary" | "activity_feed" | "saved_view" | "goal_progress" | "funnel_pace" | "gap_analysis";
+export type GoalTimeframe = "weekly" | "monthly" | "quarterly" | "yearly" | "custom";
 
 export interface Database {
   public: {

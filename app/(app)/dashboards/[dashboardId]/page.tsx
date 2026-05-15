@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getDashboard, getDashboardWidgets, getSavedViews } from '@/features/dashboards/queries'
 import { getDashboardWidgetData } from '@/features/widgets/queries'
 import { getBoards } from '@/features/boards/queries'
+import { getProductionGoals } from '@/features/goals/queries'
 import { DashboardClient } from '@/features/dashboards/components/DashboardClient'
 
 interface PageProps {
@@ -27,11 +28,12 @@ export default async function DashboardDetailPage({ params }: PageProps) {
 
   const orgId = membership.organization_id
 
-  const [dashboard, widgets, boards, savedViews] = await Promise.all([
+  const [dashboard, widgets, boards, savedViews, productionGoals] = await Promise.all([
     getDashboard(dashboardId),
     getDashboardWidgets(dashboardId),
     getBoards(orgId),
     getSavedViews(orgId),
+    getProductionGoals(orgId),
   ])
 
   if (!dashboard || dashboard.organization_id !== orgId) notFound()
@@ -46,6 +48,7 @@ export default async function DashboardDetailPage({ params }: PageProps) {
       widgetData={widgetData}
       boards={boards.map(b => ({ id: b.id, name: b.name }))}
       savedViews={savedViews}
+      productionGoals={productionGoals}
       organizationId={orgId}
     />
   )
