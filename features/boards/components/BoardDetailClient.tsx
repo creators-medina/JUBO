@@ -11,7 +11,7 @@ import { EmptyState } from '@/components/primitives/EmptyState'
 import { CreateGroupModal } from '@/features/board-groups/components/CreateGroupModal'
 import { CreateFieldModal } from '@/features/fields/components/CreateFieldModal'
 import { CreateRecordModal } from '@/features/records/components/CreateRecordModal'
-import { RecordDetailDrawer } from '@/features/records/components/RecordDetailDrawer'
+import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { BoardGroupTable } from './BoardGroupTable'
 import { BoardSettingsModal } from './BoardSettingsModal'
 import { DragOverlayRow } from './DragOverlayRow'
@@ -105,7 +105,7 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [showCreateField, setShowCreateField] = useState(false)
   const [showCreateRecord, setShowCreateRecord] = useState<string | null>(null)
-  const [selectedRecord, setSelectedRecord] = useState<string | null>(null)
+  const { openWorkspace } = useWorkspaceTabs()
   const [showSettings, setShowSettings] = useState(false)
   const [search, setSearch] = useState('')
   const [filterPriority, setFilterPriority] = useState<RecordPriority | ''>('')
@@ -337,7 +337,10 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
                   totalCount={totalByGroup[group.id] ?? 0}
                   onAddRecord={() => setShowCreateRecord(group.id)}
                   onAddField={() => setShowCreateField(true)}
-                  onSelectRecord={id => setSelectedRecord(id)}
+                  onSelectRecord={id => {
+                    const r = localRecords.find((x: any) => x.id === id)
+                    openWorkspace({ recordId: id, title: r?.title ?? 'Record' })
+                  }}
                   onOptimisticMove={handleOptimisticMove}
                 />
               ))}
@@ -350,9 +353,6 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
         <CreateFieldModal open={showCreateField} onClose={() => setShowCreateField(false)} boardId={board.id} organizationId={organizationId} nextPosition={fields.length} />
         {showCreateRecord && (
           <CreateRecordModal open onClose={() => setShowCreateRecord(null)} boardId={board.id} groupId={showCreateRecord} organizationId={organizationId} fields={fields} />
-        )}
-        {selectedRecord && (
-          <RecordDetailDrawer recordId={selectedRecord} groups={groups} boardId={board.id} organizationId={organizationId} onClose={() => setSelectedRecord(null)} />
         )}
         <BoardSettingsModal open={showSettings} onClose={() => setShowSettings(false)} board={board} />
       </div>

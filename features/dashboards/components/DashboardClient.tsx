@@ -13,7 +13,7 @@ import { SortableWidgetCard } from './SortableWidgetCard'
 import { AddWidgetModal } from './AddWidgetModal'
 import { EditWidgetModal } from './EditWidgetModal'
 import { DashboardSettingsModal } from './DashboardSettingsModal'
-import { RecordDetailDrawer } from '@/features/records/components/RecordDetailDrawer'
+import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import type { DashboardRow, DashboardWidgetRow, WidgetData, SavedViewRow } from '@/features/widgets/types'
 import type { ProductionGoalRow } from '@/features/goals/types'
 
@@ -35,12 +35,6 @@ const MIN_HEIGHT: Record<string, string> = {
   gap_analysis:  'min-h-[240px]',
 }
 
-type DrawerState = {
-  recordId: string
-  boardId: string
-  groups: any[]
-}
-
 interface DashboardClientProps {
   dashboard: DashboardRow
   widgets: DashboardWidgetRow[]
@@ -51,13 +45,13 @@ interface DashboardClientProps {
   organizationId: string
 }
 
-export function DashboardClient({ dashboard, widgets: serverWidgets, widgetData, boards, savedViews, productionGoals, organizationId }: DashboardClientProps) {
+export function DashboardClient({ dashboard, widgets: serverWidgets, widgetData, boards, savedViews, productionGoals, organizationId: _organizationId }: DashboardClientProps) {
   const router = useRouter()
+  const { openWorkspace } = useWorkspaceTabs()
   const [localWidgets, setLocalWidgets] = useState(serverWidgets)
   const [showAddWidget, setShowAddWidget] = useState(false)
   const [editingWidget, setEditingWidget] = useState<DashboardWidgetRow | null>(null)
   const [showSettings, setShowSettings] = useState(false)
-  const [drawerState, setDrawerState] = useState<DrawerState | null>(null)
   const [, startTransition] = useTransition()
 
   // Sync when server data refreshes (e.g. after router.refresh())
@@ -94,22 +88,11 @@ export function DashboardClient({ dashboard, widgets: serverWidgets, widgetData,
   }
 
   const handleRecordClick = async (recordId: string) => {
+    // Fetch the title for a nicer tab label, but don't block on it
     const supabase = createClient()
-    const { data: record } = await supabase
-      .from('records')
-      .select('board_id')
-      .eq('id', recordId)
-      .single()
-    if (!record) return
-
-    const { data: groups } = await supabase
-      .from('board_groups')
-      .select('*')
-      .eq('board_id', record.board_id)
-      .eq('is_archived', false)
-      .order('position')
-
-    setDrawerState({ recordId, boardId: record.board_id, groups: groups ?? [] })
+    supabase.from('records').select('title').eq('id', recordId).single()
+      .then(({ data }) => openWorkspace({ recordId, title: data?.title ?? 'Record' }))
+    openWorkspace({ recordId })
   }
 
   return (
@@ -234,15 +217,6 @@ export function DashboardClient({ dashboard, widgets: serverWidgets, widgetData,
         />
       )}
 
-      {drawerState && (
-        <RecordDetailDrawer
-          recordId={drawerState.recordId}
-          boardId={drawerState.boardId}
-          groups={drawerState.groups}
-          organizationId={organizationId}
-          onClose={() => setDrawerState(null)}
-        />
-      )}
     </div>
   )
 }

@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AppShell } from '@/components/shell/AppShell'
 import { OrganizationProvider } from '@/providers/OrganizationProvider'
+import { WorkspaceTabsProvider } from '@/features/workspace/providers/WorkspaceTabsProvider'
+import { WorkspaceTabsBar } from '@/features/workspace/components/WorkspaceTabsBar'
+import { WorkspacePanel } from '@/features/workspace/components/WorkspacePanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +27,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <OrganizationProvider>
-      <AppShell>{children}</AppShell>
+      <WorkspaceTabsProvider>
+        <AppShell>
+          <WorkspaceTabsBar />
+          {children}
+        </AppShell>
+        <WorkspacePanel />
+      </WorkspaceTabsProvider>
     </OrganizationProvider>
   )
 }
