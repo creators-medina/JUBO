@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, BarChart2, List, LayoutGrid, Activity, Bookmark, Target, Zap, AlertTriangle } from 'lucide-react'
+import { X, BarChart2, List, LayoutGrid, Activity, Bookmark, Target, Zap, AlertTriangle, Sunrise, ListChecks } from 'lucide-react'
 import { addWidget } from '../actions'
 import { WIDGET_META } from '@/features/widgets/registry'
 import { defaultConfig, WIDGET_ICON_NAMES, WIDGET_COLORS } from '@/features/widgets/types'
@@ -14,14 +14,16 @@ import type {
 import type { ProductionGoalRow } from '@/features/goals/types'
 
 const TYPE_ICONS: Record<WidgetType, React.ElementType> = {
-  metric:        BarChart2,
-  list:          List,
-  board_summary: LayoutGrid,
-  activity_feed: Activity,
-  saved_view:    Bookmark,
-  goal_progress: Target,
-  funnel_pace:   Zap,
-  gap_analysis:  AlertTriangle,
+  metric:             BarChart2,
+  list:               List,
+  board_summary:      LayoutGrid,
+  activity_feed:      Activity,
+  saved_view:         Bookmark,
+  goal_progress:      Target,
+  funnel_pace:        Zap,
+  gap_analysis:       AlertTriangle,
+  today_summary:      Sunrise,
+  daily_actions_list: ListChecks,
 }
 
 const WIDTH_OPTIONS = [
@@ -377,6 +379,33 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
               <>
                 <GoalSelect value={(config.production_goal_id as string) ?? ''} onChange={v => setConfigField('production_goal_id', v || null)} goals={productionGoals} />
                 <CadenceSelect value={(config as GapAnalysisWidgetConfig).cadence ?? 'weekly'} onChange={v => setConfigField('cadence', v)} />
+              </>
+            )}
+
+            {/* Daily actions list config */}
+            {selectedType === 'daily_actions_list' && (
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Max items</label>
+                  <select
+                    value={(config.max_items as number) ?? 5}
+                    onChange={e => setConfigField('max_items', Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    {[3, 5, 8, 10, 15].map(n => <option key={n} value={n}>{n} actions</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!config.show_completed}
+                      onChange={e => setConfigField('show_completed', e.target.checked)}
+                      className="rounded border-border"
+                    />
+                    Include completed actions
+                  </label>
+                </div>
               </>
             )}
 

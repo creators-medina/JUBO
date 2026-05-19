@@ -8,6 +8,8 @@ import { ActivityFeedWidget } from './ActivityFeedWidget'
 import { GoalProgressWidget } from '@/features/goals/widgets/components/GoalProgressWidget'
 import { FunnelPaceWidget } from '@/features/goals/widgets/components/FunnelPaceWidget'
 import { GapAnalysisWidget } from '@/features/goals/widgets/components/GapAnalysisWidget'
+import { TodaySummaryWidget } from '@/features/daily-actions/widgets/TodaySummaryWidget'
+import { DailyActionsListWidget } from '@/features/daily-actions/widgets/DailyActionsListWidget'
 import type {
   DashboardWidgetRow, WidgetData,
   MetricWidgetConfig,
@@ -81,6 +83,22 @@ export function WidgetRenderer({ widget, data, onRemove, onEdit, onRecordClick, 
     return (
       <WidgetShell {...shellProps}>
         <GapAnalysisWidget data={data.data} />
+      </WidgetShell>
+    )
+  }
+
+  if (data.type === 'today_summary') {
+    return (
+      <WidgetShell {...shellProps}>
+        <TodaySummaryWidget data={data.data} />
+      </WidgetShell>
+    )
+  }
+
+  if (data.type === 'daily_actions_list') {
+    return (
+      <WidgetShell {...shellProps}>
+        <DailyActionsListWidget data={data.data} />
       </WidgetShell>
     )
   }

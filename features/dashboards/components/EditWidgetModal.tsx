@@ -283,6 +283,32 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
             </>
           )}
 
+          {type === 'daily_actions_list' && (
+            <>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Max items</label>
+                <select
+                  value={(config.max_items as number) ?? 5}
+                  onChange={e => setConfigField('max_items', Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {[3, 5, 8, 10, 15].map(n => <option key={n} value={n}>{n} actions</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!config.show_completed}
+                    onChange={e => setConfigField('show_completed', e.target.checked)}
+                    className="rounded border-border"
+                  />
+                  Include completed actions
+                </label>
+              </div>
+            </>
+          )}
+
           {type === 'saved_view' && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Saved View</label>

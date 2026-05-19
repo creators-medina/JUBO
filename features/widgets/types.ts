@@ -6,11 +6,20 @@ import type {
 import {
   defaultGoalProgressConfig, defaultFunnelPaceConfig, defaultGapAnalysisConfig,
 } from '@/features/goals/types'
+import type {
+  TodaySummaryWidgetConfig, DailyActionsListWidgetConfig,
+  TodaySummaryWidgetData, DailyActionsListWidgetData,
+} from '@/features/daily-actions/types'
+import {
+  defaultTodaySummaryConfig, defaultDailyActionsListConfig,
+} from '@/features/daily-actions/types'
 
 export type { WidgetType }
 export type {
   GoalProgressWidgetConfig, FunnelPaceWidgetConfig, GapAnalysisWidgetConfig,
   GoalProgressData, FunnelPaceData, GapAnalysisData,
+  TodaySummaryWidgetConfig, DailyActionsListWidgetConfig,
+  TodaySummaryWidgetData, DailyActionsListWidgetData,
 }
 
 // ── Filter primitives ─────────────────────────────────────────────────────────
@@ -163,6 +172,8 @@ export type WidgetData =
   | { type: 'goal_progress'; data: GoalProgressData }
   | { type: 'funnel_pace'; data: FunnelPaceData }
   | { type: 'gap_analysis'; data: GapAnalysisData }
+  | { type: 'today_summary'; data: TodaySummaryWidgetData }
+  | { type: 'daily_actions_list'; data: DailyActionsListWidgetData }
   | { type: 'error'; message: string }
 
 // ── Icon names usable in widget configs ───────────────────────────────────────
@@ -219,5 +230,9 @@ export function defaultConfig(type: WidgetType): Record<string, unknown> {
     return defaultFunnelPaceConfig() as unknown as Record<string, unknown>
   if (type === 'gap_analysis')
     return defaultGapAnalysisConfig() as unknown as Record<string, unknown>
+  if (type === 'today_summary')
+    return defaultTodaySummaryConfig() as unknown as Record<string, unknown>
+  if (type === 'daily_actions_list')
+    return defaultDailyActionsListConfig() as unknown as Record<string, unknown>
   return {}
 }

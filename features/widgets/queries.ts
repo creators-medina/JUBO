@@ -15,10 +15,15 @@ import type {
   GoalProgressWidgetConfig,
   FunnelPaceWidgetConfig,
   GapAnalysisWidgetConfig,
+  TodaySummaryWidgetConfig,
+  DailyActionsListWidgetConfig,
 } from './types'
 import {
   getGoalProgressData, getFunnelPaceData, getGapAnalysisData,
 } from '@/features/goals/widgets/queries'
+import {
+  getTodaySummaryData, getDailyActionsListData,
+} from '@/features/daily-actions/widgets/queries'
 
 // ── Filter application helper ─────────────────────────────────────────────────
 
@@ -419,6 +424,16 @@ export async function getDashboardWidgetData(
           const data = await getGapAnalysisData(w.config as GapAnalysisWidgetConfig, orgId)
           if (!data) return [w.id, { type: 'error', message: 'Goal needs a funnel and assumptions for gap analysis.' }]
           return [w.id, { type: 'gap_analysis', data }]
+        }
+        if (w.widget_type === 'today_summary') {
+          const data = await getTodaySummaryData(w.config as TodaySummaryWidgetConfig, orgId)
+          if (!data) return [w.id, { type: 'error', message: 'No daily data yet.' }]
+          return [w.id, { type: 'today_summary', data }]
+        }
+        if (w.widget_type === 'daily_actions_list') {
+          const data = await getDailyActionsListData(w.config as DailyActionsListWidgetConfig, orgId)
+          if (!data) return [w.id, { type: 'error', message: 'No daily data yet.' }]
+          return [w.id, { type: 'daily_actions_list', data }]
         }
         return [w.id, { type: 'error', message: 'Unknown widget type' }]
       } catch (err) {

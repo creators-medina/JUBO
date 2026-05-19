@@ -16,9 +16,11 @@ export type ActivityType = "comment" | "note" | "call" | "email" | "sms" | "meet
 export type MovementType = "stage_change" | "board_change" | "status_change" | "assignment_change" | "manual";
 export type GoalType = "closings" | "volume" | "calls" | "appointments" | "revenue" | "leads" | "custom";
 export type IntegrationStatus = "active" | "inactive" | "error" | "pending";
-export type TaskPriority = "none" | "low" | "medium" | "high";
+export type TaskPriority = "none" | "low" | "medium" | "high" | "urgent";
 export type AppVisibility = "all_members" | "admins_only" | "owner_only";
-export type WidgetType = "metric" | "list" | "board_summary" | "activity_feed" | "saved_view" | "goal_progress" | "funnel_pace" | "gap_analysis";
+export type WidgetType = "metric" | "list" | "board_summary" | "activity_feed" | "saved_view" | "goal_progress" | "funnel_pace" | "gap_analysis" | "today_summary" | "daily_actions_list";
+export type DailyActionSource = "manual" | "task" | "goal_pacing" | "saved_view" | "record";
+export type DailyProgressStatus = "on_pace" | "ahead" | "behind" | "unknown";
 export type GoalTimeframe = "weekly" | "monthly" | "quarterly" | "yearly" | "custom";
 
 export interface Database {

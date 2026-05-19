@@ -7,7 +7,7 @@ import {
   LayoutDashboard,
   Columns3,
   Target,
-  Zap,
+  Sunrise,
   TrendingUp,
   Plug,
   Settings,
@@ -24,8 +24,8 @@ import { CreateDashboardModal } from '@/features/dashboards/components/CreateDas
 import { useOrganization } from '@/providers/OrganizationProvider'
 
 const toolItems = [
+  { href: '/today', label: 'Today', icon: Sunrise },
   { href: '/goals', label: 'Goals', icon: Target },
-  { href: '/actions', label: 'Daily Actions', icon: Zap },
   { href: '/forecasts', label: 'Forecasts', icon: TrendingUp },
   { href: '/integrations', label: 'Integrations', icon: Plug },
 ]
