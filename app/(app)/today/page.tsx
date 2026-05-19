@@ -5,6 +5,9 @@ import { getTodayActions, getStaleRecords } from '@/features/daily-actions/queri
 import {
   todayISO, summarizeDay, overallPaceStatus, paceStatus,
 } from '@/features/daily-actions/calculations'
+import { snapshotDailyProgress } from '@/features/daily-actions/progress/snapshots'
+import { getStreakData } from '@/features/daily-actions/progress/streaks'
+import { getAttentionViewsWithCounts } from '@/features/daily-actions/attention/queries'
 import { getProductionGoals, getFunnelStages, getConversionAssumptions, getGoalTargets } from '@/features/goals/queries'
 import {
   calculateGoalPacing, calculateRequiredStageTargets,
@@ -33,16 +36,21 @@ export default async function TodayPage() {
   const today = todayISO()
 
   // Generate (idempotent — partial UNIQUE indexes guard against duplicates).
-  // Errors here shouldn't block rendering; the page will just show whatever exists.
   try {
     await generateDailyActionsForUser({ organizationId: orgId, userId: user.id })
   } catch { /* silent — generation is best-effort */ }
 
-  // Fetch in parallel: actions, goals, stale records
-  const [actions, goals, staleRecords] = await Promise.all([
+  // Snapshot today's progress before reading streak history (so today's row exists)
+  try {
+    await snapshotDailyProgress({ organizationId: orgId, userId: user.id })
+  } catch { /* silent */ }
+
+  // Fetch in parallel: actions, goals, stale records, attention views
+  const [actions, goals, staleRecords, attentionViews] = await Promise.all([
     getTodayActions(user.id, today),
     getProductionGoals(orgId),
     getStaleRecords(orgId, 14, 6),
+    getAttentionViewsWithCounts(orgId),
   ])
 
   // Build per-goal pacing for the right column
@@ -118,6 +126,8 @@ export default async function TodayPage() {
     recordBoardMap = Object.fromEntries((recs ?? []).map((r: { id: string; board_id: string }) => [r.id, r.board_id]))
   }
 
+  const streak = await getStreakData(user.id, today)
+
   return (
     <TodayPageClient
       organizationId={orgId}
@@ -127,8 +137,11 @@ export default async function TodayPage() {
       summary={summary}
       paces={paces}
       staleRecords={staleRecords}
+      attentionViews={attentionViews}
+      streak={streak}
       productionGoals={goals.map(g => ({ id: g.id, name: g.name }))}
       recordBoardMap={recordBoardMap}
+      lastUpdatedAt={new Date().toISOString()}
     />
   )
 }

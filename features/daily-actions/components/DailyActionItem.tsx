@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Check, Circle, Trash2, ExternalLink, Zap, ClipboardCheck, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { completeDailyAction, reopenDailyAction, deleteDailyAction } from '../actions'
+import { completeDailyAction, reopenDailyAction, deleteDailyAction, snoozeDailyAction } from '../actions'
+import { SnoozeMenu } from './SnoozeMenu'
 import type { DailyActionRow } from '../types'
 
 const PRIORITY_PILL: Record<string, string> = {
@@ -27,14 +28,19 @@ const SOURCE_ICON: Record<string, React.ElementType> = {
 interface Props {
   action: DailyActionRow
   recordLink?: string | null
+  selected?: boolean
+  onToggleSelect?: () => void
+  selectionMode?: boolean
 }
 
-export function DailyActionItem({ action, recordLink }: Props) {
+export function DailyActionItem({ action, recordLink, selected, onToggleSelect, selectionMode }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const completed = !!action.completed_at
 
-  const toggle = () => {
+  const toggleComplete = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (selectionMode) { onToggleSelect?.(); return }
     startTransition(async () => {
       try {
         if (completed) await reopenDailyAction(action.id)
@@ -44,7 +50,8 @@ export function DailyActionItem({ action, recordLink }: Props) {
     })
   }
 
-  const remove = () => {
+  const remove = (e: React.MouseEvent) => {
+    e.stopPropagation()
     if (!confirm(`Remove "${action.title}"?`)) return
     startTransition(async () => {
       await deleteDailyAction(action.id)
@@ -52,26 +59,40 @@ export function DailyActionItem({ action, recordLink }: Props) {
     })
   }
 
+  const snooze = (dueDate: string) => {
+    startTransition(async () => {
+      await snoozeDailyAction(action.id, dueDate)
+      router.refresh()
+    })
+  }
+
   const SourceIcon = SOURCE_ICON[action.source] ?? Circle
 
   return (
-    <div className={cn(
-      'group flex items-start gap-3 px-3 py-2.5 rounded-lg border transition-all',
-      completed ? 'bg-surface-1/30 border-border/50 opacity-60' : 'bg-card border-border hover:border-border/80',
-    )}>
+    <div
+      onClick={() => onToggleSelect?.()}
+      className={cn(
+        'group flex items-start gap-3 px-3 py-2.5 rounded-lg border transition-all',
+        completed ? 'bg-surface-1/30 border-border/50 opacity-60' : 'bg-card border-border hover:border-border/80',
+        selected && 'ring-1 ring-primary border-primary/50',
+        onToggleSelect && 'cursor-pointer',
+      )}
+    >
       <button
-        onClick={toggle}
+        onClick={toggleComplete}
         disabled={isPending}
-        title={completed ? 'Reopen' : 'Complete'}
+        title={selectionMode ? (selected ? 'Deselect' : 'Select') : completed ? 'Reopen' : 'Complete'}
         className={cn(
           'mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border flex items-center justify-center transition-colors',
-          completed
-            ? 'bg-emerald-500 border-emerald-500 text-emerald-50'
-            : 'border-border hover:border-primary hover:bg-primary/5',
+          selected
+            ? 'bg-primary border-primary text-primary-foreground'
+            : completed
+              ? 'bg-emerald-500 border-emerald-500 text-emerald-50'
+              : 'border-border hover:border-primary hover:bg-primary/5',
         )}
       >
         {isPending ? <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-         : completed ? <Check className="w-2.5 h-2.5" />
+         : (selected || completed) ? <Check className="w-2.5 h-2.5" />
          : null}
       </button>
 
@@ -90,6 +111,9 @@ export function DailyActionItem({ action, recordLink }: Props) {
             <SourceIcon className="w-3 h-3" />
             {action.source.replace('_', ' ')}
           </span>
+          {action.due_date && (
+            <span className="text-2xs text-muted-foreground tabular-nums">{action.due_date}</span>
+          )}
         </div>
         {action.description && (
           <p className={cn('text-xs text-muted-foreground line-clamp-2', completed && 'line-through')}>
@@ -98,7 +122,17 @@ export function DailyActionItem({ action, recordLink }: Props) {
         )}
       </div>
 
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+      >
+        {!completed && (
+          <SnoozeMenu
+            onPick={snooze}
+            label=""
+            buttonClassName="px-1.5 py-1 text-muted-foreground hover:text-foreground"
+          />
+        )}
         {recordLink && (
           <Link
             href={recordLink}

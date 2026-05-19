@@ -18,6 +18,7 @@ import { DragOverlayRow } from './DragOverlayRow'
 import { useBoardRealtime } from '@/hooks/useBoardRealtime'
 import { moveRecord } from '@/features/records/actions'
 import { createSavedView } from '../actions'
+import { updateSavedViewAttention } from '@/features/daily-actions/attention/actions'
 import { cn } from '@/lib/utils'
 import type { RecordPriority, RecordStatus } from '@/types/database'
 
@@ -116,6 +117,8 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
 
   const [showSaveView, setShowSaveView] = useState(false)
   const [saveViewName, setSaveViewName] = useState('')
+  const [showOnToday, setShowOnToday] = useState(false)
+  const [attentionPriority, setAttentionPriority] = useState<'urgent' | 'high' | 'medium' | 'low'>('medium')
   const [saveViewError, setSaveViewError] = useState('')
   const [isSavingView, startSaveViewTransition] = useTransition()
 
@@ -130,14 +133,25 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
 
     startSaveViewTransition(async () => {
       try {
-        await createSavedView({
+        const viewId = await createSavedView({
           organization_id: organizationId,
           board_id: board.id,
           name: saveViewName.trim(),
           filters,
         })
+        if (showOnToday) {
+          await updateSavedViewAttention({
+            saved_view_id: viewId,
+            is_attention_view: true,
+            show_on_today: true,
+            attention_priority: attentionPriority,
+            attention_label: saveViewName.trim(),
+          })
+        }
         setShowSaveView(false)
         setSaveViewName('')
+        setShowOnToday(false)
+        setAttentionPriority('medium')
       } catch (err) {
         setSaveViewError(err instanceof Error ? err.message : 'Failed to save view')
       }
@@ -243,7 +257,7 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
             </button>
           )}
           {showSaveView && (
-            <form onSubmit={handleSaveView} className="flex items-center gap-1.5">
+            <form onSubmit={handleSaveView} className="flex items-center gap-1.5 flex-wrap">
               <input
                 type="text"
                 value={saveViewName}
@@ -252,6 +266,27 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
                 autoFocus
                 className="h-7 px-2 text-xs bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary w-32"
               />
+              <label className="inline-flex items-center gap-1 text-2xs text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showOnToday}
+                  onChange={e => setShowOnToday(e.target.checked)}
+                  className="rounded border-border"
+                />
+                Show on Today
+              </label>
+              {showOnToday && (
+                <select
+                  value={attentionPriority}
+                  onChange={e => setAttentionPriority(e.target.value as 'urgent' | 'high' | 'medium' | 'low')}
+                  className="h-7 px-1.5 text-2xs bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:border-primary capitalize"
+                >
+                  <option value="urgent">Urgent</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              )}
               {saveViewError && <span className="text-2xs text-red-400">{saveViewError}</span>}
               <button type="submit" disabled={isSavingView}
                 className="h-7 px-2 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"

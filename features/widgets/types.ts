@@ -107,8 +107,14 @@ export type SavedViewRow = {
   filters: unknown
   sort: unknown
   visible_fields: unknown
+  is_attention_view: boolean
+  attention_priority: string | null   // 'urgent' | 'high' | 'medium' | 'low'
+  attention_label: string | null
+  attention_color: string | null
+  show_on_today: boolean
   created_by: string | null
   created_at: string
+  updated_at?: string
 }
 
 export type DashboardWidgetRow = {

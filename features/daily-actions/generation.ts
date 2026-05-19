@@ -1,5 +1,7 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
+
 // Daily action generation engine.
 //
 // Strategy: idempotent generation. The DB has partial UNIQUE indexes on
@@ -127,5 +129,20 @@ export async function generateDailyActionsForUser({
   }
 
   report.total = report.taskActions + report.pacingActions
+  return report
+}
+
+/**
+ * User-facing regenerate trigger. Re-runs generation for the current user/org
+ * (idempotent via the partial UNIQUE indexes on daily_actions).
+ */
+export async function regenerateDailyActions(organizationId: string): Promise<GenerationReport> {
+  const { createClient } = await import('@/lib/supabase/server')
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const report = await generateDailyActionsForUser({ organizationId, userId: user.id })
+  revalidatePath('/today')
   return report
 }

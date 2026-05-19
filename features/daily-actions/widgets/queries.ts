@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getTodayActions } from '../queries'
 import { todayISO, summarizeDay, overallPaceStatus, paceStatus } from '../calculations'
+import { getStreakData } from '../progress/streaks'
 import { getProductionGoals, getFunnelStages } from '@/features/goals/queries'
 import { calculateGoalPacing } from '@/features/goals/calculations/engine'
 import type {
@@ -62,7 +63,8 @@ export async function getTodaySummaryData(
   }
 
   const summary = summarizeDay(actions, overallPaceStatus(paces), today)
-  return { summary }
+  const streak = await getStreakData(userId, today)
+  return { summary, streak }
 }
 
 export async function getDailyActionsListData(

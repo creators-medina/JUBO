@@ -98,6 +98,13 @@ export type DailyActionsListWidgetConfig = {
 
 export type TodaySummaryWidgetData = {
   summary: TodaySummary
+  streak: {
+    currentStreak: number
+    bestStreak: number
+    todayStatus: string
+    actionsToWin: number
+    hasHistory: boolean
+  }
 }
 
 export type DailyActionsListWidgetData = {
