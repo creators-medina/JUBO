@@ -154,6 +154,17 @@ export function CommandPalette() {
       case 'connect-integration':  return () => { router.push('/settings/integrations'); close() }
       case 'connect-arive':        return () => { router.push('/settings/integrations'); close() }
       case 'view-integration-events': return () => { router.push('/settings/integrations'); close() }
+      case 'run-integration-worker':
+        return currentOrganization
+          ? async () => {
+              close()
+              try {
+                const { runWorkerAction } = await import('@/features/integrations/actions')
+                const s = await runWorkerAction(currentOrganization.id)
+                toast.success(`Integrations processed · ${s.processed} event${s.processed === 1 ? '' : 's'}${s.moved ? `, ${s.moved} moved` : ''}`)
+              } catch { toast.error('Worker run failed') }
+            }
+          : undefined
       case 'customize-dashboard':  return () => { router.push('/dashboard'); close() }
       case 'run-workflow-scans':
         return currentOrganization

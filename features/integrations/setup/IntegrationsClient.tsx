@@ -8,7 +8,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
-  createConnection, setConnectionStatus, rotateToken, deleteConnection, simulateEvent, replayEvent,
+  createConnection, setConnectionStatus, rotateToken, deleteConnection, simulateEvent, retryEvent, setEventIgnored, runWorkerAction,
 } from '../actions'
 import { SAMPLE_ARIVE_PAYLOAD } from '../providers/sample'
 import type { IntegrationConnectionRow, IntegrationEventRow, ProviderId, ProcessResult } from '../types'
@@ -68,7 +68,7 @@ export function IntegrationsClient({
           </section>
         )}
 
-        <EventLog events={events} />
+        <EventLog events={events} organizationId={organizationId} />
       </div>
     </div>
   )
@@ -179,10 +179,21 @@ function TestPanel({ connectionId, onClose }: { connectionId: string; onClose: (
   )
 }
 
-function EventLog({ events }: { events: IntegrationEventRow[] }) {
+function EventLog({ events, organizationId }: { events: IntegrationEventRow[]; organizationId: string }) {
+  const [pending, startTransition] = useTransition()
+  const pendingCount = events.filter((e) => e.status === 'pending' || e.status === 'retrying' || e.status === 'processing').length
+
   return (
     <section>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recent events</h2>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          Recent events {pendingCount > 0 && <span className="ml-1 text-amber-400">· {pendingCount} pending</span>}
+        </h2>
+        <Button size="sm" variant="outline" className="gap-1.5" disabled={pending}
+          onClick={() => startTransition(async () => { await runWorkerAction(organizationId) })}>
+          <RefreshCw className={cn('h-3.5 w-3.5', pending && 'animate-spin')} /> Run worker
+        </Button>
+      </div>
       {events.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-surface-1 px-6 py-8 text-center text-sm text-muted-foreground">
           No events received yet. Send a test payload above or wire up Zapier.
@@ -197,10 +208,14 @@ function EventLog({ events }: { events: IntegrationEventRow[] }) {
 }
 
 const EVENT_STATUS: Record<string, { icon: React.ElementType; cls: string }> = {
-  processed: { icon: CheckCircle2, cls: 'text-emerald-400' },
-  received:  { icon: Clock, cls: 'text-blue-400' },
-  duplicate: { icon: Check, cls: 'text-muted-foreground' },
-  failed:    { icon: XCircle, cls: 'text-red-400' },
+  processed:  { icon: CheckCircle2, cls: 'text-emerald-400' },
+  received:   { icon: Clock, cls: 'text-blue-400' },
+  pending:    { icon: Clock, cls: 'text-amber-400' },
+  processing: { icon: RefreshCw, cls: 'text-blue-400' },
+  retrying:   { icon: RefreshCw, cls: 'text-amber-400' },
+  duplicate:  { icon: Check, cls: 'text-muted-foreground' },
+  ignored:    { icon: XCircle, cls: 'text-muted-foreground' },
+  failed:     { icon: XCircle, cls: 'text-red-400' },
 }
 
 function EventRow({ ev }: { ev: IntegrationEventRow }) {
@@ -218,11 +233,25 @@ function EventRow({ ev }: { ev: IntegrationEventRow }) {
           <span className="text-2xs text-muted-foreground">· {ev.provider}</span>
           <ChevronDown className={cn('h-3 w-3 text-muted-foreground transition-transform', open && 'rotate-180')} />
         </button>
+        {ev.attempt_count > 0 && <span className="text-2xs text-muted-foreground">×{ev.attempt_count}</span>}
+        {ev.processing_duration_ms != null && <span className="text-2xs text-muted-foreground">{ev.processing_duration_ms}ms</span>}
         <span className="text-2xs text-muted-foreground">{new Date(ev.created_at).toLocaleString()}</span>
-        {ev.status === 'failed' && (
+        {(ev.status === 'failed' || ev.status === 'retrying' || ev.status === 'pending') && (
           <Button size="sm" variant="ghost" className="gap-1.5" disabled={pending}
-            onClick={() => startTransition(async () => { await replayEvent(ev.id) })}>
+            onClick={() => startTransition(async () => { await retryEvent(ev.id) })}>
             <RefreshCw className="h-3.5 w-3.5" /> Retry
+          </Button>
+        )}
+        {ev.status === 'processed' && (
+          <Button size="sm" variant="ghost" className="gap-1.5" disabled={pending}
+            onClick={() => startTransition(async () => { await retryEvent(ev.id) })}>
+            <RefreshCw className="h-3.5 w-3.5" /> Reprocess
+          </Button>
+        )}
+        {ev.status === 'failed' && (
+          <Button size="sm" variant="ghost" className="text-muted-foreground" disabled={pending}
+            onClick={() => startTransition(async () => { await setEventIgnored(ev.id) })}>
+            Ignore
           </Button>
         )}
       </div>

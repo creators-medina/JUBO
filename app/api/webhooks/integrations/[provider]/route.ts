@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAnonClient } from '@/lib/supabase/anon'
-import { processIntegrationPayload } from '@/features/integrations/sync/process'
+import { captureIntegrationEvent } from '@/features/integrations/sync/process'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -39,8 +39,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ provider: 
     return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 })
   }
 
+  // Phase 18: capture fast and return; the authenticated worker processes later.
   const supabase = createAnonClient()
-  const result = await processIntegrationPayload({ supabase, token, providerHint: provider, payload })
+  const result = await captureIntegrationEvent({ supabase, token, providerHint: provider, payload })
 
   if (!result.ok) {
     // 401 for auth issues, 422 for processing problems — never leak internals.
@@ -48,10 +49,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ provider: 
     return NextResponse.json({ ok: false, error: result.error }, { status: auth ? 401 : 422 })
   }
 
-  return NextResponse.json({
-    ok: true,
-    duplicate: result.duplicate ?? false,
-    created: result.created ?? false,
-    matchedOn: result.matchedOn ?? null,
-  })
+  // 202 Accepted — the event is queued for async processing.
+  return NextResponse.json(
+    { ok: true, duplicate: result.duplicate ?? false, queued: !result.duplicate },
+    { status: 202 },
+  )
 }

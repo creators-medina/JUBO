@@ -27,6 +27,7 @@ export type QuickActionId =
   | 'connect-integration'
   | 'connect-arive'
   | 'view-integration-events'
+  | 'run-integration-worker'
   | 'customize-dashboard'
   | 'close-active-workspace'
   | 'close-all-workspaces'
@@ -63,6 +64,7 @@ export const QUICK_ACTIONS: QuickActionDef[] = [
   { id: 'connect-integration',  title: 'Connect Integration',   iconName: 'Plug',            group: 'Setup',       keywords: ['integration', 'connect', 'sync'] },
   { id: 'connect-arive',        title: 'Connect Arive',         iconName: 'Plug',            group: 'Setup',       keywords: ['arive', 'zapier', 'connect', 'webhook', 'sync'] },
   { id: 'view-integration-events', title: 'View Integration Events', iconName: 'Activity',   group: 'Setup',       keywords: ['integration', 'events', 'webhook', 'log', 'sync'] },
+  { id: 'run-integration-worker',  title: 'Process Integration Events', iconName: 'RefreshCw', group: 'System',    keywords: ['integration', 'worker', 'sync', 'process', 'drain', 'pending', 'arive'] },
   { id: 'customize-dashboard',  title: 'Customize Dashboard',   iconName: 'LayoutDashboard', group: 'Setup',       keywords: ['customize', 'dashboard', 'widgets'] },
 
   // Workspace controls

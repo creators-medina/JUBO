@@ -83,9 +83,12 @@ export type IntegrationEventRow = {
   event_type: string | null
   payload: Record<string, unknown>
   normalized: Record<string, unknown>
-  status: 'received' | 'processed' | 'failed' | 'duplicate'
+  status: 'received' | 'pending' | 'processing' | 'processed' | 'failed' | 'retrying' | 'duplicate' | 'ignored'
   error_message: string | null
   record_id: string | null
+  attempt_count: number
+  last_attempt_at: string | null
+  processing_duration_ms: number | null
   created_at: string
   processed_at: string | null
 }

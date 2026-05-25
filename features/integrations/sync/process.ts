@@ -40,6 +40,43 @@ function workflowEventsFor(ev: NormalizedEvent, created: boolean): string[] {
 
 type BoardContext = { board_id?: string; group_id?: string; error?: string; fields?: { id: string; slug: string; field_type: FieldType }[] }
 
+/**
+ * Phase 18: webhook capture. Authenticate by token, normalize, and log a
+ * `pending` event — fast, minimal privilege. The authenticated worker drains it
+ * later (record sync + movement + workflows). Idempotent on (connection, dedupe_key).
+ */
+export async function captureIntegrationEvent(args: {
+  supabase: SupabaseClient
+  token: string
+  providerHint?: string
+  payload: unknown
+}): Promise<{ ok: boolean; duplicate?: boolean; eventId?: string; error?: string }> {
+  const { supabase, token, payload } = args
+
+  const { data: resolved, error: resolveErr } = await supabase.rpc('integration_resolve', { p_token: token })
+  if (resolveErr) return { ok: false, error: resolveErr.message }
+  const conn = Array.isArray(resolved) ? resolved[0] : resolved
+  if (!conn) return { ok: false, error: 'invalid_token' }
+  if (conn.status !== 'active') return { ok: false, error: `connection_${conn.status}` }
+
+  const provider = (conn.provider as string) ?? args.providerHint ?? 'custom_webhook'
+  const def = providerDef(provider) ?? providerDef('custom_webhook')!
+  const ev = def.normalize(payload)
+  const dedupeKey = ev.externalEventId || hashPayload(payload)
+
+  const { data, error } = await supabase.rpc('integration_capture_event', {
+    p_token: token,
+    p_external_event_id: ev.externalEventId ?? null,
+    p_dedupe_key: dedupeKey,
+    p_event_type: ev.eventType,
+    p_payload: payload as object,
+    p_normalized: ev as unknown as object,
+  })
+  if (error) return { ok: false, error: error.message }
+  const r = (data ?? {}) as { duplicate?: boolean; event_id?: string }
+  return { ok: true, duplicate: r.duplicate ?? false, eventId: r.event_id }
+}
+
 export async function processIntegrationPayload(args: {
   supabase: SupabaseClient
   token: string

@@ -37,6 +37,17 @@ export default async function TodayPage() {
 
   const today = todayISO()
 
+  // Drain any pending integration events (async runtime) + run scheduled jobs
+  // (stale scans, preapproval expiration) in this authenticated session. The
+  // worker is idempotent and only touches pending work, so this is cheap.
+  try {
+    const { runIntegrationWorker } = await import('@/features/integrations/runtime/worker')
+    const { runScheduledJobs } = await import('@/features/integrations/runtime/scheduler')
+    const ctx = { organizationId: orgId, userId: user.id, source: 'scheduler' as const }
+    await runIntegrationWorker(supabase as never, ctx, { limit: 25 })
+    await runScheduledJobs(supabase as never, ctx)
+  } catch { /* silent — runtime is best-effort */ }
+
   // Run workflow scans (throttled to ~30min) so stale/overdue records surface
   // attention before we generate the day's actions. Best-effort.
   try {
