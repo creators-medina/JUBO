@@ -22,6 +22,7 @@ import {
   computeEnabledWorkflows,
 } from '../templates'
 import { computePersonalization } from './personalization'
+import { mapStarterFunnelStagesToGroups } from './funnelMapping'
 import {
   createFunnel,
   createFunnelStage,
@@ -175,6 +176,13 @@ export async function provisionWorkspace(
   } catch (err) {
     // Goal generation is non-fatal — boards/dashboards should still land.
     console.warn('[provision] goal generation failed:', err)
+  }
+
+  // Map funnel stages → starter board groups so goal pacing reads live counts.
+  try {
+    await mapStarterFunnelStagesToGroups(organizationId)
+  } catch (err) {
+    console.warn('[provision] funnel stage mapping failed:', err)
   }
 
   // ── 3. Dashboards + widgets ───────────────────────────────────────────────

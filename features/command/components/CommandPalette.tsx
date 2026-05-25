@@ -146,7 +146,11 @@ export function CommandPalette() {
       case 'open-workflows':     return () => { router.push('/settings/workflows'); close() }
       case 'resume-setup':         return () => { router.push('/onboarding/setup'); close() }
       case 'open-setup-checklist': return () => { router.push('/today'); close() }
-      case 'import-clients':       return () => { router.push('/onboarding/setup?step=imports'); close() }
+      case 'new-import':           return () => { router.push('/imports/new'); close() }
+      case 'import-clients':       return () => { router.push('/imports/new?template=past_clients'); close() }
+      case 'import-leads':         return () => { router.push('/imports/new?template=active_leads'); close() }
+      case 'import-loans':         return () => { router.push('/imports/new?template=loan_pipeline'); close() }
+      case 'import-history':       return () => { router.push('/imports'); close() }
       case 'connect-integration':  return () => { router.push('/integrations'); close() }
       case 'customize-dashboard':  return () => { router.push('/dashboard'); close() }
       case 'run-workflow-scans':

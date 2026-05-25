@@ -12,6 +12,7 @@ import {
   Plug,
   Settings,
   Workflow,
+  Upload,
   ChevronLeft,
   ChevronRight,
   Command,
@@ -29,6 +30,7 @@ const toolItems = [
   { href: '/goals', label: 'Goals', icon: Target },
   { href: '/forecasts', label: 'Forecasts', icon: TrendingUp },
   { href: '/settings/workflows', label: 'Workflows', icon: Workflow },
+  { href: '/imports', label: 'Imports', icon: Upload },
   { href: '/integrations', label: 'Integrations', icon: Plug },
 ]
 

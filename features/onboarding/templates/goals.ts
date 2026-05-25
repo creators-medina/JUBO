@@ -46,6 +46,20 @@ export const STARTER_FUNNEL: GoalFunnelTemplate = {
   ],
 }
 
+/**
+ * Maps each starter funnel stage to a starter board group (by board slug +
+ * group name). This is what lets goal pacing read LIVE record counts: the final
+ * stage points at a real group, and /today counts records there. Applied at
+ * provisioning and re-applied after each import.
+ */
+export const STAGE_GROUP_MAP: Record<string, { boardSlug: string; groupName: string }> = {
+  leads:          { boardSlug: 'active-leads',  groupName: 'New Inquiry' },
+  connected:      { boardSlug: 'active-leads',  groupName: 'Credit Pull' },
+  preapproved:    { boardSlug: 'active-leads',  groupName: 'Preapproved' },
+  under_contract: { boardSlug: 'active-leads',  groupName: 'Under Contract' },
+  funded:         { boardSlug: 'loan-pipeline', groupName: 'Funded' },
+}
+
 /** The headline target a goal tracks (units), with sane fallbacks. */
 export function resolveGoalTargets(answers: {
   target_closings?: number

@@ -20,6 +20,10 @@ export type QuickActionId =
   | 'resume-setup'
   | 'open-setup-checklist'
   | 'import-clients'
+  | 'import-leads'
+  | 'import-loans'
+  | 'import-history'
+  | 'new-import'
   | 'connect-integration'
   | 'customize-dashboard'
   | 'close-active-workspace'
@@ -49,7 +53,11 @@ export const QUICK_ACTIONS: QuickActionDef[] = [
   // Setup / onboarding
   { id: 'resume-setup',         title: 'Resume Setup',          iconName: 'Sparkles',        group: 'Setup',       keywords: ['setup', 'onboarding', 'resume', 'wizard'] },
   { id: 'open-setup-checklist', title: 'Open Setup Checklist',  iconName: 'ListChecks',      group: 'Setup',       keywords: ['checklist', 'activation', 'setup', 'progress'] },
-  { id: 'import-clients',       title: 'Import Clients',        iconName: 'Upload',          group: 'Setup',       keywords: ['import', 'clients', 'csv', 'upload', 'past clients'] },
+  { id: 'new-import',           title: 'New Import',            iconName: 'Upload',          group: 'Import',      keywords: ['import', 'csv', 'xlsx', 'upload', 'data'] },
+  { id: 'import-clients',       title: 'Import Clients',        iconName: 'Upload',          group: 'Import',      keywords: ['import', 'clients', 'csv', 'past clients'] },
+  { id: 'import-leads',         title: 'Import Leads',          iconName: 'Upload',          group: 'Import',      keywords: ['import', 'leads', 'csv'] },
+  { id: 'import-loans',         title: 'Import Loans',          iconName: 'Upload',          group: 'Import',      keywords: ['import', 'loans', 'pipeline', 'csv'] },
+  { id: 'import-history',       title: 'View Import History',   iconName: 'ListChecks',      group: 'Import',      keywords: ['import', 'history', 'audit', 'retry'] },
   { id: 'connect-integration',  title: 'Connect Integration',   iconName: 'Plug',            group: 'Setup',       keywords: ['integration', 'arive', 'connect', 'sync'] },
   { id: 'customize-dashboard',  title: 'Customize Dashboard',   iconName: 'LayoutDashboard', group: 'Setup',       keywords: ['customize', 'dashboard', 'widgets'] },
 

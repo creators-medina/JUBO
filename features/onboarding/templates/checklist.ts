@@ -15,7 +15,7 @@ export type ChecklistItemSpec = {
 }
 
 export const SETUP_CHECKLIST: ChecklistItemSpec[] = [
-  { item_key: 'import-past-clients', title: 'Import your past clients', description: 'Bring your database in so retention workflows have something to work with.', icon: 'Upload',      action_href: '/onboarding/setup?step=imports' },
+  { item_key: 'import-past-clients', title: 'Import your past clients', description: 'Bring your database in so retention workflows have something to work with.', icon: 'Upload',      action_href: '/imports/new?template=past_clients' },
   { item_key: 'connect-arive',       title: 'Connect Arive',           description: 'Sync your LOS so pipeline files flow in automatically.',                       icon: 'Plug',        action_href: '/integrations' },
   { item_key: 'complete-profile',    title: 'Complete your profile',   description: 'Add your details so the workspace is fully yours.',                            icon: 'UserCircle',  action_href: '/settings' },
   { item_key: 'customize-dashboard', title: 'Customize a dashboard',   description: 'Tweak widgets so your numbers show up the way you think about them.',           icon: 'LayoutDashboard', action_href: '/dashboard' },
