@@ -43,8 +43,12 @@ const C = {
 
 // Reusable mortgage-relevant field sets ------------------------------------
 const LEAD_FIELDS: BoardFieldSpec[] = [
+  { name: 'Email', field_type: 'email' },
+  { name: 'Phone', field_type: 'phone' },
   { name: 'Lead Source', field_type: 'select', options: ['Self-Sourced', 'Realtor Referral', 'Past Client', 'Purchased Lead', 'Website', 'Other'] },
   { name: 'Loan Amount', field_type: 'currency' },
+  { name: 'Loan Type', field_type: 'select', options: ['Conventional', 'FHA', 'VA', 'USDA', 'Jumbo', 'Non-QM'] },
+  { name: 'Loan Purpose', field_type: 'select', options: ['Purchase', 'Refinance', 'Cash-Out Refi', 'HELOC'] },
   { name: 'Credit Score Range', field_type: 'select', options: ['760+', '720-759', '680-719', '640-679', '600-639', 'Below 600', 'Unknown'] },
   { name: 'Target Close Date', field_type: 'date' },
   { name: 'Next Action', field_type: 'text' },
@@ -52,8 +56,11 @@ const LEAD_FIELDS: BoardFieldSpec[] = [
 ]
 
 const PIPELINE_FIELDS: BoardFieldSpec[] = [
+  { name: 'Email', field_type: 'email' },
+  { name: 'Phone', field_type: 'phone' },
   { name: 'Loan Amount', field_type: 'currency' },
   { name: 'Loan Type', field_type: 'select', options: ['Conventional', 'FHA', 'VA', 'USDA', 'Jumbo', 'Non-QM'] },
+  { name: 'Loan Purpose', field_type: 'select', options: ['Purchase', 'Refinance', 'Cash-Out Refi', 'HELOC'] },
   { name: 'Target Close Date', field_type: 'date' },
   { name: 'Preapproval Expiration', field_type: 'date' },
   { name: 'Stage Owner', field_type: 'user' },
@@ -70,6 +77,8 @@ const PARTNER_FIELDS: BoardFieldSpec[] = [
 ]
 
 const PAST_CLIENT_FIELDS: BoardFieldSpec[] = [
+  { name: 'Email', field_type: 'email' },
+  { name: 'Phone', field_type: 'phone' },
   { name: 'Loan Amount', field_type: 'currency' },
   { name: 'Closed Date', field_type: 'date' },
   { name: 'Current Rate', field_type: 'number' },

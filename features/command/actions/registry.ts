@@ -25,6 +25,8 @@ export type QuickActionId =
   | 'import-history'
   | 'new-import'
   | 'connect-integration'
+  | 'connect-arive'
+  | 'view-integration-events'
   | 'customize-dashboard'
   | 'close-active-workspace'
   | 'close-all-workspaces'
@@ -58,7 +60,9 @@ export const QUICK_ACTIONS: QuickActionDef[] = [
   { id: 'import-leads',         title: 'Import Leads',          iconName: 'Upload',          group: 'Import',      keywords: ['import', 'leads', 'csv'] },
   { id: 'import-loans',         title: 'Import Loans',          iconName: 'Upload',          group: 'Import',      keywords: ['import', 'loans', 'pipeline', 'csv'] },
   { id: 'import-history',       title: 'View Import History',   iconName: 'ListChecks',      group: 'Import',      keywords: ['import', 'history', 'audit', 'retry'] },
-  { id: 'connect-integration',  title: 'Connect Integration',   iconName: 'Plug',            group: 'Setup',       keywords: ['integration', 'arive', 'connect', 'sync'] },
+  { id: 'connect-integration',  title: 'Connect Integration',   iconName: 'Plug',            group: 'Setup',       keywords: ['integration', 'connect', 'sync'] },
+  { id: 'connect-arive',        title: 'Connect Arive',         iconName: 'Plug',            group: 'Setup',       keywords: ['arive', 'zapier', 'connect', 'webhook', 'sync'] },
+  { id: 'view-integration-events', title: 'View Integration Events', iconName: 'Activity',   group: 'Setup',       keywords: ['integration', 'events', 'webhook', 'log', 'sync'] },
   { id: 'customize-dashboard',  title: 'Customize Dashboard',   iconName: 'LayoutDashboard', group: 'Setup',       keywords: ['customize', 'dashboard', 'widgets'] },
 
   // Workspace controls

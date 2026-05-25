@@ -141,7 +141,7 @@ export function CommandPalette() {
       case 'open-boards':        return () => { router.push('/boards');    close() }
       case 'open-dashboard-hub': return () => { router.push('/dashboard'); close() }
       case 'open-forecasts':     return () => { router.push('/forecasts'); close() }
-      case 'open-integrations':  return () => { router.push('/integrations'); close() }
+      case 'open-integrations':  return () => { router.push('/settings/integrations'); close() }
       case 'open-settings':      return () => { router.push('/settings');  close() }
       case 'open-workflows':     return () => { router.push('/settings/workflows'); close() }
       case 'resume-setup':         return () => { router.push('/onboarding/setup'); close() }
@@ -151,7 +151,9 @@ export function CommandPalette() {
       case 'import-leads':         return () => { router.push('/imports/new?template=active_leads'); close() }
       case 'import-loans':         return () => { router.push('/imports/new?template=loan_pipeline'); close() }
       case 'import-history':       return () => { router.push('/imports'); close() }
-      case 'connect-integration':  return () => { router.push('/integrations'); close() }
+      case 'connect-integration':  return () => { router.push('/settings/integrations'); close() }
+      case 'connect-arive':        return () => { router.push('/settings/integrations'); close() }
+      case 'view-integration-events': return () => { router.push('/settings/integrations'); close() }
       case 'customize-dashboard':  return () => { router.push('/dashboard'); close() }
       case 'run-workflow-scans':
         return currentOrganization

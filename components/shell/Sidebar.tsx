@@ -31,7 +31,7 @@ const toolItems = [
   { href: '/forecasts', label: 'Forecasts', icon: TrendingUp },
   { href: '/settings/workflows', label: 'Workflows', icon: Workflow },
   { href: '/imports', label: 'Imports', icon: Upload },
-  { href: '/integrations', label: 'Integrations', icon: Plug },
+  { href: '/settings/integrations', label: 'Integrations', icon: Plug },
 ]
 
 interface SidebarProps {

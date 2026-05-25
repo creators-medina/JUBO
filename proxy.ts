@@ -33,7 +33,11 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/signup");
 
-  if (!user && !isAuthRoute) {
+  // Inbound integration webhooks authenticate via their own secret token, not a
+  // user session — they must never be redirected to /login.
+  const isPublicWebhook = request.nextUrl.pathname.startsWith("/api/webhooks");
+
+  if (!user && !isAuthRoute && !isPublicWebhook) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
