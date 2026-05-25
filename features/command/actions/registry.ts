@@ -17,6 +17,11 @@ export type QuickActionId =
   | 'open-settings'
   | 'open-workflows'
   | 'run-workflow-scans'
+  | 'resume-setup'
+  | 'open-setup-checklist'
+  | 'import-clients'
+  | 'connect-integration'
+  | 'customize-dashboard'
   | 'close-active-workspace'
   | 'close-all-workspaces'
 
@@ -40,6 +45,13 @@ export const QUICK_ACTIONS: QuickActionDef[] = [
   { id: 'open-settings',       title: 'Go to Settings',      iconName: 'Settings',        group: 'Navigate',    keywords: ['settings', 'preferences'] },
   { id: 'open-workflows',      title: 'Manage Workflows',    iconName: 'Workflow',        group: 'Navigate',    keywords: ['workflows', 'automation', 'triggers'] },
   { id: 'run-workflow-scans',  title: 'Run Workflow Scans',  iconName: 'RefreshCw',       group: 'System',      keywords: ['scan', 'stale', 'overdue', 'workflow', 'run'] },
+
+  // Setup / onboarding
+  { id: 'resume-setup',         title: 'Resume Setup',          iconName: 'Sparkles',        group: 'Setup',       keywords: ['setup', 'onboarding', 'resume', 'wizard'] },
+  { id: 'open-setup-checklist', title: 'Open Setup Checklist',  iconName: 'ListChecks',      group: 'Setup',       keywords: ['checklist', 'activation', 'setup', 'progress'] },
+  { id: 'import-clients',       title: 'Import Clients',        iconName: 'Upload',          group: 'Setup',       keywords: ['import', 'clients', 'csv', 'upload', 'past clients'] },
+  { id: 'connect-integration',  title: 'Connect Integration',   iconName: 'Plug',            group: 'Setup',       keywords: ['integration', 'arive', 'connect', 'sync'] },
+  { id: 'customize-dashboard',  title: 'Customize Dashboard',   iconName: 'LayoutDashboard', group: 'Setup',       keywords: ['customize', 'dashboard', 'widgets'] },
 
   // Workspace controls
   { id: 'close-active-workspace', title: 'Close Active Workspace', iconName: 'X',         group: 'Workspace',   keywords: ['close', 'esc'] },

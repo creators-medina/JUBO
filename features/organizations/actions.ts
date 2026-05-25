@@ -16,5 +16,7 @@ export async function createOrganization(name: string, slug: string) {
   if (!orgId) throw new Error('Failed to create organization')
 
   revalidatePath('/dashboard')
-  redirect('/dashboard')
+  // New orgs go straight into the guided setup wizard, which provisions the
+  // starter workspace (boards/dashboards/goals/workflows) around their answers.
+  redirect('/onboarding/setup')
 }

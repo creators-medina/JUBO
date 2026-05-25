@@ -14,6 +14,7 @@ import {
   calculateGoalPacing, calculateRequiredStageTargets,
 } from '@/features/goals/calculations/engine'
 import { TodayPageClient } from '@/features/daily-actions/components/TodayPageClient'
+import { getSetupChecklist } from '@/features/onboarding/queries'
 import type { DailyMetricPace } from '@/features/daily-actions/types'
 
 export const dynamic = 'force-dynamic'
@@ -134,6 +135,7 @@ export default async function TodayPage() {
   }
 
   const streak = await getStreakData(user.id, today)
+  const setupChecklist = await getSetupChecklist(orgId)
 
   return (
     <TodayPageClient
@@ -149,6 +151,7 @@ export default async function TodayPage() {
       productionGoals={goals.map(g => ({ id: g.id, name: g.name }))}
       recordBoardMap={recordBoardMap}
       lastUpdatedAt={new Date().toISOString()}
+      setupChecklist={setupChecklist}
     />
   )
 }

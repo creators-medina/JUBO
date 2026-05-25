@@ -21,6 +21,8 @@ import {
 import type { DailyActionRow, DailyMetricPace, TodaySummary, DailyProgressStatus } from '../types'
 import type { StreakData } from '../progress/streaks'
 import type { AttentionView } from '../attention/queries'
+import { SetupChecklist } from '@/features/onboarding/setup/SetupChecklist'
+import type { SetupChecklistItemRow } from '@/features/onboarding/types'
 
 interface Props {
   organizationId: string
@@ -35,6 +37,7 @@ interface Props {
   productionGoals: Array<{ id: string; name: string }>
   recordBoardMap: Record<string, string>
   lastUpdatedAt: string                // ISO timestamp for "last updated" label
+  setupChecklist?: SetupChecklistItemRow[]   // shown until the LO finishes activation
 }
 
 const STATUS_COLOR: Record<DailyProgressStatus, string> = {
@@ -54,7 +57,7 @@ const STATUS_BG: Record<DailyProgressStatus, string> = {
 export function TodayPageClient({
   organizationId, organizationName, todayISO,
   actions, summary, paces, staleRecords, attentionViews, streak,
-  productionGoals, recordBoardMap, lastUpdatedAt,
+  productionGoals, recordBoardMap, lastUpdatedAt, setupChecklist,
 }: Props) {
   const router = useRouter()
   const [showManual, setShowManual] = useState(false)
@@ -166,6 +169,11 @@ export function TodayPageClient({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-6 space-y-6 pb-24">
+
+        {/* Setup activation — shown until every checklist item is complete */}
+        {setupChecklist && setupChecklist.some(i => !i.completed) && (
+          <SetupChecklist items={setupChecklist} compact />
+        )}
 
         {/* Progress strip */}
         <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
