@@ -10,6 +10,7 @@ import { executeCommand } from '../execution/executeCommand'
 import { moveRecord, updateRecord } from '@/features/records/actions'
 import { createTask } from '@/features/tasks/actions'
 import { createNote, setNextAction, completeNextAction } from '@/features/workspace/notes/actions'
+import { createDailyAction } from '@/features/daily-actions/actions'
 import { recordCommandExecution } from '../history/useCommandHistory'
 import type { ActiveRecordContext, CommandItem } from '../types'
 import type { RecordStatus, RecordPriority } from '@/types/database'
@@ -324,6 +325,52 @@ export function contextualCommands(ctx: ActiveRecordContext | null, deps: Contex
   items.push(tabCmd('activity', 'Open Activity Tab', 'Activity'))
   items.push(tabCmd('notes',    'Open Notes Tab',    'FileText'))
   items.push(tabCmd('pipeline', 'Open Pipeline Tab', 'Columns3'))
+
+  // ── Mark needs attention (feeds /today) ───────────────────────────────
+  items.push({
+    id: 'ctx:mark-attention',
+    type: 'action',
+    title: 'Mark Needs Attention',
+    iconName: 'Flag',
+    keywords: ['attention', 'flag', 'follow up', 'today'],
+    groupLabel: 'Record Actions',
+    onSelect: () => run('ctx:mark-attention', 'Mark Needs Attention', 'Flag',
+      () => createDailyAction({
+        organization_id: r.organizationId,
+        record_id: r.recordId,
+        title: `Needs attention: ${r.title}`,
+        priority: 'high',
+        action_type: 'attention',
+        source: 'manual',
+      }).then(() => {}),
+      'Flagged for attention on Today'),
+  })
+
+  // ── Set reminder (next action with a preset date) ─────────────────────
+  items.push({
+    id: 'ctx:set-reminder',
+    type: 'action',
+    title: 'Set Reminder',
+    iconName: 'Clock',
+    keywords: ['reminder', 'follow up', 'schedule', 'later'],
+    groupLabel: 'Next Action',
+    intoPage: {
+      kind: 'list',
+      title: 'Remind me…',
+      placeholder: 'Search presets…',
+      loadItems: () => datePresets().map(p => ({
+        id: `ctx:reminder:${p.label}`,
+        type: 'action',
+        title: p.label,
+        subtitle: p.date.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric' }),
+        iconName: 'Clock',
+        groupLabel: 'Reminder',
+        onSelect: () => run('ctx:set-reminder', 'Set Reminder', 'Clock',
+          () => setNextAction({ record_id: r.recordId, next_action: r.nextAction ?? 'Follow up', next_action_due_at: p.date.toISOString() }),
+          `Reminder set for ${p.label.toLowerCase()}`),
+      })),
+    },
+  })
 
   // ── Copy record link ──────────────────────────────────────────────────
   items.push({

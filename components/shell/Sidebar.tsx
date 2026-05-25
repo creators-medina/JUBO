@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Plug,
   Settings,
+  Workflow,
   ChevronLeft,
   ChevronRight,
   Command,
@@ -27,6 +28,7 @@ const toolItems = [
   { href: '/today', label: 'Today', icon: Sunrise },
   { href: '/goals', label: 'Goals', icon: Target },
   { href: '/forecasts', label: 'Forecasts', icon: TrendingUp },
+  { href: '/settings/workflows', label: 'Workflows', icon: Workflow },
   { href: '/integrations', label: 'Integrations', icon: Plug },
 ]
 

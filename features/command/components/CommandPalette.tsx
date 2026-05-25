@@ -7,13 +7,14 @@ import {
   Search, Sparkles, FileText, Columns3, LayoutDashboard, Target, Bookmark,
   CheckSquare, Sunrise, TrendingUp, Plug, Settings, X, XCircle, Clock, Flag,
   ArrowRight, ArrowLeft, ArrowRightLeft, Circle, CircleDot, Zap, CheckCircle2,
-  Activity, Link as LinkIcon, Archive, Copy, History,
+  Activity, Link as LinkIcon, Archive, Copy, History, Workflow, RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCommandPalette } from '../providers/CommandPaletteProvider'
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { useOrganization } from '@/providers/OrganizationProvider'
 import { useToast } from '@/features/feedback/ToastProvider'
+import { runWorkflowScansAction } from '@/features/workflows/actions'
 import { useGlobalSearch } from '../hooks/useGlobalSearch'
 import { useRecentItems, pushRecentItem } from '../recent/useRecentItems'
 import { useActiveRecordContext } from '../hooks/useActiveRecordContext'
@@ -26,7 +27,7 @@ const ICONS: Record<string, React.ElementType> = {
   Search, Sparkles, FileText, Columns3, LayoutDashboard, Target, Bookmark,
   CheckSquare, Sunrise, TrendingUp, Plug, Settings, X, XCircle, Clock, Flag,
   ArrowRightLeft, Circle, CircleDot, Zap, CheckCircle2, Activity, Link: LinkIcon,
-  Archive, Copy, History,
+  Archive, Copy, History, Workflow, RefreshCw,
 }
 const IconFor = (name?: string): React.ElementType => (name && ICONS[name]) || Search
 
@@ -141,12 +142,23 @@ export function CommandPalette() {
       case 'open-forecasts':     return () => { router.push('/forecasts'); close() }
       case 'open-integrations':  return () => { router.push('/integrations'); close() }
       case 'open-settings':      return () => { router.push('/settings');  close() }
+      case 'open-workflows':     return () => { router.push('/settings/workflows'); close() }
+      case 'run-workflow-scans':
+        return currentOrganization
+          ? async () => {
+              close()
+              try {
+                const { scanned } = await runWorkflowScansAction(currentOrganization.id)
+                toast.success(`Workflow scan complete · ${scanned} record${scanned === 1 ? '' : 's'}`)
+              } catch { toast.error('Workflow scan failed') }
+            }
+          : undefined
       case 'close-active-workspace':
         return activeRecordId ? () => { closeWorkspace(activeRecordId); close() } : undefined
       case 'close-all-workspaces':
         return tabs.length > 0 ? () => { closeAll(); close() } : undefined
     }
-  }), [router, close, activeRecordId, closeWorkspace, closeAll, tabs.length])
+  }), [router, close, activeRecordId, closeWorkspace, closeAll, tabs.length, currentOrganization, toast])
 
   function handleRecentSelect(r: RecentItem) {
     if (r.kind === 'record') openWorkspace({ recordId: r.id, title: r.title })

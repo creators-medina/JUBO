@@ -15,6 +15,8 @@ export type QuickActionId =
   | 'open-forecasts'
   | 'open-integrations'
   | 'open-settings'
+  | 'open-workflows'
+  | 'run-workflow-scans'
   | 'close-active-workspace'
   | 'close-all-workspaces'
 
@@ -36,6 +38,8 @@ export const QUICK_ACTIONS: QuickActionDef[] = [
   { id: 'open-forecasts',      title: 'Go to Forecasts',     iconName: 'TrendingUp',      group: 'Navigate',    keywords: ['forecasts', 'projection'] },
   { id: 'open-integrations',   title: 'Go to Integrations',  iconName: 'Plug',            group: 'Navigate',    keywords: ['integrations', 'connections'] },
   { id: 'open-settings',       title: 'Go to Settings',      iconName: 'Settings',        group: 'Navigate',    keywords: ['settings', 'preferences'] },
+  { id: 'open-workflows',      title: 'Manage Workflows',    iconName: 'Workflow',        group: 'Navigate',    keywords: ['workflows', 'automation', 'triggers'] },
+  { id: 'run-workflow-scans',  title: 'Run Workflow Scans',  iconName: 'RefreshCw',       group: 'System',      keywords: ['scan', 'stale', 'overdue', 'workflow', 'run'] },
 
   // Workspace controls
   { id: 'close-active-workspace', title: 'Close Active Workspace', iconName: 'X',         group: 'Workspace',   keywords: ['close', 'esc'] },

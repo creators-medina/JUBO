@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { dispatchWorkflowEvent } from '@/features/workflows/engine/dispatch'
 import type { RecordType, RecordPriority, RecordStatus } from '@/types/database'
 
 export async function createRecord(data: {
@@ -49,6 +50,14 @@ export async function createRecord(data: {
   })
 
   revalidatePath(`/boards/${data.board_id}`)
+
+  // Fire workflow engine (best-effort; never blocks the create)
+  await dispatchWorkflowEvent({
+    type: 'record.created',
+    organizationId: data.organization_id,
+    recordId: record.id,
+  })
+
   return record
 }
 
@@ -122,6 +131,13 @@ export async function moveRecord(recordId: string, toGroupId: string, boardId: s
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
+  // Capture prior group for the workflow payload
+  const { data: before } = await supabase
+    .from('records')
+    .select('group_id, organization_id')
+    .eq('id', recordId)
+    .single()
+
   const { error } = await supabase.rpc('move_record', {
     p_record_id: recordId,
     p_to_group_id: toGroupId,
@@ -131,4 +147,17 @@ export async function moveRecord(recordId: string, toGroupId: string, boardId: s
 
   if (error) throw new Error(error.message)
   revalidatePath(`/boards/${boardId}`)
+
+  // Fire workflow engine for the stage change (best-effort)
+  if (before?.organization_id && before.group_id !== toGroupId) {
+    const { data: grp } = await supabase.from('board_groups').select('name').eq('id', toGroupId).single()
+    await dispatchWorkflowEvent({
+      type: 'record.group_changed',
+      organizationId: before.organization_id,
+      recordId,
+      fromGroupId: before.group_id,
+      toGroupId,
+      toGroupName: grp?.name ?? null,
+    })
+  }
 }

@@ -8,6 +8,7 @@ import {
 import { snapshotDailyProgress } from '@/features/daily-actions/progress/snapshots'
 import { getStreakData } from '@/features/daily-actions/progress/streaks'
 import { getAttentionViewsWithCounts } from '@/features/daily-actions/attention/queries'
+import { runWorkflowScans } from '@/features/workflows/triggers/scan'
 import { getProductionGoals, getFunnelStages, getConversionAssumptions, getGoalTargets } from '@/features/goals/queries'
 import {
   calculateGoalPacing, calculateRequiredStageTargets,
@@ -34,6 +35,12 @@ export default async function TodayPage() {
   const orgName = (membership as { organizations?: { name?: string } | null }).organizations?.name ?? 'Organization'
 
   const today = todayISO()
+
+  // Run workflow scans (throttled to ~30min) so stale/overdue records surface
+  // attention before we generate the day's actions. Best-effort.
+  try {
+    await runWorkflowScans(orgId, { throttleMinutes: 30 })
+  } catch { /* silent */ }
 
   // Generate (idempotent — partial UNIQUE indexes guard against duplicates).
   try {
