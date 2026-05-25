@@ -170,5 +170,19 @@ export function useWorkspaceData(recordId: string | null): WorkspaceData {
     return () => { cancelled = true }
   }, [recordId, version])
 
+  // Command-layer mutations (move stage, set next action, etc.) dispatch a
+  // global event after executing. Listen so the active workspace refreshes
+  // without the palette needing a direct handle to this hook's refetch.
+  useEffect(() => {
+    const onRefresh = (e: Event) => {
+      const detail = (e as CustomEvent<{ recordId?: string }>).detail
+      if (!detail?.recordId || detail.recordId === recordId) {
+        setVersion(v => v + 1)
+      }
+    }
+    window.addEventListener('jubo:refresh-workspace', onRefresh as EventListener)
+    return () => window.removeEventListener('jubo:refresh-workspace', onRefresh as EventListener)
+  }, [recordId])
+
   return { ...state, refetch: async () => setVersion(v => v + 1) }
 }

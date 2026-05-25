@@ -8,6 +8,7 @@ import { WorkspaceTabsBar } from "@/features/workspace/components/WorkspaceTabsB
 import { WorkspacePanel } from "@/features/workspace/components/WorkspacePanel";
 import { CommandPaletteProvider } from "@/features/command/providers/CommandPaletteProvider";
 import { CommandPalette } from "@/features/command/components/CommandPalette";
+import { ToastProvider } from "@/features/feedback/ToastProvider";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -18,21 +19,23 @@ export function AppShell({ children, pageTitle }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <CommandPaletteProvider>
-      <WorkspaceTabsProvider>
-        <div className="flex h-screen w-screen overflow-hidden bg-background">
-          <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
-          <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-            <TopHeader title={pageTitle} />
-            <WorkspaceTabsBar />
-            <main className="flex-1 overflow-y-auto">
-              {children}
-            </main>
+    <ToastProvider>
+      <CommandPaletteProvider>
+        <WorkspaceTabsProvider>
+          <div className="flex h-screen w-screen overflow-hidden bg-background">
+            <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+            <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+              <TopHeader title={pageTitle} />
+              <WorkspaceTabsBar />
+              <main className="flex-1 overflow-y-auto">
+                {children}
+              </main>
+            </div>
+            <WorkspacePanel />
+            <CommandPalette />
           </div>
-          <WorkspacePanel />
-          <CommandPalette />
-        </div>
-      </WorkspaceTabsProvider>
-    </CommandPaletteProvider>
+        </WorkspaceTabsProvider>
+      </CommandPaletteProvider>
+    </ToastProvider>
   );
 }

@@ -26,9 +26,68 @@ export type CommandItem = {
   groupLabel: string                      // "Records" / "Boards" / "Quick Actions" / "Recently Opened"
   metadata?: Record<string, unknown>      // free-form for ranking + dedupe
   score?: number                          // populated by the ranker; higher = better
+  preview?: string                        // right-aligned current-value hint ("High", "Active")
   // Behaviour — exactly one of these
   onSelect?: () => void                   // imperative (open workspace, run action)
   href?: string                           // navigate via router
+  intoPage?: CommandPage                  // chained flow — selecting navigates into a sub-page
+}
+
+// ── Chained command pages ─────────────────────────────────────────────────
+//
+// A command can navigate INTO a page instead of executing immediately. Two
+// shapes: a `list` page (pick a target — group, priority, status) or an
+// `input` page (type a value — note body, task title, next action). This is
+// the foundation for keyboard-driven multi-step flows and, later, AI dialogs.
+
+export type CommandListPage = {
+  kind: 'list'
+  title: string
+  placeholder?: string
+  loadItems: () => CommandItem[] | Promise<CommandItem[]>
+}
+
+export type CommandInputPage = {
+  kind: 'input'
+  title: string
+  placeholder?: string
+  submitLabel?: string
+  multiline?: boolean
+  initialValue?: string
+  onSubmit: (value: string) => void | Promise<void>
+}
+
+export type CommandPage = CommandListPage | CommandInputPage
+
+// ── Contextual command context ─────────────────────────────────────────────
+//
+// What the active workspace exposes so contextualCommands() can build
+// record-aware actions. Generic — no entity-specific assumptions.
+
+export type ActiveRecordContext = {
+  recordId: string
+  title: string
+  boardId: string
+  groupId: string | null
+  status: string
+  priority: string
+  value: number | null
+  nextAction: string | null
+  nextActionDueAt: string | null
+  nextActionCompletedAt: string | null
+  organizationId: string
+  groups: Array<{ id: string; name: string; color: string | null }>
+  activeSubTab?: string
+}
+
+// ── Command history ────────────────────────────────────────────────────────
+
+export type CommandHistoryEntry = {
+  commandId: string                       // e.g. "ctx:move-stage" / "action:open-today"
+  title: string
+  iconName?: string
+  executedAt: number
+  count: number                           // frequency for ranking boosts
 }
 
 export type SearchContext = {

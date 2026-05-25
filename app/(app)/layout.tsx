@@ -2,9 +2,6 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AppShell } from '@/components/shell/AppShell'
 import { OrganizationProvider } from '@/providers/OrganizationProvider'
-import { WorkspaceTabsProvider } from '@/features/workspace/providers/WorkspaceTabsProvider'
-import { WorkspaceTabsBar } from '@/features/workspace/components/WorkspaceTabsBar'
-import { WorkspacePanel } from '@/features/workspace/components/WorkspacePanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +11,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!user) redirect('/login')
 
-  // Check if user has any org membership
   const { data: memberships } = await supabase
     .from('organization_members')
     .select('id')
@@ -25,15 +21,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect('/onboarding')
   }
 
+  // AppShell owns the command/workspace/toast providers + the WorkspacePanel,
+  // CommandPalette, and tab bar. Keeping them in one place avoids duplicate
+  // provider instances (which previously split workspace state in two).
   return (
     <OrganizationProvider>
-      <WorkspaceTabsProvider>
-        <AppShell>
-          <WorkspaceTabsBar />
-          {children}
-        </AppShell>
-        <WorkspacePanel />
-      </WorkspaceTabsProvider>
+      <AppShell>{children}</AppShell>
     </OrganizationProvider>
   )
 }
