@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
 import { MAX_OPEN_WORKSPACES, type WorkspaceTab, type WorkspaceTabKey } from '../types'
+import { pushRecentItem } from '@/features/command/recent/useRecentItems'
 
 interface Ctx {
   tabs: WorkspaceTab[]
@@ -62,7 +63,6 @@ export function WorkspaceTabsProvider({ children }: { children: React.ReactNode 
     setTabs(prev => {
       const existing = prev.find(t => t.recordId === recordId)
       if (existing) {
-        // Update title if provided (now that we know the record name)
         if (title && existing.title !== title) {
           return prev.map(t => t.recordId === recordId ? { ...t, title } : t)
         }
@@ -79,6 +79,10 @@ export function WorkspaceTabsProvider({ children }: { children: React.ReactNode 
       return [...trimmed, next]
     })
     setActiveRecordId(recordId)
+    // Track in recents (deduped + MRU inside pushRecentItem)
+    if (title) {
+      pushRecentItem({ kind: 'record', id: recordId, title, iconName: 'FileText' })
+    }
   }, [])
 
   const closeWorkspace = useCallback<Ctx['closeWorkspace']>((recordId) => {
