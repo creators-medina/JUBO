@@ -10,6 +10,7 @@ import type { TaskPriority } from '@/types/database'
 
 export type WorkflowTriggerType =
   | 'record.created'
+  | 'record.updated'
   | 'record.group_changed'
   | 'no_activity_detected'
   | 'next_action_overdue'
@@ -24,6 +25,8 @@ export type WorkflowEvent = {
   fromGroupId?: string | null
   toGroupId?: string | null
   toGroupName?: string | null
+  // record.updated: which field slugs changed materially (for payload/audit)
+  changedFields?: string[]
 }
 
 // Minimal record shape the engine reads (kept small + generic).

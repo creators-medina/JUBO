@@ -51,6 +51,7 @@ export async function executeAction(
         p_record_id: record.id,
         p_next_action: label,
         p_due_at: due,
+        p_user_id: userId,
       })
       if (error) throw new Error(error.message)
       return { kind: 'set_next_action', detail: label }
@@ -86,6 +87,7 @@ export async function executeAction(
         p_production_goal_id: null,
         p_record_id: record.id,
         p_task_id: null,
+        p_user_id: userId,
       })
       if (error) throw new Error(error.message)
       return { kind: action.kind, detail: title }

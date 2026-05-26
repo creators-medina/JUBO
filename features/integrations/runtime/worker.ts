@@ -55,18 +55,26 @@ export async function runIntegrationWorker(
 
       const sync = await syncRecordFromEvent(supabase, ctx, normalized, ev.provider)
 
-      // New record → fire record.created workflows (follow-up, etc).
+      // New record → record.created; existing material change → record.updated.
       if (sync.created) {
-        await dispatchWorkflowEvent({ type: 'record.created', organizationId: ctx.organizationId, recordId: sync.recordId })
+        await dispatchWorkflowEvent(
+          { type: 'record.created', organizationId: ctx.organizationId, recordId: sync.recordId },
+          { client: supabase, userId: ctx.userId },
+        )
         summary.created++
+      } else if (sync.changedFields.length > 0) {
+        await dispatchWorkflowEvent(
+          { type: 'record.updated', organizationId: ctx.organizationId, recordId: sync.recordId, changedFields: sync.changedFields },
+          { client: supabase, userId: ctx.userId },
+        )
       }
 
       // Milestone/status → pipeline movement (fires record.group_changed workflows).
-      const movedTo = await applyPipelineMovement(
+      const mv = await applyPipelineMovement(
         supabase, ctx, sync.recordId,
         { board_id: sync.boardId, group_id: sync.groupId }, normalized,
       )
-      if (movedTo) summary.moved++
+      if (mv.moved) summary.moved++
 
       await supabase
         .from('integration_events')

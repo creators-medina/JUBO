@@ -8,7 +8,7 @@ import {
   CheckSquare, Sunrise, TrendingUp, Plug, Settings, X, XCircle, Clock, Flag,
   ArrowRight, ArrowLeft, ArrowRightLeft, Circle, CircleDot, Zap, CheckCircle2,
   Activity, Link as LinkIcon, Archive, Copy, History, Workflow, RefreshCw,
-  ListChecks, Upload,
+  ListChecks, Upload, GitBranch,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCommandPalette } from '../providers/CommandPaletteProvider'
@@ -28,7 +28,7 @@ const ICONS: Record<string, React.ElementType> = {
   Search, Sparkles, FileText, Columns3, LayoutDashboard, Target, Bookmark,
   CheckSquare, Sunrise, TrendingUp, Plug, Settings, X, XCircle, Clock, Flag,
   ArrowRightLeft, Circle, CircleDot, Zap, CheckCircle2, Activity, Link: LinkIcon,
-  Archive, Copy, History, Workflow, RefreshCw, ListChecks, Upload,
+  Archive, Copy, History, Workflow, RefreshCw, ListChecks, Upload, GitBranch,
 }
 const IconFor = (name?: string): React.ElementType => (name && ICONS[name]) || Search
 
@@ -165,6 +165,7 @@ export function CommandPalette() {
               } catch { toast.error('Worker run failed') }
             }
           : undefined
+      case 'open-stage-mapping':   return () => { router.push('/settings/integrations/stage-mapping'); close() }
       case 'customize-dashboard':  return () => { router.push('/dashboard'); close() }
       case 'run-workflow-scans':
         return currentOrganization

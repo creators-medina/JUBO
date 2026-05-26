@@ -82,6 +82,17 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     ],
     enabledByDefault: true,
   },
+  {
+    id: 'synced-record-updated',
+    title: 'Synced Record Updated',
+    description: 'When an integration updates an existing record, log a system activity for traceability.',
+    trigger: 'record.updated',
+    conditions: [{ kind: 'always' }],
+    actions: [
+      { kind: 'log_activity', content: 'Record updated from a connected system.' },
+    ],
+    enabledByDefault: true,
+  },
 ]
 
 export function templateById(id: string): WorkflowTemplate | undefined {

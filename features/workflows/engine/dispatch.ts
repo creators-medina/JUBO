@@ -14,11 +14,25 @@ import type { WorkflowEvent, WorkflowRecordSnapshot, WorkflowRow } from '../type
 // Loop safety: workflow actions use direct inserts / dedicated RPCs and never
 // re-dispatch events. This module is the ONLY producer of executions.
 
-export async function dispatchWorkflowEvent(event: WorkflowEvent): Promise<void> {
+// ctx lets callers inject a client + acting user. Headless/system callers
+// (the cron worker, using the service-role admin client) pass both, so the
+// engine runs without auth.uid(). Without ctx, behaves exactly as before:
+// SSR client + the current authenticated user.
+export type DispatchContext = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client?: any
+  userId?: string | null
+}
+
+export async function dispatchWorkflowEvent(event: WorkflowEvent, ctx?: DispatchContext): Promise<void> {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const supabase = ctx?.client ?? await createClient()
+    let userId = ctx?.userId ?? null
+    if (!userId) {
+      const { data: { user } } = await supabase.auth.getUser()
+      userId = user?.id ?? null
+    }
+    if (!userId) return // generated items need an owner
 
     // Load enabled workflows matching the trigger
     const { data: workflows } = await supabase
@@ -35,7 +49,7 @@ export async function dispatchWorkflowEvent(event: WorkflowEvent): Promise<void>
 
     for (const wf of workflows as WorkflowRow[]) {
       // eslint-disable-next-line no-await-in-loop
-      await runWorkflow(wf, event, record, user.id, supabase)
+      await runWorkflow(wf, event, record, userId, supabase)
     }
   } catch (err) {
     // Best-effort: a workflow failure must never break the user's primary action

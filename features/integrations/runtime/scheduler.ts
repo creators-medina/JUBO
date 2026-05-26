@@ -49,11 +49,12 @@ export async function runPreapprovalScan(supabase: SupabaseClient, ctx: SystemEx
     // Daily action (dedupe by user+date+title).
     const { data: existingDA } = await supabase
       .from('daily_actions').select('id').eq('user_id', ctx.userId).eq('due_date', todayISO()).eq('title', title).limit(1)
-    if (!existingDA || existingDA.length === 0) {
+    if ((!existingDA || existingDA.length === 0) && ctx.userId) {
       await supabase.rpc('create_daily_action', {
         p_organization_id: ctx.organizationId, p_title: title, p_description: null,
         p_priority: 'high', p_due_date: todayISO(), p_action_type: 'attention',
         p_source: 'workflow', p_production_goal_id: null, p_record_id: rec.id, p_task_id: null,
+        p_user_id: ctx.userId,
       }).then(() => { created++ }, () => {})
     }
 
@@ -75,12 +76,16 @@ export async function runPreapprovalScan(supabase: SupabaseClient, ctx: SystemEx
 export async function runScheduledJobs(supabase: SupabaseClient, ctx: SystemExecutionContext): Promise<JobResult[]> {
   const results: JobResult[] = []
 
-  // Stale-record + overdue-next-action scans (Phase 14), throttled internally.
-  try {
-    const { scanned } = await runWorkflowScans(ctx.organizationId, { throttleMinutes: 30 })
-    results.push({ key: 'workflow_scans', ran: true, detail: `${scanned} scanned` })
-  } catch {
-    results.push({ key: 'workflow_scans', ran: false })
+  // Stale-record + overdue-next-action scans (Phase 14). These dispatch workflows
+  // through their own SSR client, so they only execute under an authenticated
+  // session; skip in headless (cron) runs where there's no auth.uid().
+  if (ctx.actorType === 'user') {
+    try {
+      const { scanned } = await runWorkflowScans(ctx.organizationId, { throttleMinutes: 30 })
+      results.push({ key: 'workflow_scans', ran: true, detail: `${scanned} scanned` })
+    } catch {
+      results.push({ key: 'workflow_scans', ran: false })
+    }
   }
 
   // Preapproval expiration automation.

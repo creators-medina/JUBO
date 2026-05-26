@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/integration-worker",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}

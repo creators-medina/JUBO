@@ -28,6 +28,7 @@ export type RecordSyncResult = {
   boardId: string
   groupId: string | null
   matchedOn: string | null
+  changedFields: string[]
 }
 
 export async function syncRecordFromEvent(
@@ -124,15 +125,17 @@ export async function syncRecordFromEvent(
 
   // 4. Field values (coerced by field type, upserted).
   const fvInserts: Record<string, unknown>[] = []
+  const changedFields: string[] = []
   for (const { slug, raw } of normalizedFieldInputs(ev)) {
     const field = fieldBySlug.get(slug)
     if (!field) continue
     const patch = coerceValue(raw, field.field_type)
-    if (patch) fvInserts.push({ field_id: field.id, record_id: recordId, ...patch })
+    if (patch) { fvInserts.push({ field_id: field.id, record_id: recordId, ...patch }); changedFields.push(slug) }
   }
   if (fvInserts.length > 0) {
     await supabase.from('field_values').upsert(fvInserts, { onConflict: 'field_id,record_id' })
   }
+  if (!created && title) changedFields.push('title')
 
-  return { recordId: recordId as string, created, boardId: board.id, groupId, matchedOn }
+  return { recordId: recordId as string, created, boardId: board.id, groupId, matchedOn, changedFields }
 }

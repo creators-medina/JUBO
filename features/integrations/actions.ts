@@ -67,7 +67,7 @@ export async function deleteConnection(connectionId: string): Promise<void> {
 
 async function ctxFor(organizationId: string): Promise<SystemExecutionContext> {
   const { user } = await requireUser()
-  return { organizationId, userId: user.id, source: 'integration' }
+  return { organizationId, userId: user.id, actorType: 'user', source: 'manual' }
 }
 
 /** Run the async worker + scheduler now (manual / Today drain). */
@@ -145,4 +145,44 @@ export async function setEventIgnored(eventId: string): Promise<void> {
   const { supabase } = await requireUser()
   await supabase.from('integration_events').update({ status: 'ignored' }).eq('id', eventId)
   revalidatePath('/settings/integrations')
+}
+
+// ── Stage mapping management ──────────────────────────────────────────────────
+export async function seedStageMappings(organizationId: string): Promise<void> {
+  const { supabase } = await requireUser()
+  const { defaultSeedRows } = await import('./runtime/stageMapping')
+  await supabase
+    .from('integration_stage_mappings')
+    .upsert(defaultSeedRows(organizationId), { onConflict: 'organization_id,keyword' })
+  revalidatePath('/settings/integrations/stage-mapping')
+}
+
+export async function upsertStageMapping(input: {
+  organizationId: string
+  id?: string
+  keyword: string
+  board_slug: string
+  group_name: string
+  stage_order: number
+  enabled: boolean
+}): Promise<void> {
+  const { supabase } = await requireUser()
+  const row = {
+    organization_id: input.organizationId, keyword: input.keyword.trim().toLowerCase(),
+    board_slug: input.board_slug, group_name: input.group_name, stage_order: input.stage_order, enabled: input.enabled,
+  }
+  await supabase.from('integration_stage_mappings').upsert(row, { onConflict: 'organization_id,keyword' })
+  revalidatePath('/settings/integrations/stage-mapping')
+}
+
+export async function setStageMappingEnabled(id: string, enabled: boolean): Promise<void> {
+  const { supabase } = await requireUser()
+  await supabase.from('integration_stage_mappings').update({ enabled }).eq('id', id)
+  revalidatePath('/settings/integrations/stage-mapping')
+}
+
+export async function deleteStageMapping(id: string): Promise<void> {
+  const { supabase } = await requireUser()
+  await supabase.from('integration_stage_mappings').delete().eq('id', id)
+  revalidatePath('/settings/integrations/stage-mapping')
 }

@@ -33,11 +33,13 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/signup");
 
-  // Inbound integration webhooks authenticate via their own secret token, not a
-  // user session — they must never be redirected to /login.
-  const isPublicWebhook = request.nextUrl.pathname.startsWith("/api/webhooks");
+  // Inbound webhooks (secret token) and the cron worker (CRON_SECRET) authenticate
+  // themselves — they have no user session and must never be redirected to /login.
+  const isPublicApi =
+    request.nextUrl.pathname.startsWith("/api/webhooks") ||
+    request.nextUrl.pathname.startsWith("/api/cron");
 
-  if (!user && !isAuthRoute && !isPublicWebhook) {
+  if (!user && !isAuthRoute && !isPublicApi) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

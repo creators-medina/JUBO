@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getConnections, getRecentEvents } from '@/features/integrations/queries'
+import { getConnections, getRecentEvents, getWorkerRuns } from '@/features/integrations/queries'
 import { IntegrationsClient } from '@/features/integrations/setup/IntegrationsClient'
 
 export const dynamic = 'force-dynamic'
@@ -19,10 +19,11 @@ export default async function SettingsIntegrationsPage() {
   if (!membership) redirect('/onboarding')
 
   const orgId = membership.organization_id
-  const [connections, events] = await Promise.all([
+  const [connections, events, workerRuns] = await Promise.all([
     getConnections(orgId),
     getRecentEvents(orgId),
+    getWorkerRuns(orgId),
   ])
 
-  return <IntegrationsClient organizationId={orgId} connections={connections} events={events} />
+  return <IntegrationsClient organizationId={orgId} connections={connections} events={events} workerRuns={workerRuns} />
 }

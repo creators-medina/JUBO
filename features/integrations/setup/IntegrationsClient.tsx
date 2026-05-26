@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import {
   Plug, Plus, Copy, Check, RefreshCw, Eye, EyeOff, Play, Pause, Trash2,
-  CheckCircle2, XCircle, Clock, ChevronDown, Zap, AlertTriangle,
+  CheckCircle2, XCircle, Clock, ChevronDown, Zap, AlertTriangle, GitBranch, Activity,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -11,7 +11,9 @@ import {
   createConnection, setConnectionStatus, rotateToken, deleteConnection, simulateEvent, retryEvent, setEventIgnored, runWorkerAction,
 } from '../actions'
 import { SAMPLE_ARIVE_PAYLOAD } from '../providers/sample'
+import Link from 'next/link'
 import type { IntegrationConnectionRow, IntegrationEventRow, ProviderId, ProcessResult } from '../types'
+import type { WorkerRunRow } from '../queries'
 
 const PROVIDER_LABEL: Record<string, string> = {
   arive_zapier: 'Arive (via Zapier)', custom_webhook: 'Custom Webhook',
@@ -19,11 +21,12 @@ const PROVIDER_LABEL: Record<string, string> = {
 function pathSegment(provider: string) { return provider.startsWith('arive') ? 'arive' : 'custom' }
 
 export function IntegrationsClient({
-  organizationId, connections, events,
+  organizationId, connections, events, workerRuns = [],
 }: {
   organizationId: string
   connections: IntegrationConnectionRow[]
   events: IntegrationEventRow[]
+  workerRuns?: WorkerRunRow[]
 }) {
   const [origin, setOrigin] = useState('')
   useEffect(() => { setOrigin(window.location.origin) }, [])
@@ -43,7 +46,11 @@ export function IntegrationsClient({
           </div>
           <p className="mt-1 text-xs text-muted-foreground">Connect external systems so Jubo stays live with your business.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <Link href="/settings/integrations/stage-mapping"
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+            <GitBranch className="h-4 w-4" /> Stage mapping
+          </Link>
           <Button className="gap-1.5" disabled={pending} onClick={() => createArive('arive_zapier', 'Arive (via Zapier)')}>
             <Plus className="h-4 w-4" /> Connect Arive
           </Button>
@@ -68,9 +75,40 @@ export function IntegrationsClient({
           </section>
         )}
 
+        <WorkerRunsPanel runs={workerRuns} />
         <EventLog events={events} organizationId={organizationId} />
       </div>
     </div>
+  )
+}
+
+function WorkerRunsPanel({ runs }: { runs: WorkerRunRow[] }) {
+  if (runs.length === 0) return null
+  const last = runs[0]
+  return (
+    <section>
+      <h2 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <Activity className="h-3.5 w-3.5" /> Worker runs
+      </h2>
+      <div className="mb-2 rounded-lg border border-border bg-surface-1 px-4 py-2 text-xs text-muted-foreground">
+        Last run {new Date(last.started_at).toLocaleString()} · {last.status}
+        {last.duration_ms != null && ` · ${last.duration_ms}ms`}
+      </div>
+      <div className="overflow-hidden rounded-xl border border-border divide-y divide-border">
+        {runs.map((r) => {
+          const s = (r.summary ?? {}) as { processed?: number; created?: number; moved?: number; failed?: number }
+          return (
+            <div key={r.id} className="flex items-center gap-3 px-4 py-2 text-2xs">
+              <span className={cn('rounded px-1.5 py-0.5 font-medium', r.status === 'completed' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400')}>{r.worker_type}</span>
+              <span className="text-muted-foreground">{new Date(r.started_at).toLocaleString()}</span>
+              <span className="ml-auto text-muted-foreground">
+                {s.processed ?? 0} processed · {s.created ?? 0} created · {s.moved ?? 0} moved{s.failed ? ` · ${s.failed} failed` : ''}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 

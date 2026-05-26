@@ -43,7 +43,7 @@ export default async function TodayPage() {
   try {
     const { runIntegrationWorker } = await import('@/features/integrations/runtime/worker')
     const { runScheduledJobs } = await import('@/features/integrations/runtime/scheduler')
-    const ctx = { organizationId: orgId, userId: user.id, source: 'scheduler' as const }
+    const ctx = { organizationId: orgId, userId: user.id, actorType: 'user' as const, source: 'scheduler' as const }
     await runIntegrationWorker(supabase as never, ctx, { limit: 25 })
     await runScheduledJobs(supabase as never, ctx)
   } catch { /* silent — runtime is best-effort */ }
