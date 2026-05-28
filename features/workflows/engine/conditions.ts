@@ -31,6 +31,9 @@ export async function evaluateCondition(
     case 'no_next_action':
       return !record || !record.next_action || !!record.next_action_completed_at
 
+    case 'comm_outcome_in':
+      return !!event.commOutcome && cond.values.includes(event.commOutcome)
+
     case 'no_activity_days': {
       if (!record) return false
       const cutoff = new Date()

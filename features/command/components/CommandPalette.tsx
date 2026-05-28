@@ -8,7 +8,7 @@ import {
   CheckSquare, Sunrise, TrendingUp, Plug, Settings, X, XCircle, Clock, Flag,
   ArrowRight, ArrowLeft, ArrowRightLeft, Circle, CircleDot, Zap, CheckCircle2,
   Activity, Link as LinkIcon, Archive, Copy, History, Workflow, RefreshCw,
-  ListChecks, Upload, GitBranch,
+  ListChecks, Upload, GitBranch, Phone, PhoneOff, Mail, MessageSquare, Calendar,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCommandPalette } from '../providers/CommandPaletteProvider'
@@ -29,6 +29,7 @@ const ICONS: Record<string, React.ElementType> = {
   CheckSquare, Sunrise, TrendingUp, Plug, Settings, X, XCircle, Clock, Flag,
   ArrowRightLeft, Circle, CircleDot, Zap, CheckCircle2, Activity, Link: LinkIcon,
   Archive, Copy, History, Workflow, RefreshCw, ListChecks, Upload, GitBranch,
+  Phone, PhoneOff, Mail, MessageSquare, Calendar,
 }
 const IconFor = (name?: string): React.ElementType => (name && ICONS[name]) || Search
 
@@ -186,6 +187,32 @@ export function CommandPalette() {
                 await scheduleFollowUp(activeRecordId, 2)
                 toast.success('Follow-up scheduled in 2 days')
               } catch { toast.error('Could not schedule follow-up') }
+            }
+          : undefined
+      case 'log-connected-call':
+      case 'log-no-answer':
+        return activeRecordId
+          ? async () => {
+              close()
+              try {
+                const { quickCallOutcome } = await import('@/features/communications/actions')
+                await quickCallOutcome(activeRecordId, id === 'log-connected-call' ? 'connected' : 'no_answer')
+                toast.success(id === 'log-connected-call' ? 'Logged connected call' : 'Logged no answer')
+              } catch { toast.error('Could not log call') }
+            }
+          : undefined
+      case 'log-email':
+      case 'log-sms':
+      case 'log-meeting':
+        return activeRecordId
+          ? async () => {
+              close()
+              try {
+                const { logCommunication } = await import('@/features/communications/actions')
+                const channel = id === 'log-email' ? 'email' : id === 'log-sms' ? 'sms' : 'meeting'
+                await logCommunication({ recordId: activeRecordId, channel })
+                toast.success(`Logged ${channel}`)
+              } catch { toast.error('Could not log communication') }
             }
           : undefined
       case 'close-active-workspace':

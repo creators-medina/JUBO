@@ -7,6 +7,8 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { daysSinceLastTouch, daysUntil, dateValue, numberValue, textValue } from '../data'
+import { getCommunicationCounts, getLastContactedAt } from '@/features/communications/metrics'
+import type { CommunicationLog } from '@/features/communications/types'
 import type { MortgageData, OpportunitySignal, WorkspaceTemplateKey } from '../types'
 
 const HIGH_VALUE_LOAN = 600_000
@@ -80,6 +82,26 @@ export function computeOpportunitySignals(data: MortgageData, template: Workspac
     const refs = numberValue(data, 'referrals_ytd')
     if (refs && refs >= 3) {
       out.push({ key: 'top_referrer', level: 'positive', icon: 'Award', label: 'Active referrer', detail: `${refs} referrals YTD` })
+    }
+  }
+
+  // ── Communication-derived signals ──────────────────────────────────────────
+  const logs = (data.communications ?? []) as unknown as CommunicationLog[]
+  if (logs.length > 0) {
+    const counts = getCommunicationCounts(logs)
+    if (counts.noAnswerStreak >= 2) {
+      out.push({ key: 'multiple_no_answer', level: 'warning', icon: 'PhoneOff', label: 'Multiple no-answers', detail: `${counts.noAnswerStreak} attempts in a row` })
+    }
+    // Follow-up promised and now due/overdue.
+    const dueFollowUp = logs.some((l) => l.follow_up_at && (daysUntil(l.follow_up_at) ?? 1) <= 0)
+    if (dueFollowUp) {
+      out.push({ key: 'followup_due', level: 'warning', icon: 'CalendarClock', label: 'Follow-up due', detail: 'from a logged call' })
+    }
+    // Contacted but nothing scheduled next.
+    const hasNext = data.record?.next_action && !data.record?.next_action_completed_at
+    const hasFutureFollowUp = logs.some((l) => l.follow_up_at && (daysUntil(l.follow_up_at) ?? -1) > 0)
+    if (getLastContactedAt(logs) && !hasNext && !hasFutureFollowUp && (template === 'lead' || template === 'loan')) {
+      out.push({ key: 'no_followup_set', level: 'info', icon: 'BellOff', label: 'No follow-up set', detail: 'contacted, nothing scheduled' })
     }
   }
 

@@ -30,6 +30,11 @@ export type QuickActionId =
   | 'run-integration-worker'
   | 'open-stage-mapping'
   | 'schedule-followup'
+  | 'log-connected-call'
+  | 'log-no-answer'
+  | 'log-email'
+  | 'log-sms'
+  | 'log-meeting'
   | 'customize-dashboard'
   | 'close-active-workspace'
   | 'close-all-workspaces'
@@ -72,6 +77,11 @@ export const QUICK_ACTIONS: QuickActionDef[] = [
 
   // Record operations (act on the open workspace record)
   { id: 'schedule-followup',    title: 'Schedule Follow-Up',    iconName: 'Clock',           group: 'Record',      keywords: ['follow up', 'followup', 'next action', 'remind', 'schedule'] },
+  { id: 'log-connected-call',   title: 'Log Connected Call',    iconName: 'Phone',           group: 'Record',      keywords: ['log', 'call', 'connected', 'communication'] },
+  { id: 'log-no-answer',        title: 'Log No Answer',         iconName: 'PhoneOff',        group: 'Record',      keywords: ['log', 'call', 'no answer', 'missed'] },
+  { id: 'log-email',            title: 'Log Email',             iconName: 'Mail',            group: 'Record',      keywords: ['log', 'email', 'communication'] },
+  { id: 'log-sms',              title: 'Log SMS',               iconName: 'MessageSquare',   group: 'Record',      keywords: ['log', 'sms', 'text', 'communication'] },
+  { id: 'log-meeting',          title: 'Log Meeting',           iconName: 'Calendar',        group: 'Record',      keywords: ['log', 'meeting', 'communication'] },
 
   // Workspace controls
   { id: 'close-active-workspace', title: 'Close Active Workspace', iconName: 'X',         group: 'Workspace',   keywords: ['close', 'esc'] },

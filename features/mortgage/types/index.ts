@@ -20,6 +20,7 @@ export type MortgageData = {
   movements: AnyRow[]
   notes: AnyRow[]
   groups: AnyRow[]
+  communications?: AnyRow[]
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

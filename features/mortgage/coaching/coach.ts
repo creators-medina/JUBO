@@ -15,9 +15,10 @@ export function buildCoaching(input: {
   paces: PaceLite[]
   staleCount: number
   attentionViews: AttentionLite[]
+  followUpsDue?: number
 }): CoachLine[] {
   const lines: CoachLine[] = []
-  const { summary, paces, staleCount, attentionViews } = input
+  const { summary, paces, staleCount, attentionViews, followUpsDue = 0 } = input
 
   // 1. Headline pace read.
   const behind = paces.filter((p) => p.status === 'behind')
@@ -31,7 +32,12 @@ export function buildCoaching(input: {
     lines.push({ tone: 'info', icon: 'Target', text: `On pace across ${paces.length} goal${paces.length === 1 ? '' : 's'} — stay consistent.` })
   }
 
-  // 2. Attention load.
+  // 2. Follow-ups due from logged communication.
+  if (followUpsDue > 0) {
+    lines.push({ tone: 'warn', icon: 'CalendarClock', text: `You have ${followUpsDue} follow-up${followUpsDue === 1 ? '' : 's'} due from recent calls.` })
+  }
+
+  // 3. Attention load.
   const attention = attentionViews.reduce((n, v) => n + (v.count ?? 0), 0)
   if (attention > 0) {
     lines.push({ tone: 'warn', icon: 'AlertTriangle', text: `${attention} item${attention === 1 ? '' : 's'} need${attention === 1 ? 's' : ''} attention.` })

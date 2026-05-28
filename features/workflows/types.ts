@@ -14,6 +14,7 @@ export type WorkflowTriggerType =
   | 'record.group_changed'
   | 'no_activity_detected'
   | 'next_action_overdue'
+  | 'communication.logged'
 
 // The event payload dispatched into the engine.
 export type WorkflowEvent = {
@@ -27,6 +28,11 @@ export type WorkflowEvent = {
   toGroupName?: string | null
   // record.updated: which field slugs changed materially (for payload/audit)
   changedFields?: string[]
+  // communication.logged context
+  commChannel?: string
+  commDirection?: string
+  commOutcome?: string
+  commFollowUpAt?: string | null
 }
 
 // Minimal record shape the engine reads (kept small + generic).
@@ -56,6 +62,7 @@ export type WorkflowCondition =
   | { kind: 'board_type_equals'; value: string }
   | { kind: 'no_next_action' }
   | { kind: 'no_activity_days'; days: number }
+  | { kind: 'comm_outcome_in'; values: string[] }
 
 // ── Actions ────────────────────────────────────────────────────────────────────
 

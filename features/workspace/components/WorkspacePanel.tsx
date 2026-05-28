@@ -17,6 +17,8 @@ import { WorkspaceTasks } from './WorkspaceTasks'
 import { useWorkspaceKeyboard } from '../hooks/useWorkspaceKeyboard'
 import { MortgageWorkspace, hasMortgageTemplate } from '@/features/mortgage/workspaces/MortgageWorkspace'
 import { WorkspaceHeaderMeta } from '@/features/mortgage/workspaces/WorkspaceHeaderMeta'
+import { CommunicationActions } from '@/features/communications/components/CommunicationActions'
+import { LastContactCard } from '@/features/communications/components/LastContactCard'
 import type { WorkspaceTabKey, NoteRow, TimelineItem } from '../types'
 import { WORKSPACE_TABS, WORKSPACE_TAB_LABELS } from '../types'
 
@@ -32,6 +34,7 @@ const TAB_ICONS: Record<WorkspaceTabKey, React.ElementType> = {
 type Loaded = {
   record: any
   board: any
+  communications: any[]
   fields: any[]
   fieldValues: any[]
   activities: any[]
@@ -94,7 +97,7 @@ function WorkspaceContent({
       const currentUserId = userRes.data.user?.id ?? null
       if (!record) { setData(null); setLoading(false); return }
 
-      const [fieldsRes, fvRes, aRes, tRes, mRes, gRes, nRes, bRes] = await Promise.all([
+      const [fieldsRes, fvRes, aRes, tRes, mRes, gRes, nRes, bRes, cRes] = await Promise.all([
         supabase.from('fields').select('*').eq('board_id', record.board_id).order('position'),
         supabase.from('field_values').select('*').eq('record_id', recordId),
         supabase.from('activities').select('*').eq('record_id', recordId).order('created_at', { ascending: false }).limit(40),
@@ -103,6 +106,7 @@ function WorkspaceContent({
         supabase.from('board_groups').select('*').eq('board_id', record.board_id).eq('is_archived', false).order('position'),
         supabase.from('notes').select('*').eq('record_id', recordId).order('created_at', { ascending: false }),
         supabase.from('boards').select('id, name, slug, board_type').eq('id', record.board_id).single(),
+        supabase.from('communication_logs').select('*').eq('record_id', recordId).order('occurred_at', { ascending: false }),
       ])
 
       // Resolve actor names from activities + tasks + notes + movements
@@ -128,6 +132,7 @@ function WorkspaceContent({
       setData({
         record,
         board: bRes.data ?? null,
+        communications: cRes.data ?? [],
         fields: fieldsRes.data ?? [],
         fieldValues: fvRes.data ?? [],
         activities: aRes.data ?? [],
@@ -332,6 +337,9 @@ function WorkspaceContent({
           <aside className="hidden lg:flex flex-col overflow-y-auto border-l border-border bg-surface-1/30 p-4 gap-4">
             {data && (
               <>
+                <CommunicationActions recordId={recordId} onChanged={load} />
+                <LastContactCard logs={data.communications} />
+
                 <NextActionCard
                   recordId={recordId}
                   nextAction={data.record.next_action ?? null}

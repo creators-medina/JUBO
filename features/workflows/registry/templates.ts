@@ -93,6 +93,28 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     ],
     enabledByDefault: true,
   },
+  {
+    id: 'call-no-answer-followup',
+    title: 'Missed Call Follow-Up',
+    description: 'When a call is logged as no-answer or voicemail, set a next action to try again.',
+    trigger: 'communication.logged',
+    conditions: [{ kind: 'comm_outcome_in', values: ['no_answer', 'voicemail'] }, { kind: 'no_next_action' }],
+    actions: [
+      { kind: 'set_next_action', label: 'Call back {record}', dueInDays: 1 },
+    ],
+    enabledByDefault: true,
+  },
+  {
+    id: 'comm-follow-up-needed',
+    title: 'Follow-Up Needed',
+    description: 'When a communication is flagged follow-up-needed, surface a daily action so it does not slip.',
+    trigger: 'communication.logged',
+    conditions: [{ kind: 'comm_outcome_in', values: ['follow_up_needed'] }],
+    actions: [
+      { kind: 'create_daily_action', title: 'Follow up with {record}', priority: 'high' },
+    ],
+    enabledByDefault: true,
+  },
 ]
 
 export function templateById(id: string): WorkflowTemplate | undefined {

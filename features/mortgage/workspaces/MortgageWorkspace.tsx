@@ -12,6 +12,8 @@ import {
 import {
   markContacted, scheduleFollowUp, advanceMilestone, addPartnerTouch, createAnniversaryReminder,
 } from '../actions'
+import { RecentCommunications } from '@/features/communications/components/RecentCommunications'
+import type { CommunicationLog } from '@/features/communications/types'
 import type { MortgageData, SectionKey } from '../types'
 
 /** Returns true when this record has a mortgage-specific template (not generic). */
@@ -36,10 +38,13 @@ export function MortgageWorkspace({ data, onChanged }: { data: MortgageData; onC
     }
   }
 
+  const comms = (data.communications ?? []) as unknown as CommunicationLog[]
+
   return (
     <div className="space-y-4">
       <QuickActions data={data} templateKey={template.key} onChanged={onChanged} />
       {template.sections.map(renderSection)}
+      {comms.length > 0 && <RecentCommunications logs={comms} />}
     </div>
   )
 }

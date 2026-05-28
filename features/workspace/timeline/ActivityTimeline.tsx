@@ -127,6 +127,10 @@ function TimelineRow({ item }: { item: TimelineItem }) {
   const accent = ACTIVITY_COLOR[item.activity_type] ?? 'text-muted-foreground bg-surface-2'
   const verb = ACTIVITY_VERB[item.activity_type] ?? item.activity_type.replace('_', ' ')
 
+  // Communication-derived activities carry direction/outcome in metadata.
+  const meta = item.metadata as { direction?: string; outcome?: string; follow_up_at?: string | null } | undefined
+  const outcome = meta?.outcome as string | undefined
+
   return (
     <div className="flex gap-3 py-1.5 group">
       <span className={cn('mt-0.5 w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0', accent)}>
@@ -138,6 +142,18 @@ function TimelineRow({ item }: { item: TimelineItem }) {
             {item.actor_name ?? 'System'}
           </span>
           <span className="text-xs text-muted-foreground">{verb}</span>
+          {meta?.direction && (
+            <span className="rounded bg-surface-2 px-1 py-0 text-2xs capitalize text-muted-foreground">{meta.direction}</span>
+          )}
+          {outcome && (
+            <span className={cn('rounded px-1 py-0 text-2xs',
+              outcome === 'connected' || outcome === 'completed' ? 'bg-emerald-500/15 text-emerald-300'
+              : outcome === 'follow_up_needed' ? 'bg-amber-500/15 text-amber-300'
+              : 'bg-surface-2 text-muted-foreground')}>
+              {outcome.replace(/_/g, ' ')}
+            </span>
+          )}
+          {meta?.follow_up_at && <span className="text-2xs text-amber-400">· follow-up set</span>}
           <span className="text-2xs text-muted-foreground/70 ml-auto tabular-nums">
             {formatDistanceToNow(item.timestamp)}
           </span>

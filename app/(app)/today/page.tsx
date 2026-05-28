@@ -15,6 +15,7 @@ import {
 } from '@/features/goals/calculations/engine'
 import { TodayPageClient } from '@/features/daily-actions/components/TodayPageClient'
 import { getSetupChecklist } from '@/features/onboarding/queries'
+import { getFollowUpsDueCount } from '@/features/communications/queries'
 import type { DailyMetricPace } from '@/features/daily-actions/types'
 
 export const dynamic = 'force-dynamic'
@@ -147,6 +148,7 @@ export default async function TodayPage() {
 
   const streak = await getStreakData(user.id, today)
   const setupChecklist = await getSetupChecklist(orgId)
+  const followUpsDue = await getFollowUpsDueCount(orgId)
 
   return (
     <TodayPageClient
@@ -163,6 +165,7 @@ export default async function TodayPage() {
       recordBoardMap={recordBoardMap}
       lastUpdatedAt={new Date().toISOString()}
       setupChecklist={setupChecklist}
+      followUpsDue={followUpsDue}
     />
   )
 }

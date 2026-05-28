@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Workflow, Zap, Clock, AlertTriangle, ArrowRightLeft, Plus, Play, RefreshCw, Check,
+  Workflow, Zap, Clock, AlertTriangle, ArrowRightLeft, Plus, Play, RefreshCw, Check, MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from '@/lib/date'
@@ -17,6 +17,7 @@ const TRIGGER_META: Record<WorkflowTriggerType, { label: string; icon: React.Ele
   'record.group_changed':  { label: 'Stage changes',      icon: ArrowRightLeft, color: 'text-violet-400' },
   'no_activity_detected':  { label: 'No activity',        icon: AlertTriangle, color: 'text-amber-400' },
   'next_action_overdue':   { label: 'Next action overdue', icon: Clock,        color: 'text-red-400' },
+  'communication.logged':  { label: 'Communication logged', icon: MessageSquare, color: 'text-blue-400' },
 }
 
 interface Props {
