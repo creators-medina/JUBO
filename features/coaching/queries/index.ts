@@ -4,6 +4,7 @@
 // org+user scoped via RLS. All business math is delegated to ../calculations.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { isConnect } from '@/features/communications/outcomes'
 import { getProductionGoals, getFunnelStages } from '@/features/goals/queries'
@@ -95,7 +96,10 @@ async function getPartnerHealth(supabase: SB, organizationId: string, baselines:
   })
 }
 
-export async function getCoachingSnapshot(organizationId: string, userId: string): Promise<CoachingSnapshot> {
+// Wrapped in React cache() so a single dashboard load (8 coaching widgets) +
+// Today compute the snapshot ONCE per request instead of 8+ times. Request-scoped:
+// auto-cleared between requests, so no stale-data or memory-leak risk.
+export const getCoachingSnapshot = cache(async (organizationId: string, userId: string): Promise<CoachingSnapshot> => {
   const supabase = await createClient()
   const baselines = await getResolvedBaselines(organizationId, userId)
 
@@ -187,7 +191,7 @@ export async function getCoachingSnapshot(organizationId: string, userId: string
     forecasts,
     variances: [],
   }
-}
+})
 
 /** Coach insights for Today + recaps. */
 export async function getCoachInsights(organizationId: string, userId: string) {

@@ -183,7 +183,8 @@ export function CommandPalette() {
               try {
                 const { quickCallOutcome } = await import('@/features/communications/actions')
                 const outcome = id === 'log-booked-appointment' ? 'booked_appointment' : id === 'log-interested' ? 'interested' : 'not_interested'
-                await quickCallOutcome(activeRecordId, outcome)
+                const res = await quickCallOutcome(activeRecordId, outcome)
+                if (res && 'error' in res) { toast.error('Could not log outcome'); return }
                 toast.success(id === 'log-booked-appointment' ? 'Logged booked appointment' : id === 'log-interested' ? 'Logged interested' : 'Logged not interested')
               } catch { toast.error('Could not log outcome') }
             }
@@ -194,7 +195,8 @@ export function CommandPalette() {
               close()
               try {
                 const { resolveRecordFollowUps } = await import('@/features/communications/actions')
-                await resolveRecordFollowUps(activeRecordId)
+                const res = await resolveRecordFollowUps(activeRecordId)
+                if (res && 'error' in res) { toast.error('Could not resolve follow-up'); return }
                 toast.success('Follow-up resolved')
               } catch { toast.error('Could not resolve follow-up') }
             }
@@ -250,7 +252,8 @@ export function CommandPalette() {
               close()
               try {
                 const { quickCallOutcome } = await import('@/features/communications/actions')
-                await quickCallOutcome(activeRecordId, id === 'log-connected-call' ? 'connected' : 'no_answer')
+                const res = await quickCallOutcome(activeRecordId, id === 'log-connected-call' ? 'connected' : 'no_answer')
+                if (res && 'error' in res) { toast.error('Could not log call'); return }
                 toast.success(id === 'log-connected-call' ? 'Logged connected call' : 'Logged no answer')
               } catch { toast.error('Could not log call') }
             }
@@ -264,7 +267,8 @@ export function CommandPalette() {
               try {
                 const { logCommunication } = await import('@/features/communications/actions')
                 const channel = id === 'log-email' ? 'email' : id === 'log-sms' ? 'sms' : 'meeting'
-                await logCommunication({ recordId: activeRecordId, channel })
+                const res = await logCommunication({ recordId: activeRecordId, channel })
+                if (res && 'error' in res) { toast.error('Could not log communication'); return }
                 toast.success(`Logged ${channel}`)
               } catch { toast.error('Could not log communication') }
             }

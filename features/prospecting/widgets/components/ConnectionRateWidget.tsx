@@ -30,7 +30,7 @@ export function ConnectionRateWidget({ data }: { data: ConnectionRateData }) {
 
 function Stat({ label, rate, sub, accent }: { label: string; rate: number; sub: string; accent: string }) {
   return (
-    <div className="flex flex-col justify-center gap-0.5 rounded-md bg-surface-1 px-3 py-2">
+    <div className="flex flex-col justify-center gap-0.5 rounded-md bg-surface-1 px-2 py-1.5">
       <p className="text-2xs uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className={cn('text-2xl font-semibold tabular-nums', accent)}>{Math.round(rate * 100)}%</p>
       <p className="text-2xs text-muted-foreground">{sub}</p>

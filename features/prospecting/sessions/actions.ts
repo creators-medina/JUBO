@@ -42,6 +42,7 @@ export async function startProspectingSession(organizationId: string, targetCall
     .single()
   if (error || !data) throw new Error(error?.message ?? 'Could not start session')
   revalidatePath('/prospecting')
+  revalidatePath('/dashboard')
   return { id: data.id }
 }
 
@@ -49,6 +50,7 @@ export async function endProspectingSession(sessionId: string): Promise<void> {
   await requireUser()
   await closeSession(sessionId)
   revalidatePath('/prospecting')
+  revalidatePath('/dashboard')
 }
 
 /** End the caller's currently-open session (if any) — used from the palette. */
@@ -57,4 +59,5 @@ export async function endActiveProspectingSession(organizationId: string): Promi
   const open = await getActiveSession(organizationId, user.id)
   if (open) await closeSession(open.id)
   revalidatePath('/prospecting')
+  revalidatePath('/dashboard')
 }

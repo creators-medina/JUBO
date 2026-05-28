@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, AlertCircle, Info, X, Undo2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -30,8 +30,11 @@ const DEFAULT_DURATION = 3200
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
   const idRef = useRef(0)
+  const timersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
 
   const dismiss = useCallback((id: number) => {
+    const tm = timersRef.current.get(id)
+    if (tm) { clearTimeout(tm); timersRef.current.delete(id) }
     setToasts(prev => prev.filter(t => t.id !== id))
   }, [])
 
@@ -46,9 +49,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     }
     setToasts(prev => [...prev.slice(-3), t])   // cap visible stack at 4
     if (t.durationMs > 0) {
-      setTimeout(() => dismiss(id), t.durationMs)
+      timersRef.current.set(id, setTimeout(() => dismiss(id), t.durationMs))
     }
   }, [dismiss])
+
+  // Clear any pending timers on unmount.
+  useEffect(() => {
+    const timers = timersRef.current
+    return () => { timers.forEach((tm) => clearTimeout(tm)); timers.clear() }
+  }, [])
 
   const value = useMemo<Ctx>(() => ({
     toast,

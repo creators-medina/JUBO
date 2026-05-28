@@ -74,6 +74,9 @@ export function ProspectingCockpit({
   const { openWorkspace } = useWorkspaceTabs()
   const [pending, startTransition] = useTransition()
   const [worked, setWorked] = useState<Set<string>>(new Set())
+  // Synchronous mirror of `worked` so rapid double-presses (or Enter on a
+  // focused outcome button + the keydown handler) can't double-log a lead.
+  const workedRef = useRef<Set<string>>(new Set())
   const [bucket, setBucket] = useState<QueueBucketKey | 'all'>('all')
   const [selectedIndex, setSelectedIndex] = useState(0)
 
@@ -87,15 +90,25 @@ export function ProspectingCockpit({
   const sel = Math.min(selectedIndex, Math.max(0, visible.length - 1))
 
   const logOutcome = useCallback((recordId: string, outcome: CommunicationOutcome) => {
-    setWorked((s) => new Set(s).add(recordId))
-    toast.success(`Logged ${OUTCOME_LABEL[outcome]}`)
+    if (workedRef.current.has(recordId)) return   // already logged/skipped — no double-log
+    workedRef.current.add(recordId)
+    setWorked((s) => new Set(s).add(recordId))    // optimistic removal
     startTransition(async () => {
-      await quickCallOutcome(recordId, outcome)
+      const res = await quickCallOutcome(recordId, outcome)
+      if (res && 'error' in res) {
+        // Roll the optimistic removal back so the lead returns to the queue.
+        workedRef.current.delete(recordId)
+        setWorked((s) => { const n = new Set(s); n.delete(recordId); return n })
+        toast.error('Could not log outcome — try again.')
+        return
+      }
+      toast.success(`Logged ${OUTCOME_LABEL[outcome]}`)
       router.refresh()
     })
   }, [router, toast, startTransition])
 
   const skip = useCallback((recordId: string) => {
+    workedRef.current.add(recordId)
     setWorked((s) => new Set(s).add(recordId))
   }, [])
 
@@ -103,6 +116,7 @@ export function ProspectingCockpit({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.repeat) return   // holding a key must not fire repeatedly (no duplicate logs)
       const el = document.activeElement as HTMLElement | null
       const tag = el?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable) return

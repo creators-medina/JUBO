@@ -125,6 +125,8 @@ export async function logCommunication(input: LogCommunicationInput): Promise<{ 
   )
 
   revalidatePath('/today')
+  revalidatePath('/dashboard')
+  revalidatePath('/prospecting')
   if (record.board_id) revalidatePath(`/boards/${record.board_id}`)
   return { id: log.id }
 }
@@ -164,6 +166,7 @@ export async function resolveFollowUp(logId: string): Promise<{ ok: true } | { e
 
   revalidatePath('/today')
   revalidatePath('/prospecting')
+  revalidatePath('/dashboard')
   return { ok: true }
 }
 
@@ -179,5 +182,6 @@ export async function resolveRecordFollowUps(recordId: string): Promise<{ ok: tr
   if (error) return { error: error.message }
   revalidatePath('/today')
   revalidatePath('/prospecting')
+  revalidatePath('/dashboard')
   return { ok: true }
 }

@@ -42,7 +42,7 @@ export function PartnerHealthWidget({ data, onRecordClick }: { data: PartnerHeal
 
 function Pill({ label, value, accent }: { label: string; value: number; accent: string }) {
   return (
-    <div className="flex flex-col items-center gap-0.5 rounded-md bg-surface-1 px-1 py-1.5">
+    <div className="flex flex-col items-center gap-0.5 rounded-md bg-surface-1 px-2 py-1.5">
       <p className={cn('text-base font-semibold tabular-nums', accent)}>{value}</p>
       <p className="text-2xs text-muted-foreground">{label}</p>
     </div>
