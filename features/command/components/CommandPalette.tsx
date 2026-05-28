@@ -177,6 +177,17 @@ export function CommandPalette() {
               } catch { toast.error('Workflow scan failed') }
             }
           : undefined
+      case 'schedule-followup':
+        return activeRecordId
+          ? async () => {
+              close()
+              try {
+                const { scheduleFollowUp } = await import('@/features/mortgage/actions')
+                await scheduleFollowUp(activeRecordId, 2)
+                toast.success('Follow-up scheduled in 2 days')
+              } catch { toast.error('Could not schedule follow-up') }
+            }
+          : undefined
       case 'close-active-workspace':
         return activeRecordId ? () => { closeWorkspace(activeRecordId); close() } : undefined
       case 'close-all-workspaces':

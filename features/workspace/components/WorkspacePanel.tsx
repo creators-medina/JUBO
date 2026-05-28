@@ -15,6 +15,8 @@ import { NoteList } from '../notes/NoteList'
 import { NextActionCard } from './NextActionCard'
 import { WorkspaceTasks } from './WorkspaceTasks'
 import { useWorkspaceKeyboard } from '../hooks/useWorkspaceKeyboard'
+import { MortgageWorkspace, hasMortgageTemplate } from '@/features/mortgage/workspaces/MortgageWorkspace'
+import { WorkspaceHeaderMeta } from '@/features/mortgage/workspaces/WorkspaceHeaderMeta'
 import type { WorkspaceTabKey, NoteRow, TimelineItem } from '../types'
 import { WORKSPACE_TABS, WORKSPACE_TAB_LABELS } from '../types'
 
@@ -29,6 +31,7 @@ const TAB_ICONS: Record<WorkspaceTabKey, React.ElementType> = {
 
 type Loaded = {
   record: any
+  board: any
   fields: any[]
   fieldValues: any[]
   activities: any[]
@@ -91,7 +94,7 @@ function WorkspaceContent({
       const currentUserId = userRes.data.user?.id ?? null
       if (!record) { setData(null); setLoading(false); return }
 
-      const [fieldsRes, fvRes, aRes, tRes, mRes, gRes, nRes] = await Promise.all([
+      const [fieldsRes, fvRes, aRes, tRes, mRes, gRes, nRes, bRes] = await Promise.all([
         supabase.from('fields').select('*').eq('board_id', record.board_id).order('position'),
         supabase.from('field_values').select('*').eq('record_id', recordId),
         supabase.from('activities').select('*').eq('record_id', recordId).order('created_at', { ascending: false }).limit(40),
@@ -99,6 +102,7 @@ function WorkspaceContent({
         supabase.from('record_movements').select('*, from_group:from_group_id(name), to_group:to_group_id(name)').eq('record_id', recordId).order('created_at', { ascending: false }).limit(20),
         supabase.from('board_groups').select('*').eq('board_id', record.board_id).eq('is_archived', false).order('position'),
         supabase.from('notes').select('*').eq('record_id', recordId).order('created_at', { ascending: false }),
+        supabase.from('boards').select('id, name, slug, board_type').eq('id', record.board_id).single(),
       ])
 
       // Resolve actor names from activities + tasks + notes + movements
@@ -123,6 +127,7 @@ function WorkspaceContent({
 
       setData({
         record,
+        board: bRes.data ?? null,
         fields: fieldsRes.data ?? [],
         fieldValues: fvRes.data ?? [],
         activities: aRes.data ?? [],
@@ -221,6 +226,7 @@ function WorkspaceContent({
                   <span className="capitalize">{data.record.status}</span>
                 </>)}
               </p>
+              {data && <WorkspaceHeaderMeta data={data} />}
             </div>
           </div>
 
@@ -292,7 +298,9 @@ function WorkspaceContent({
             ) : (
               <>
                 {activeSubTab === 'overview' && (
-                  <OverviewView data={data} />
+                  hasMortgageTemplate(data)
+                    ? <MortgageWorkspace data={data} onChanged={load} />
+                    : <OverviewView data={data} />
                 )}
                 {activeSubTab === 'activity' && (
                   <ActivityTimeline items={timeline} emptyHint="No activity on this record yet." />

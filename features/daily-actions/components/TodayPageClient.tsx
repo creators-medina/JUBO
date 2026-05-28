@@ -23,6 +23,7 @@ import type { StreakData } from '../progress/streaks'
 import type { AttentionView } from '../attention/queries'
 import { SetupChecklist } from '@/features/onboarding/setup/SetupChecklist'
 import type { SetupChecklistItemRow } from '@/features/onboarding/types'
+import { CoachingStrip } from '@/features/mortgage/coaching/CoachingStrip'
 
 interface Props {
   organizationId: string
@@ -174,6 +175,14 @@ export function TodayPageClient({
         {setupChecklist && setupChecklist.some(i => !i.completed) && (
           <SetupChecklist items={setupChecklist} compact />
         )}
+
+        {/* Daily coaching — synthesizes pacing + attention + execution */}
+        <CoachingStrip
+          summary={{ total: summary.total, completed: summary.completed, open: summary.open, paceStatus: summary.paceStatus }}
+          paces={paces.map(p => ({ goal_name: p.goal_name, status: p.status, pace_percent: p.pace_percent, daily_target: p.daily_target }))}
+          staleCount={staleRecords.length}
+          attentionViews={attentionViews.map(v => ({ count: v.count }))}
+        />
 
         {/* Progress strip */}
         <section className="grid grid-cols-2 md:grid-cols-5 gap-3">

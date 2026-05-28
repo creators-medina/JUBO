@@ -29,6 +29,7 @@ export type QuickActionId =
   | 'view-integration-events'
   | 'run-integration-worker'
   | 'open-stage-mapping'
+  | 'schedule-followup'
   | 'customize-dashboard'
   | 'close-active-workspace'
   | 'close-all-workspaces'
@@ -68,6 +69,9 @@ export const QUICK_ACTIONS: QuickActionDef[] = [
   { id: 'run-integration-worker',  title: 'Process Integration Events', iconName: 'RefreshCw', group: 'System',    keywords: ['integration', 'worker', 'sync', 'process', 'drain', 'pending', 'arive'] },
   { id: 'open-stage-mapping',      title: 'Open Stage Mapping',    iconName: 'GitBranch',       group: 'Setup',       keywords: ['stage', 'mapping', 'pipeline', 'status', 'movement', 'integration'] },
   { id: 'customize-dashboard',  title: 'Customize Dashboard',   iconName: 'LayoutDashboard', group: 'Setup',       keywords: ['customize', 'dashboard', 'widgets'] },
+
+  // Record operations (act on the open workspace record)
+  { id: 'schedule-followup',    title: 'Schedule Follow-Up',    iconName: 'Clock',           group: 'Record',      keywords: ['follow up', 'followup', 'next action', 'remind', 'schedule'] },
 
   // Workspace controls
   { id: 'close-active-workspace', title: 'Close Active Workspace', iconName: 'X',         group: 'Workspace',   keywords: ['close', 'esc'] },
