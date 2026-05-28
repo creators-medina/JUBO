@@ -24,6 +24,7 @@ import type { AttentionView } from '../attention/queries'
 import { SetupChecklist } from '@/features/onboarding/setup/SetupChecklist'
 import type { SetupChecklistItemRow } from '@/features/onboarding/types'
 import { CoachingStrip } from '@/features/mortgage/coaching/CoachingStrip'
+import { PlanExplanationCard, type PlanSummary } from '@/features/coaching/components/PlanExplanationCard'
 
 interface Props {
   organizationId: string
@@ -45,6 +46,7 @@ interface Props {
   connectionRate?: number              // today connection rate 0..1 (coaching)
   sessionActive?: boolean              // a prospecting session is live (coaching)
   coachInsights?: { text: string; tone: 'good' | 'warn' | 'urgent' | 'info'; icon: string }[]  // Phase 24 business-coach lines
+  plan?: PlanSummary | null                // reverse-engineered plan explanation
 }
 
 const STATUS_COLOR: Record<DailyProgressStatus, string> = {
@@ -65,7 +67,7 @@ export function TodayPageClient({
   organizationId, organizationName, todayISO,
   actions, summary, paces, staleRecords, attentionViews, streak,
   productionGoals, recordBoardMap, lastUpdatedAt, setupChecklist, followUpsDue, callsToday, callGoal,
-  connectionRate, sessionActive, coachInsights,
+  connectionRate, sessionActive, coachInsights, plan,
 }: Props) {
   const router = useRouter()
   const [showManual, setShowManual] = useState(false)
@@ -182,6 +184,9 @@ export function TodayPageClient({
         {setupChecklist && setupChecklist.some(i => !i.completed) && (
           <SetupChecklist items={setupChecklist} compact />
         )}
+
+        {/* The plan: how the income goal becomes today's number */}
+        <PlanExplanationCard plan={plan ?? null} />
 
         {/* Daily coaching — synthesizes pacing + attention + execution */}
         <CoachingStrip

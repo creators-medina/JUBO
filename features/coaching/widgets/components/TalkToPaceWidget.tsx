@@ -2,6 +2,7 @@
 
 import { Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { HelpTip } from '@/components/primitives/HelpTip'
 import type { TalkToPaceData } from '../types'
 
 const STATUS: Record<TalkToPaceData['status'], string> = {
@@ -17,6 +18,7 @@ export function TalkToPaceWidget({ data }: { data: TalkToPaceData }) {
       <div className="flex items-center gap-2">
         <Users className="h-4 w-4 text-primary" />
         <p className="text-xs font-medium text-foreground">Talk-to pace</p>
+        <HelpTip text="Real conversations (not dials) vs the daily/weekly target Jubo reverse-engineered from your income goal." />
         <span className="ml-auto text-2xs capitalize text-muted-foreground">{data.cadence}</span>
       </div>
       <div className="flex items-baseline gap-2">

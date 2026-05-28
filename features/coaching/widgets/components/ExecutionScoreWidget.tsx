@@ -2,6 +2,7 @@
 
 import { Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { HelpTip } from '@/components/primitives/HelpTip'
 import type { ExecutionScoreData } from '../types'
 
 const TONE: Record<string, string> = {
@@ -18,6 +19,7 @@ export function ExecutionScoreWidget({ data }: { data: ExecutionScoreData }) {
       <div className="flex items-center gap-2">
         <Zap className="h-4 w-4 text-primary" />
         <p className="text-xs font-medium text-foreground">Execution score</p>
+        <HelpTip text="A 0–100 blend of the behaviors that drive production: talk-to pace, goal pacing, follow-up discipline, relationship freshness, and your streak." />
       </div>
       <div className="flex items-baseline gap-2">
         <span className={cn('text-4xl font-semibold tabular-nums', accent)}>{data.overall}</span>

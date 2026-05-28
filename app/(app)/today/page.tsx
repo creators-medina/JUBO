@@ -19,7 +19,8 @@ import { getFollowUpsDueCount } from '@/features/communications/queries'
 import { getProspectingMetrics } from '@/features/prospecting/metrics'
 import { getActiveSession } from '@/features/prospecting/sessions/queries'
 import { getDailyCallTarget } from '@/features/prospecting/target'
-import { getCoachInsights } from '@/features/coaching/queries'
+import { getCoachInsights, getCoachingSnapshot } from '@/features/coaching/queries'
+import type { PlanSummary } from '@/features/coaching/components/PlanExplanationCard'
 import type { DailyMetricPace } from '@/features/daily-actions/types'
 
 export const dynamic = 'force-dynamic'
@@ -159,9 +160,24 @@ export default async function TodayPage() {
 
   // Business-coach insights (reverse-engineered targets, partner gap, projections).
   let coachInsights: { text: string; tone: 'good' | 'warn' | 'urgent' | 'info'; icon: string }[] = []
+  let planSummary: PlanSummary | null = null
   try {
     const insights = await getCoachInsights(orgId, user.id)
     coachInsights = insights.slice(0, 3).map((i) => ({ text: i.body, tone: i.tone, icon: i.icon }))
+    // getCoachingSnapshot is React-cached, so this reuses the snapshot above.
+    const snap = await getCoachingSnapshot(orgId, user.id)
+    if (snap.plan) {
+      planSummary = {
+        incomeGoal: snap.plan.incomeGoal,
+        dailyConversations: snap.plan.dailyConversations,
+        weeklyConversations: snap.plan.weeklyConversations,
+        partnersNeeded: snap.plan.partnersNeeded,
+        closingTarget: snap.plan.closingTarget,
+        notes: snap.plan.notes,
+        executionScore: snap.execution.overall,
+        talkTosToday: snap.talkTosToday,
+      }
+    }
   } catch { /* coaching is best-effort */ }
 
   return (
@@ -185,6 +201,7 @@ export default async function TodayPage() {
       connectionRate={prospectingMetrics.connectionRate}
       sessionActive={!!prospectingSession}
       coachInsights={coachInsights}
+      plan={planSummary}
     />
   )
 }
