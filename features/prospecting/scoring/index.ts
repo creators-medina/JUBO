@@ -110,5 +110,6 @@ export function scoreCandidate(sig: CandidateSignal, opts: { themeBoardSlug?: st
     loanAmount: sig.loanAmount,
     daysSinceContact: sig.daysSinceContact,
     nextActionDueAt: sig.nextActionDueAt,
+    phone: sig.phone,
   }
 }

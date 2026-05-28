@@ -13,6 +13,8 @@ import {
   markContacted, scheduleFollowUp, advanceMilestone, addPartnerTouch, createAnniversaryReminder,
 } from '../actions'
 import { RecentCommunications } from '@/features/communications/components/RecentCommunications'
+import { PhoneActions } from '@/features/communications/components/PhoneActions'
+import { textValue } from '../data'
 import type { CommunicationLog } from '@/features/communications/types'
 import type { MortgageData, SectionKey } from '../types'
 
@@ -68,6 +70,7 @@ function QuickActions({ data, templateKey, onChanged }: { data: MortgageData; te
 
   return (
     <div className="flex flex-wrap gap-2">
+      <PhoneActions phone={textValue(data, 'phone')} recordId={recordId} compact />
       {(templateKey === 'lead' || templateKey === 'loan') && (
         <>
           <Btn icon={PhoneCall} label="Mark contacted" onClick={() => run(() => markContacted(recordId, orgId))} />

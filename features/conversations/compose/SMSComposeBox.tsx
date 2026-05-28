@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Send } from 'lucide-react'
+import { Send, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/features/feedback/ToastProvider'
 import { sendSMS } from '../actions'
+import { SMS_TEMPLATES, renderTemplate } from '@/features/communications/templates'
 
 const ERR: Record<string, string> = {
   phone_opted_out: 'This contact opted out of texts.',
@@ -28,6 +29,7 @@ export function SMSComposeBox({
   const router = useRouter()
   const toast = useToast()
   const [body, setBody] = useState('')
+  const [showTemplates, setShowTemplates] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const send = () => {
@@ -44,8 +46,24 @@ export function SMSComposeBox({
   }
 
   return (
-    <div className={cn('flex items-end gap-2 border-t border-border bg-card p-3', compact && 'p-2')}>
-      <div className="flex-1">
+    <div className="relative">
+      {showTemplates && (
+        <div className="absolute bottom-full left-0 right-0 z-20 mb-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-card p-1 shadow-xl">
+          {SMS_TEMPLATES.map((t) => (
+            <button key={t.id} onClick={() => { setBody(renderTemplate(t.body)); setShowTemplates(false) }}
+              className="block w-full rounded-md px-2.5 py-1.5 text-left transition-colors hover:bg-surface-1">
+              <p className="text-xs font-medium text-foreground">{t.name}</p>
+              <p className="truncate text-2xs text-muted-foreground">{t.body}</p>
+            </button>
+          ))}
+        </div>
+      )}
+      <div className={cn('flex items-end gap-2 border-t border-border bg-card p-3', compact && 'p-2')}>
+        <button type="button" onClick={() => setShowTemplates((s) => !s)} title="Quick templates"
+          className={cn('inline-flex h-9 flex-shrink-0 items-center rounded-lg border border-border bg-surface-1 px-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground', showTemplates && 'bg-surface-2 text-foreground')}>
+          <FileText className="h-4 w-4" />
+        </button>
+        <div className="flex-1">
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
@@ -63,6 +81,7 @@ export function SMSComposeBox({
       >
         <Send className="h-4 w-4" /> {compact ? '' : 'Send'}
       </button>
+      </div>
     </div>
   )
 }

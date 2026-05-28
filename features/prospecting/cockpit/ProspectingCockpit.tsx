@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { useToast } from '@/features/feedback/ToastProvider'
 import { quickCallOutcome } from '@/features/communications/actions'
+import { PhoneActions } from '@/features/communications/components/PhoneActions'
 import { OUTCOME_LABEL, type CommunicationOutcome } from '@/features/communications/types'
 import { startProspectingSession, endProspectingSession } from '../sessions/actions'
 import type { ScoredLead, ProspectingMetrics, SessionRow, LiveSessionStats, LeadTemperature, QueueBucketKey } from '../types'
@@ -128,6 +129,7 @@ export function ProspectingCockpit({
       else if (key === 'arrowup' || key === 'k') { e.preventDefault(); setSelectedIndex((i) => Math.max(0, i - 1)) }
       else if (key === ' ') { e.preventDefault(); setSelectedIndex((i) => Math.min(visible.length - 1, i + 1)) }
       else if (key === 'o') { e.preventDefault(); openWorkspace({ recordId: lead.recordId, title: lead.title }) }
+      else if (key === 'd' && lead.phone) { e.preventDefault(); window.location.href = `tel:${lead.phone}` }
       else if (key === 's') { e.preventDefault(); skip(lead.recordId) }
       else if (key === 'enter') { e.preventDefault(); logOutcome(lead.recordId, 'connected') }
       else if (KEY_OUTCOME[key]) { e.preventDefault(); logOutcome(lead.recordId, KEY_OUTCOME[key]) }
@@ -301,6 +303,12 @@ function LeadCard({ lead, selected, pending, onSelect, onLog, onSkip, onOpen }: 
         </div>
       </div>
 
+      {lead.phone && (
+        <div className="mt-2.5">
+          <PhoneActions phone={lead.phone} recordId={lead.recordId} compact />
+        </div>
+      )}
+
       <div className="mt-2.5 flex flex-wrap gap-1.5">
         {OUTCOME_BTNS.map((b) => (
           <OutcomeButton key={b.outcome} icon={b.icon} label={b.label} hint={b.key} tone={b.tone} disabled={pending} onClick={() => onLog(lead.recordId, b.outcome)} />
@@ -358,6 +366,7 @@ function KeyboardHints() {
       <span><kbd className="rounded border border-border bg-surface-1 px-1">F</kbd> follow-up</span>
       <span><kbd className="rounded border border-border bg-surface-1 px-1">B</kbd> booked</span>
       <span><kbd className="rounded border border-border bg-surface-1 px-1">O</kbd> open</span>
+      <span><kbd className="rounded border border-border bg-surface-1 px-1">D</kbd> dial</span>
       <span><kbd className="rounded border border-border bg-surface-1 px-1">S</kbd> skip</span>
     </div>
   )

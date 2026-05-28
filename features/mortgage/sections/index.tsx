@@ -34,6 +34,22 @@ function Fact({ label, value, emphasis }: { label: string; value: React.ReactNod
   )
 }
 
+function PhoneFact({ label, phone }: { label: string; phone: string | null | undefined }) {
+  return (
+    <div className="space-y-0.5">
+      <p className="text-2xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      {phone ? (
+        <div className="flex items-center gap-2">
+          <a href={`tel:${phone}`} className="truncate text-sm font-medium text-primary hover:underline">{phone}</a>
+          <button onClick={() => navigator.clipboard?.writeText(phone)} title="Copy number" className="flex-shrink-0 text-muted-foreground transition-colors hover:text-foreground">
+            <Icons.Copy className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : <p className="text-sm text-muted-foreground">—</p>}
+    </div>
+  )
+}
+
 // ── Lead ──────────────────────────────────────────────────────────────────
 export function LeadOverview({ data }: { data: MortgageData }) {
   return (
@@ -44,7 +60,7 @@ export function LeadOverview({ data }: { data: MortgageData }) {
         <Fact label="Lead Source" value={textValue(data, 'lead_source')} />
         <Fact label="Loan Purpose" value={textValue(data, 'loan_purpose')} />
         <Fact label="Email" value={textValue(data, 'email')} />
-        <Fact label="Phone" value={textValue(data, 'phone')} />
+        <PhoneFact label="Phone" phone={textValue(data, 'phone')} />
         <Fact label="Referral Source" value={textValue(data, 'referral_source')} />
         <Fact label="Target Close" value={formatDate(dateValue(data, 'target_close_date'))} />
         <Fact label="Credit" value={textValue(data, 'credit_score_range')} />
@@ -105,7 +121,7 @@ export function RelationshipSummary({ data }: { data: MortgageData }) {
         <Fact label="Company" value={textValue(data, 'brokerage_company')} />
         <Fact label="Stage" value={currentGroupName(data)} />
         <Fact label="Email" value={textValue(data, 'email')} />
-        <Fact label="Phone" value={textValue(data, 'phone')} />
+        <PhoneFact label="Phone" phone={textValue(data, 'phone')} />
       </div>
     </SectionCard>
   )

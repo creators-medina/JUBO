@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, useTransition } from 'react'
-import { MessageSquare, ArrowUpRight, ChevronLeft, Inbox } from 'lucide-react'
+import { MessageSquare, ArrowUpRight, ChevronLeft, Inbox, Phone, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { ConversationTimeline } from '../timeline/ConversationTimeline'
@@ -85,7 +85,14 @@ export function ConversationsPageClient({ threads }: { threads: ThreadListItem[]
               <MessageSquare className="h-4 w-4 text-primary" />
               <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-foreground">{selected.record_title ?? selected.participant_name ?? selected.participant_phone}</p>
-                <p className="truncate text-2xs text-muted-foreground">{selected.participant_phone}</p>
+                <div className="flex items-center gap-1.5">
+                  <a href={`tel:${selected.participant_phone}`} className="inline-flex items-center gap-1 truncate text-2xs text-primary hover:underline">
+                    <Phone className="h-3 w-3" /> {selected.participant_phone}
+                  </a>
+                  <button onClick={() => navigator.clipboard?.writeText(selected.participant_phone)} title="Copy number" className="flex-shrink-0 text-muted-foreground transition-colors hover:text-foreground">
+                    <Copy className="h-3 w-3" />
+                  </button>
+                </div>
               </div>
               {selected.primary_record_id && (
                 <button onClick={() => openWorkspace({ recordId: selected.primary_record_id!, title: selected.record_title ?? selected.participant_phone })}

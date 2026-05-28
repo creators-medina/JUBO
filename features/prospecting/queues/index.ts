@@ -41,7 +41,7 @@ export async function buildCallQueue(organizationId: string): Promise<ScoredLead
     supabase.from('boards').select('id, slug, board_type').in('id', boardIds),
     supabase.from('board_groups').select('id, name').in('board_id', boardIds),
     supabase.from('communication_logs').select('record_id, occurred_at, channel').in('record_id', recordIds).neq('channel', 'internal').order('occurred_at', { ascending: false }),
-    supabase.from('fields').select('id, slug, board_id').in('board_id', boardIds).in('slug', ['preapproval_expiration', 'loan_amount']),
+    supabase.from('fields').select('id, slug, board_id, field_type').in('board_id', boardIds).or('slug.in.(preapproval_expiration,loan_amount),field_type.eq.phone'),
   ])
 
   const boardBySlug = new Map((boardsRes.data ?? []).map((b) => [b.id, b]))
@@ -54,15 +54,18 @@ export async function buildCallQueue(organizationId: string): Promise<ScoredLead
   // field value lookups (preapproval_expiration date, loan_amount number).
   const preapprovalFieldIds = new Set((fieldsRes.data ?? []).filter((f) => f.slug === 'preapproval_expiration').map((f) => f.id))
   const loanAmountFieldIds = new Set((fieldsRes.data ?? []).filter((f) => f.slug === 'loan_amount').map((f) => f.id))
-  const allFieldIds = [...preapprovalFieldIds, ...loanAmountFieldIds]
+  const phoneFieldIds = new Set((fieldsRes.data ?? []).filter((f) => f.field_type === 'phone').map((f) => f.id))
+  const allFieldIds = [...preapprovalFieldIds, ...loanAmountFieldIds, ...phoneFieldIds]
   const preapprovalByRecord = new Map<string, string>()
   const loanAmountByRecord = new Map<string, number>()
+  const phoneByRecord = new Map<string, string>()
   if (allFieldIds.length > 0) {
     const { data: fvs } = await supabase
-      .from('field_values').select('record_id, field_id, value_date, value_number').in('field_id', allFieldIds).in('record_id', recordIds)
+      .from('field_values').select('record_id, field_id, value_date, value_number, value_text').in('field_id', allFieldIds).in('record_id', recordIds)
     for (const fv of fvs ?? []) {
       if (preapprovalFieldIds.has(fv.field_id) && fv.value_date) preapprovalByRecord.set(fv.record_id, fv.value_date)
       if (loanAmountFieldIds.has(fv.field_id) && fv.value_number != null) loanAmountByRecord.set(fv.record_id, fv.value_number)
+      if (phoneFieldIds.has(fv.field_id) && fv.value_text) phoneByRecord.set(fv.record_id, fv.value_text)
     }
   }
 
@@ -81,6 +84,7 @@ export async function buildCallQueue(organizationId: string): Promise<ScoredLead
       updatedAt: r.updated_at, lastContactedAt: lc, daysSinceContact: days(lc),
       preapprovalExpDays: preExp ? Math.ceil((new Date(preExp).getTime() - Date.now()) / 86400000) : null,
       loanAmount: loanAmountByRecord.get(r.id) ?? r.value ?? null,
+      phone: phoneByRecord.get(r.id) ?? null,
     }
     return scoreCandidate(sig, { themeBoardSlug })
   })

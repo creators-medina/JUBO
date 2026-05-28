@@ -25,6 +25,7 @@ export type CandidateSignal = {
   daysSinceContact: number | null
   preapprovalExpDays: number | null
   loanAmount: number | null
+  phone: string | null
 }
 
 export type ScoredLead = {
@@ -40,6 +41,7 @@ export type ScoredLead = {
   loanAmount: number | null
   daysSinceContact: number | null
   nextActionDueAt: string | null
+  phone: string | null
 }
 
 export type ProspectingMetrics = {
