@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Workflow, Zap, Clock, AlertTriangle, ArrowRightLeft, Plus, Play, RefreshCw, Check, MessageSquare,
+  Workflow, Zap, Clock, AlertTriangle, ArrowRightLeft, Plus, Play, RefreshCw, Check, MessageSquare, Send, Inbox,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from '@/lib/date'
@@ -18,6 +18,11 @@ const TRIGGER_META: Record<WorkflowTriggerType, { label: string; icon: React.Ele
   'no_activity_detected':  { label: 'No activity',        icon: AlertTriangle, color: 'text-amber-400' },
   'next_action_overdue':   { label: 'Next action overdue', icon: Clock,        color: 'text-red-400' },
   'communication.logged':  { label: 'Communication logged', icon: MessageSquare, color: 'text-blue-400' },
+  'sms.received':          { label: 'SMS received',        icon: MessageSquare, color: 'text-emerald-400' },
+  'sms.sent':              { label: 'SMS sent',            icon: Send,          color: 'text-blue-400' },
+  'sms.failed':            { label: 'SMS failed',          icon: AlertTriangle, color: 'text-red-400' },
+  'conversation.unread':   { label: 'Conversation unread', icon: Inbox,         color: 'text-amber-400' },
+  'no_reply_timeout':      { label: 'No reply timeout',    icon: Clock,         color: 'text-orange-400' },
 }
 
 interface Props {

@@ -115,6 +115,42 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     ],
     enabledByDefault: true,
   },
+  {
+    id: 'sms-received-followup',
+    title: 'Inbound SMS Reply',
+    description: 'When a text comes in, set a next action to reply and surface it on Today.',
+    trigger: 'sms.received',
+    conditions: [{ kind: 'always' }],
+    actions: [
+      { kind: 'create_daily_action', title: 'Reply to SMS from {record}', priority: 'high' },
+      { kind: 'set_next_action', label: 'Reply to {record} text', dueInDays: 0 },
+    ],
+    enabledByDefault: true,
+  },
+  {
+    id: 'sms-unread-attention',
+    title: 'Unread Conversation Alert',
+    description: 'When a conversation has 2+ unread texts, flag it for immediate attention.',
+    trigger: 'conversation.unread',
+    conditions: [{ kind: 'thread_unread_count_gte', value: 2 }],
+    actions: [
+      { kind: 'flag_attention', reason: 'Unread SMS messages' },
+      { kind: 'create_daily_action', title: 'Check unread SMS: {record}', priority: 'urgent' },
+    ],
+    enabledByDefault: true,
+  },
+  {
+    id: 'sms-failed-retry',
+    title: 'SMS Delivery Failed',
+    description: 'When an outbound text fails to deliver, log it and prompt a call instead.',
+    trigger: 'sms.failed',
+    conditions: [{ kind: 'always' }],
+    actions: [
+      { kind: 'log_activity', content: 'SMS to {record} failed to deliver — consider calling.' },
+      { kind: 'create_daily_action', title: 'Retry {record} via call', priority: 'high' },
+    ],
+    enabledByDefault: false,
+  },
 ]
 
 export function templateById(id: string): WorkflowTemplate | undefined {

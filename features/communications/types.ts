@@ -27,6 +27,7 @@ export type CommunicationLog = {
   follow_up_at: string | null
   resolved_at: string | null
   resolved_by: string | null
+  thread_id: string | null
   metadata: Record<string, unknown>
   created_at: string
   updated_at: string

@@ -9,6 +9,7 @@ import {
   Target,
   Sunrise,
   PhoneCall,
+  MessageSquare,
   TrendingUp,
   Plug,
   Settings,
@@ -29,6 +30,7 @@ import { useOrganization } from '@/providers/OrganizationProvider'
 const toolItems = [
   { href: '/today', label: 'Today', icon: Sunrise },
   { href: '/prospecting', label: 'Prospecting', icon: PhoneCall },
+  { href: '/conversations', label: 'Conversations', icon: MessageSquare },
   { href: '/goals', label: 'Goals', icon: Target },
   { href: '/forecasts', label: 'Forecasts', icon: TrendingUp },
   { href: '/settings/workflows', label: 'Workflows', icon: Workflow },

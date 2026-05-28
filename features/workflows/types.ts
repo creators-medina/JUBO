@@ -15,6 +15,11 @@ export type WorkflowTriggerType =
   | 'no_activity_detected'
   | 'next_action_overdue'
   | 'communication.logged'
+  | 'sms.received'
+  | 'sms.sent'
+  | 'sms.failed'
+  | 'conversation.unread'
+  | 'no_reply_timeout'
 
 // The event payload dispatched into the engine.
 export type WorkflowEvent = {
@@ -33,6 +38,10 @@ export type WorkflowEvent = {
   commDirection?: string
   commOutcome?: string
   commFollowUpAt?: string | null
+  // sms.* / conversation.* context
+  participantPhone?: string | null
+  threadId?: string | null
+  unreadCount?: number
 }
 
 // Minimal record shape the engine reads (kept small + generic).
@@ -63,6 +72,8 @@ export type WorkflowCondition =
   | { kind: 'no_next_action' }
   | { kind: 'no_activity_days'; days: number }
   | { kind: 'comm_outcome_in'; values: string[] }
+  | { kind: 'thread_unread_count_gte'; value: number }
+  | { kind: 'sms_direction_is'; value: 'inbound' | 'outbound' }
 
 // ── Actions ────────────────────────────────────────────────────────────────────
 

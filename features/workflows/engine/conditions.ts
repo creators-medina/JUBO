@@ -34,6 +34,12 @@ export async function evaluateCondition(
     case 'comm_outcome_in':
       return !!event.commOutcome && cond.values.includes(event.commOutcome)
 
+    case 'thread_unread_count_gte':
+      return (event.unreadCount ?? 0) >= cond.value
+
+    case 'sms_direction_is':
+      return event.commDirection === cond.value
+
     case 'no_activity_days': {
       if (!record) return false
       const cutoff = new Date()
