@@ -10,6 +10,11 @@ import { FunnelPaceWidget } from '@/features/goals/widgets/components/FunnelPace
 import { GapAnalysisWidget } from '@/features/goals/widgets/components/GapAnalysisWidget'
 import { TodaySummaryWidget } from '@/features/daily-actions/widgets/TodaySummaryWidget'
 import { DailyActionsListWidget } from '@/features/daily-actions/widgets/DailyActionsListWidget'
+import { ProspectingSummaryWidget } from '@/features/prospecting/widgets/components/ProspectingSummaryWidget'
+import { ConnectionRateWidget } from '@/features/prospecting/widgets/components/ConnectionRateWidget'
+import { HotLeadsWidget } from '@/features/prospecting/widgets/components/HotLeadsWidget'
+import { FollowupsDueWidget } from '@/features/prospecting/widgets/components/FollowupsDueWidget'
+import { ActiveCallSessionWidget } from '@/features/prospecting/widgets/components/ActiveCallSessionWidget'
 import type {
   DashboardWidgetRow, WidgetData,
   MetricWidgetConfig,
@@ -99,6 +104,46 @@ export function WidgetRenderer({ widget, data, onRemove, onEdit, onRecordClick, 
     return (
       <WidgetShell {...shellProps}>
         <DailyActionsListWidget data={data.data} />
+      </WidgetShell>
+    )
+  }
+
+  if (data.type === 'prospecting_summary') {
+    return (
+      <WidgetShell {...shellProps}>
+        <ProspectingSummaryWidget data={data.data} />
+      </WidgetShell>
+    )
+  }
+
+  if (data.type === 'connection_rate') {
+    return (
+      <WidgetShell {...shellProps}>
+        <ConnectionRateWidget data={data.data} />
+      </WidgetShell>
+    )
+  }
+
+  if (data.type === 'hot_leads') {
+    return (
+      <WidgetShell {...shellProps}>
+        <HotLeadsWidget data={data.data} onRecordClick={onRecordClick} />
+      </WidgetShell>
+    )
+  }
+
+  if (data.type === 'followups_due') {
+    return (
+      <WidgetShell {...shellProps}>
+        <FollowupsDueWidget data={data.data} onRecordClick={onRecordClick} />
+      </WidgetShell>
+    )
+  }
+
+  if (data.type === 'active_call_session') {
+    return (
+      <WidgetShell {...shellProps}>
+        <ActiveCallSessionWidget data={data.data} />
       </WidgetShell>
     )
   }

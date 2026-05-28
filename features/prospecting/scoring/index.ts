@@ -70,16 +70,17 @@ export function scoreCandidate(sig: CandidateSignal, opts: { themeBoardSlug?: st
     if (bucket === 'fresh') bucket = 'stale'
   } else if (d <= 2) {
     score += 8 // recently engaged → keep momentum
+    reasons.push('Recent engagement')
     if (bucket === 'fresh') bucket = 'hot'
   }
 
   // Opportunity value.
   if ((sig.loanAmount ?? 0) >= 600_000) { score += 18; reasons.push('High-value loan') }
-  else if ((sig.loanAmount ?? 0) >= 400_000) { score += 8 }
+  else if ((sig.loanAmount ?? 0) >= 400_000) { score += 8; reasons.push('Strong loan value') }
 
   // Explicit priority.
-  if (sig.priority === 'urgent') score += 20
-  else if (sig.priority === 'high') score += 10
+  if (sig.priority === 'urgent') { score += 20; reasons.push('Marked urgent') }
+  else if (sig.priority === 'high') { score += 10; reasons.push('High priority') }
 
   // Partner board bucket.
   if (sig.boardSlug === 'realtors-partners') {

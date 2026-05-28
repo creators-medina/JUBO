@@ -1,0 +1,110 @@
+// ─────────────────────────────────────────────────────────────────────────
+// Phase 23 — Goal-linked daily call target.
+//
+// One place that answers "how many calls should this LO make today?" so the
+// number isn't hardcoded to 25 across the cockpit, Today, and widgets. Sources
+// are tried in priority order; the chosen one is labelled for trust.
+//   1. Active session target   2. Onboarding focus answers
+//   3. Goal engine (calls/outreach stage)   4. Safe fallback default
+// ─────────────────────────────────────────────────────────────────────────
+
+import { createClient } from '@/lib/supabase/server'
+import { DEFAULT_DAILY_CALL_GOAL } from '../types'
+import type { SessionRow } from '../types'
+
+export type CallTargetSource = 'session' | 'profile' | 'goal' | 'default'
+
+export type DailyCallTarget = {
+  target: number
+  source: CallTargetSource
+  label: string
+}
+
+const SOURCE_LABEL: Record<CallTargetSource, string> = {
+  session: 'Session target',
+  profile: 'Focus target',
+  goal: 'Goal target',
+  default: 'Default target',
+}
+
+function pickNumber(obj: Record<string, unknown>, keys: string[]): number | null {
+  for (const k of keys) {
+    const v = obj[k]
+    const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN
+    if (Number.isFinite(n) && n > 0) return Math.round(n)
+  }
+  return null
+}
+
+const CALL_STAGE_RE = /call|dial|contact|outreach|conversation|connect/i
+
+export async function getDailyCallTarget(
+  organizationId: string,
+  userId: string,
+  session?: SessionRow | null,
+): Promise<DailyCallTarget> {
+  // 1. An active session's explicit target always wins.
+  if (session && session.target_calls > 0) {
+    return { target: session.target_calls, source: 'session', label: SOURCE_LABEL.session }
+  }
+
+  const supabase = await createClient()
+
+  // 2. Onboarding focus answers (best-effort — keys vary, column may be absent).
+  try {
+    const { data: profile } = await supabase
+      .from('onboarding_profiles')
+      .select('answers, focus_weights')
+      .eq('organization_id', organizationId)
+      .limit(1)
+      .maybeSingle()
+    const answers = { ...(profile?.answers as Record<string, unknown> ?? {}), ...(profile?.focus_weights as Record<string, unknown> ?? {}) }
+    const fromProfile = pickNumber(answers, ['daily_calls', 'dailyCalls', 'daily_call_goal', 'dailyCallGoal', 'calls_per_day', 'callsPerDay'])
+    if (fromProfile) return { target: fromProfile, source: 'profile', label: SOURCE_LABEL.profile }
+  } catch { /* no profile / column — skip */ }
+
+  // 3. Goal engine: a production goal whose funnel has a calls/outreach stage
+  //    with a cached daily target.
+  try {
+    const fromGoal = await deriveCallTargetFromGoals(supabase, organizationId)
+    if (fromGoal) return { target: fromGoal, source: 'goal', label: SOURCE_LABEL.goal }
+  } catch { /* not derivable — skip */ }
+
+  // 4. Safe fallback.
+  return { target: DEFAULT_DAILY_CALL_GOAL, source: 'default', label: SOURCE_LABEL.default }
+}
+
+type SB = Awaited<ReturnType<typeof createClient>>
+
+async function deriveCallTargetFromGoals(supabase: SB, organizationId: string): Promise<number | null> {
+  const { data: goals } = await supabase
+    .from('production_goals')
+    .select('id, funnel_id')
+    .eq('organization_id', organizationId)
+    .eq('is_archived', false)
+    .not('funnel_id', 'is', null)
+    .limit(5)
+  if (!goals || goals.length === 0) return null
+
+  for (const goal of goals as Array<{ id: string; funnel_id: string | null }>) {
+    if (!goal.funnel_id) continue
+    const { data: stages } = await supabase
+      .from('funnel_stages')
+      .select('id, name, slug')
+      .eq('funnel_id', goal.funnel_id)
+    const callStage = (stages as Array<{ id: string; name: string; slug: string }> | null ?? [])
+      .find((s) => CALL_STAGE_RE.test(s.slug) || CALL_STAGE_RE.test(s.name))
+    if (!callStage) continue
+
+    const { data: target } = await supabase
+      .from('goal_targets')
+      .select('daily_target')
+      .eq('production_goal_id', goal.id)
+      .eq('funnel_stage_id', callStage.id)
+      .limit(1)
+      .maybeSingle()
+    const daily = target?.daily_target != null ? Math.round(Number(target.daily_target)) : null
+    if (daily && daily > 0) return daily
+  }
+  return null
+}

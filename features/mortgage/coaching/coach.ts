@@ -18,9 +18,11 @@ export function buildCoaching(input: {
   followUpsDue?: number
   callsToday?: number
   callGoal?: number
+  connectionRate?: number
+  sessionActive?: boolean
 }): CoachLine[] {
   const lines: CoachLine[] = []
-  const { summary, paces, staleCount, attentionViews, followUpsDue = 0, callsToday = 0, callGoal = 0 } = input
+  const { summary, paces, staleCount, attentionViews, followUpsDue = 0, callsToday = 0, callGoal = 0, connectionRate = 0, sessionActive = false } = input
 
   // 1. Headline pace read.
   const behind = paces.filter((p) => p.status === 'behind')
@@ -42,6 +44,15 @@ export function buildCoaching(input: {
     } else if (remaining === 0) {
       lines.push({ tone: 'good', icon: 'PhoneCall', text: `Call goal hit — ${callsToday} today.` })
     }
+  }
+
+  // 1c. Prospecting momentum — live session + connection quality.
+  if (sessionActive) {
+    lines.push({ tone: 'good', icon: 'Radio', text: `Call session live — stay in the zone.` })
+  }
+  if (callsToday >= 3 && connectionRate > 0) {
+    const pct = Math.round(connectionRate * 100)
+    lines.push({ tone: pct >= 30 ? 'good' : 'info', icon: 'TrendingUp', text: `Connecting at ${pct}% today.` })
   }
 
   // 2. Follow-ups due from logged communication.
@@ -67,5 +78,5 @@ export function buildCoaching(input: {
     lines.push({ tone: 'good', icon: 'CheckCheck', text: `All ${summary.total} actions done. Strong day.` })
   }
 
-  return lines.slice(0, 4)
+  return lines.slice(0, 5)
 }

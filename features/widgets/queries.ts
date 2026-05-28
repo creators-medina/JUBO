@@ -24,6 +24,13 @@ import {
 import {
   getTodaySummaryData, getDailyActionsListData,
 } from '@/features/daily-actions/widgets/queries'
+import {
+  getProspectingSummaryData, getConnectionRateData, getHotLeadsData,
+  getFollowupsDueData, getActiveCallSessionData,
+} from '@/features/prospecting/widgets/queries'
+import type {
+  HotLeadsWidgetConfig, FollowupsDueWidgetConfig,
+} from '@/features/prospecting/widgets/types'
 
 // ── Filter application helper ─────────────────────────────────────────────────
 
@@ -434,6 +441,31 @@ export async function getDashboardWidgetData(
           const data = await getDailyActionsListData(w.config as DailyActionsListWidgetConfig, orgId)
           if (!data) return [w.id, { type: 'error', message: 'No daily data yet.' }]
           return [w.id, { type: 'daily_actions_list', data }]
+        }
+        if (w.widget_type === 'prospecting_summary') {
+          const data = await getProspectingSummaryData(orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Sign in to see prospecting.' }]
+          return [w.id, { type: 'prospecting_summary', data }]
+        }
+        if (w.widget_type === 'connection_rate') {
+          const data = await getConnectionRateData(orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Sign in to see prospecting.' }]
+          return [w.id, { type: 'connection_rate', data }]
+        }
+        if (w.widget_type === 'hot_leads') {
+          const data = await getHotLeadsData(w.config as HotLeadsWidgetConfig, orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Sign in to see prospecting.' }]
+          return [w.id, { type: 'hot_leads', data }]
+        }
+        if (w.widget_type === 'followups_due') {
+          const data = await getFollowupsDueData(w.config as FollowupsDueWidgetConfig, orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Sign in to see prospecting.' }]
+          return [w.id, { type: 'followups_due', data }]
+        }
+        if (w.widget_type === 'active_call_session') {
+          const data = await getActiveCallSessionData(orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Sign in to see prospecting.' }]
+          return [w.id, { type: 'active_call_session', data }]
         }
         return [w.id, { type: 'error', message: 'Unknown widget type' }]
       } catch (err) {

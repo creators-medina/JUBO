@@ -17,7 +17,14 @@ export type QuickActionId =
   | 'open-settings'
   | 'open-workflows'
   | 'open-prospecting'
+  | 'open-prospecting-dashboard'
+  | 'open-hot-leads'
   | 'start-prospecting-session'
+  | 'end-prospecting-session'
+  | 'log-booked-appointment'
+  | 'log-interested'
+  | 'log-not-interested'
+  | 'resolve-followup'
   | 'run-workflow-scans'
   | 'resume-setup'
   | 'open-setup-checklist'
@@ -61,7 +68,14 @@ export const QUICK_ACTIONS: QuickActionDef[] = [
   { id: 'open-settings',       title: 'Go to Settings',      iconName: 'Settings',        group: 'Navigate',    keywords: ['settings', 'preferences'] },
   { id: 'open-workflows',      title: 'Manage Workflows',    iconName: 'Workflow',        group: 'Navigate',    keywords: ['workflows', 'automation', 'triggers'] },
   { id: 'open-prospecting',    title: 'Open Prospecting',    iconName: 'PhoneCall',       group: 'Navigate',    keywords: ['prospecting', 'calls', 'queue', 'cockpit', 'dial'] },
-  { id: 'start-prospecting-session', title: 'Start Prospecting Session', iconName: 'Play',   group: 'System',      keywords: ['prospecting', 'session', 'calls', 'start', 'dial'] },
+  { id: 'open-hot-leads',      title: 'Open Hot Leads',      iconName: 'Flame',           group: 'Navigate',    keywords: ['hot', 'leads', 'prospecting', 'queue', 'warm'] },
+  { id: 'open-prospecting-dashboard', title: 'Open Prospecting Dashboard', iconName: 'LayoutDashboard', group: 'Navigate', keywords: ['prospecting', 'dashboard', 'widgets', 'performance'] },
+  { id: 'start-prospecting-session', title: 'Start Call Session', iconName: 'Play',   group: 'System',      keywords: ['prospecting', 'session', 'calls', 'start', 'dial'] },
+  { id: 'end-prospecting-session',   title: 'End Call Session',   iconName: 'Square', group: 'System',      keywords: ['prospecting', 'session', 'calls', 'end', 'stop'] },
+  { id: 'log-booked-appointment', title: 'Log Booked Appointment', iconName: 'CalendarCheck', group: 'Record', keywords: ['log', 'booked', 'appointment', 'meeting', 'call'] },
+  { id: 'log-interested',      title: 'Log Interested',       iconName: 'ThumbsUp',        group: 'Record',      keywords: ['log', 'interested', 'call', 'warm'] },
+  { id: 'log-not-interested',  title: 'Log Not Interested',   iconName: 'ThumbsDown',      group: 'Record',      keywords: ['log', 'not interested', 'cold', 'call'] },
+  { id: 'resolve-followup',    title: 'Resolve Follow-Up',    iconName: 'CheckCircle2',    group: 'Record',      keywords: ['resolve', 'follow up', 'followup', 'done', 'clear'] },
   { id: 'run-workflow-scans',  title: 'Run Workflow Scans',  iconName: 'RefreshCw',       group: 'System',      keywords: ['scan', 'stale', 'overdue', 'workflow', 'run'] },
 
   // Setup / onboarding

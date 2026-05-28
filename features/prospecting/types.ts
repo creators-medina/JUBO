@@ -52,6 +52,11 @@ export type ProspectingMetrics = {
   followUpsCreatedToday: number
   callsThisWeek: number
   connectsThisWeek: number
+  connectionRateWeek: number   // 0..1 (this week)
+  bookedThisWeek: number
+  activeDaysThisWeek: number
+  bestDayCalls: number         // most calls in a single day this week
+  bestDayLabel: string | null  // e.g. "Tue" — the best day this week
   avgCallsPerActiveDay: number
 }
 

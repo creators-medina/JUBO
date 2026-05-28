@@ -8,6 +8,9 @@ export type CommunicationDirection = 'inbound' | 'outbound' | 'internal'
 export type CommunicationOutcome =
   | 'connected' | 'no_answer' | 'voicemail' | 'left_message'
   | 'sent' | 'received' | 'completed' | 'scheduled' | 'cancelled' | 'follow_up_needed'
+  // Phase 23 — rich call outcomes (each drives operational behavior; see outcomes.ts)
+  | 'interested' | 'not_interested' | 'booked_appointment' | 'wrong_number'
+  | 'do_not_contact' | 'needs_docs' | 'call_back_later' | 'nurture'
 
 export type CommunicationLog = {
   id: string
@@ -22,6 +25,8 @@ export type CommunicationLog = {
   body: string | null
   occurred_at: string
   follow_up_at: string | null
+  resolved_at: string | null
+  resolved_by: string | null
   metadata: Record<string, unknown>
   created_at: string
   updated_at: string
@@ -55,12 +60,19 @@ export const OUTCOME_LABEL: Record<CommunicationOutcome, string> = {
   connected: 'Connected', no_answer: 'No answer', voicemail: 'Voicemail', left_message: 'Left message',
   sent: 'Sent', received: 'Received', completed: 'Completed', scheduled: 'Scheduled',
   cancelled: 'Cancelled', follow_up_needed: 'Follow-up needed',
+  interested: 'Interested', not_interested: 'Not interested', booked_appointment: 'Booked appointment',
+  wrong_number: 'Wrong number', do_not_contact: 'Do not contact', needs_docs: 'Needs docs',
+  call_back_later: 'Call back later', nurture: 'Nurture',
 }
 
 export const OUTCOMES_BY_CHANNEL: Record<CommunicationChannel, CommunicationOutcome[]> = {
-  call: ['connected', 'no_answer', 'voicemail', 'left_message', 'follow_up_needed'],
-  email: ['sent', 'received', 'follow_up_needed'],
-  sms: ['sent', 'received', 'follow_up_needed'],
-  meeting: ['completed', 'scheduled', 'cancelled', 'follow_up_needed'],
+  call: [
+    'connected', 'interested', 'booked_appointment', 'needs_docs', 'call_back_later',
+    'no_answer', 'voicemail', 'left_message', 'not_interested', 'wrong_number',
+    'do_not_contact', 'nurture', 'follow_up_needed',
+  ],
+  email: ['sent', 'received', 'interested', 'needs_docs', 'follow_up_needed'],
+  sms: ['sent', 'received', 'interested', 'follow_up_needed'],
+  meeting: ['completed', 'booked_appointment', 'scheduled', 'cancelled', 'follow_up_needed'],
   internal: [],
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, BarChart2, List, LayoutGrid, Activity, Bookmark, Target, Zap, AlertTriangle, Sunrise, ListChecks } from 'lucide-react'
+import { X, BarChart2, List, LayoutGrid, Activity, Bookmark, Target, Zap, AlertTriangle, Sunrise, ListChecks, PhoneCall, TrendingUp, Flame, CalendarClock, Radio } from 'lucide-react'
 import { addWidget } from '../actions'
 import { WIDGET_META } from '@/features/widgets/registry'
 import { defaultConfig, WIDGET_ICON_NAMES, WIDGET_COLORS } from '@/features/widgets/types'
@@ -24,6 +24,11 @@ const TYPE_ICONS: Record<WidgetType, React.ElementType> = {
   gap_analysis:       AlertTriangle,
   today_summary:      Sunrise,
   daily_actions_list: ListChecks,
+  prospecting_summary: PhoneCall,
+  connection_rate:    TrendingUp,
+  hot_leads:          Flame,
+  followups_due:      CalendarClock,
+  active_call_session: Radio,
 }
 
 const WIDTH_OPTIONS = [
@@ -407,6 +412,20 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                   </label>
                 </div>
               </>
+            )}
+
+            {/* Prospecting list widgets — max items */}
+            {(selectedType === 'hot_leads' || selectedType === 'followups_due') && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Max items</label>
+                <select
+                  value={(config.max_items as number) ?? (selectedType === 'hot_leads' ? 5 : 6)}
+                  onChange={e => setConfigField('max_items', Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {[3, 5, 6, 8, 10].map(n => <option key={n} value={n}>{n} items</option>)}
+                </select>
+              </div>
             )}
 
             {/* Saved View-specific */}

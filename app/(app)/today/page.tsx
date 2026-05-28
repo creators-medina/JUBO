@@ -17,7 +17,8 @@ import { TodayPageClient } from '@/features/daily-actions/components/TodayPageCl
 import { getSetupChecklist } from '@/features/onboarding/queries'
 import { getFollowUpsDueCount } from '@/features/communications/queries'
 import { getProspectingMetrics } from '@/features/prospecting/metrics'
-import { DEFAULT_DAILY_CALL_GOAL } from '@/features/prospecting/types'
+import { getActiveSession } from '@/features/prospecting/sessions/queries'
+import { getDailyCallTarget } from '@/features/prospecting/target'
 import type { DailyMetricPace } from '@/features/daily-actions/types'
 
 export const dynamic = 'force-dynamic'
@@ -152,6 +153,8 @@ export default async function TodayPage() {
   const setupChecklist = await getSetupChecklist(orgId)
   const followUpsDue = await getFollowUpsDueCount(orgId)
   const prospectingMetrics = await getProspectingMetrics(orgId, user.id)
+  const prospectingSession = await getActiveSession(orgId, user.id)
+  const callTarget = await getDailyCallTarget(orgId, user.id, prospectingSession)
 
   return (
     <TodayPageClient
@@ -170,7 +173,9 @@ export default async function TodayPage() {
       setupChecklist={setupChecklist}
       followUpsDue={followUpsDue}
       callsToday={prospectingMetrics.callsToday}
-      callGoal={DEFAULT_DAILY_CALL_GOAL}
+      callGoal={callTarget.target}
+      connectionRate={prospectingMetrics.connectionRate}
+      sessionActive={!!prospectingSession}
     />
   )
 }

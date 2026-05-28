@@ -9,7 +9,7 @@ import {
   ArrowRight, ArrowLeft, ArrowRightLeft, Circle, CircleDot, Zap, CheckCircle2,
   Activity, Link as LinkIcon, Archive, Copy, History, Workflow, RefreshCw,
   ListChecks, Upload, GitBranch, Phone, PhoneOff, Mail, MessageSquare, Calendar,
-  PhoneCall, Play,
+  PhoneCall, Play, Square, Flame, CalendarCheck, ThumbsUp, ThumbsDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCommandPalette } from '../providers/CommandPaletteProvider'
@@ -31,6 +31,7 @@ const ICONS: Record<string, React.ElementType> = {
   ArrowRightLeft, Circle, CircleDot, Zap, CheckCircle2, Activity, Link: LinkIcon,
   Archive, Copy, History, Workflow, RefreshCw, ListChecks, Upload, GitBranch,
   Phone, PhoneOff, Mail, MessageSquare, Calendar, PhoneCall, Play,
+  Square, Flame, CalendarCheck, ThumbsUp, ThumbsDown,
 }
 const IconFor = (name?: string): React.ElementType => (name && ICONS[name]) || Search
 
@@ -147,6 +148,8 @@ export function CommandPalette() {
       case 'open-settings':      return () => { router.push('/settings');  close() }
       case 'open-workflows':     return () => { router.push('/settings/workflows'); close() }
       case 'open-prospecting':   return () => { router.push('/prospecting'); close() }
+      case 'open-hot-leads':     return () => { router.push('/prospecting'); close() }
+      case 'open-prospecting-dashboard': return () => { router.push('/dashboard'); close() }
       case 'start-prospecting-session':
         return currentOrganization
           ? async () => {
@@ -157,6 +160,43 @@ export function CommandPalette() {
                 toast.success('Prospecting session started')
                 router.push('/prospecting')
               } catch { toast.error('Could not start session') }
+            }
+          : undefined
+      case 'end-prospecting-session':
+        return currentOrganization
+          ? async () => {
+              close()
+              try {
+                const { endActiveProspectingSession } = await import('@/features/prospecting/sessions/actions')
+                await endActiveProspectingSession(currentOrganization.id)
+                toast.success('Call session ended')
+                router.refresh()
+              } catch { toast.error('Could not end session') }
+            }
+          : undefined
+      case 'log-booked-appointment':
+      case 'log-interested':
+      case 'log-not-interested':
+        return activeRecordId
+          ? async () => {
+              close()
+              try {
+                const { quickCallOutcome } = await import('@/features/communications/actions')
+                const outcome = id === 'log-booked-appointment' ? 'booked_appointment' : id === 'log-interested' ? 'interested' : 'not_interested'
+                await quickCallOutcome(activeRecordId, outcome)
+                toast.success(id === 'log-booked-appointment' ? 'Logged booked appointment' : id === 'log-interested' ? 'Logged interested' : 'Logged not interested')
+              } catch { toast.error('Could not log outcome') }
+            }
+          : undefined
+      case 'resolve-followup':
+        return activeRecordId
+          ? async () => {
+              close()
+              try {
+                const { resolveRecordFollowUps } = await import('@/features/communications/actions')
+                await resolveRecordFollowUps(activeRecordId)
+                toast.success('Follow-up resolved')
+              } catch { toast.error('Could not resolve follow-up') }
             }
           : undefined
       case 'resume-setup':         return () => { router.push('/onboarding/setup'); close() }

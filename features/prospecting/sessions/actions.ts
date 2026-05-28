@@ -50,3 +50,11 @@ export async function endProspectingSession(sessionId: string): Promise<void> {
   await closeSession(sessionId)
   revalidatePath('/prospecting')
 }
+
+/** End the caller's currently-open session (if any) — used from the palette. */
+export async function endActiveProspectingSession(organizationId: string): Promise<void> {
+  const { user } = await requireUser()
+  const open = await getActiveSession(organizationId, user.id)
+  if (open) await closeSession(open.id)
+  revalidatePath('/prospecting')
+}

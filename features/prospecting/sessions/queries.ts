@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { isConnect, isBookedAppointment } from '@/features/communications/outcomes'
 import type { LiveSessionStats, SessionRow } from '../types'
 
 export async function getActiveSession(organizationId: string, userId: string): Promise<SessionRow | null> {
@@ -29,9 +30,23 @@ export async function getLiveSessionStats(session: SessionRow): Promise<LiveSess
   const calls = logs.filter((l) => l.channel === 'call')
   return {
     attempted: calls.length,
-    connected: calls.filter((l) => l.outcome === 'connected').length,
+    connected: calls.filter((l) => isConnect(l.outcome)).length,
     voicemail: calls.filter((l) => l.outcome === 'voicemail').length,
     noAnswer: calls.filter((l) => l.outcome === 'no_answer').length,
-    meetings: logs.filter((l) => l.channel === 'meeting' || l.outcome === 'scheduled').length,
+    meetings: logs.filter((l) => isBookedAppointment(l.channel, l.outcome)).length,
   }
+}
+
+/** Recent completed sessions (most recent first) for the history panel. */
+export async function getRecentSessions(organizationId: string, userId: string, limit = 8): Promise<SessionRow[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('prospecting_sessions')
+    .select('*')
+    .eq('organization_id', organizationId)
+    .eq('user_id', userId)
+    .not('ended_at', 'is', null)
+    .order('started_at', { ascending: false })
+    .limit(limit)
+  return (data as SessionRow[] | null) ?? []
 }

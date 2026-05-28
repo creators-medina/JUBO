@@ -3,11 +3,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { RecordPriority } from '@/types/database'
 import { dispatchWorkflowEvent } from '@/features/workflows/engine/dispatch'
 import {
   DEFAULT_DIRECTION, DEFAULT_OUTCOME, CHANNEL_LABEL, OUTCOME_LABEL,
   type CommunicationChannel, type CommunicationDirection, type CommunicationOutcome,
 } from './types'
+import { behaviorFor, isConnect } from './outcomes'
 
 async function requireUser() {
   const supabase = await createClient()
@@ -35,6 +37,10 @@ export type LogCommunicationInput = {
   createFollowUpTask?: boolean
   setNextAction?: boolean
   nextActionLabel?: string | null
+  /** Set the record's priority (Phase 23 rich outcomes use this as a temperature proxy). */
+  setPriority?: RecordPriority | null
+  /** When the outcome is a connect, resolve the record's prior open follow-ups. */
+  resolvePriorFollowUps?: boolean
 }
 
 /**
@@ -76,6 +82,21 @@ export async function logCommunication(input: LogCommunicationInput): Promise<{ 
     metadata: { communication_log_id: log.id, channel, direction, outcome, follow_up_at: input.followUpAt ?? null },
   })
 
+  // 3a. Rich-outcome side effects: set priority (temperature proxy) + resolve
+  //     prior open follow-ups when a human was reached.
+  if (input.setPriority) {
+    await supabase.from('records').update({ priority: input.setPriority }).eq('id', record.id)
+  }
+  if (input.resolvePriorFollowUps && isConnect(outcome)) {
+    await supabase
+      .from('communication_logs')
+      .update({ resolved_at: new Date().toISOString(), resolved_by: user.id })
+      .eq('record_id', record.id)
+      .not('follow_up_at', 'is', null)
+      .is('resolved_at', null)
+      .neq('id', log.id)
+  }
+
   // 3. Follow-up bridge: next action + task.
   if (input.setNextAction) {
     const label = input.nextActionLabel ?? 'Follow up'
@@ -108,19 +129,55 @@ export async function logCommunication(input: LogCommunicationInput): Promise<{ 
   return { id: log.id }
 }
 
-/** Fast call-outcome logging — minimal clicks, sensible follow-up defaults. */
+/**
+ * Fast call-outcome logging — one click per outcome. Operational behavior
+ * (priority, follow-up, task, appointment) is driven by the rich-outcome rule
+ * map (outcomes.ts) so a new outcome needs no changes here.
+ */
 export async function quickCallOutcome(recordId: string, outcome: CommunicationOutcome): Promise<{ id: string } | { error: string }> {
-  const followUp = outcome === 'follow_up_needed'
-  const suggestNext = outcome === 'no_answer' || outcome === 'voicemail' || outcome === 'left_message' || outcome === 'follow_up_needed'
-  const label =
-    outcome === 'follow_up_needed' ? 'Follow up' :
-    outcome === 'connected' ? null :
-    'Try again'
+  const b = behaviorFor(outcome)
+  const followUpAt = b.followUpInDays != null ? isoInDays(b.followUpInDays) : null
   return logCommunication({
     recordId, channel: 'call', direction: 'outbound', outcome,
     summary: `Quick-logged: ${OUTCOME_LABEL[outcome]}`,
-    followUpAt: followUp ? isoInDays(2) : suggestNext ? isoInDays(1) : null,
-    setNextAction: suggestNext,
-    nextActionLabel: label,
+    followUpAt,
+    setNextAction: !!b.nextActionLabel,
+    nextActionLabel: b.nextActionLabel ?? null,
+    createFollowUpTask: !!b.createTask,
+    setPriority: b.setPriority ?? null,
+    resolvePriorFollowUps: true,
   })
+}
+
+/** Mark a communication's follow-up as resolved (clears it from the due list). */
+export async function resolveFollowUp(logId: string): Promise<{ ok: true } | { error: string }> {
+  const { supabase, user } = await requireUser()
+  const { data: log } = await supabase
+    .from('communication_logs').select('id, record_id, records(board_id)').eq('id', logId).maybeSingle()
+  if (!log) return { error: 'log_not_found' }
+
+  const { error } = await supabase
+    .from('communication_logs')
+    .update({ resolved_at: new Date().toISOString(), resolved_by: user.id })
+    .eq('id', logId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/today')
+  revalidatePath('/prospecting')
+  return { ok: true }
+}
+
+/** Resolve every open follow-up on a record (used after a strong connect). */
+export async function resolveRecordFollowUps(recordId: string): Promise<{ ok: true } | { error: string }> {
+  const { supabase, user } = await requireUser()
+  const { error } = await supabase
+    .from('communication_logs')
+    .update({ resolved_at: new Date().toISOString(), resolved_by: user.id })
+    .eq('record_id', recordId)
+    .not('follow_up_at', 'is', null)
+    .is('resolved_at', null)
+  if (error) return { error: error.message }
+  revalidatePath('/today')
+  revalidatePath('/prospecting')
+  return { ok: true }
 }

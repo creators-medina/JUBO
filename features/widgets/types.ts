@@ -13,8 +13,20 @@ import type {
 import {
   defaultTodaySummaryConfig, defaultDailyActionsListConfig,
 } from '@/features/daily-actions/types'
+import type {
+  ProspectingSummaryData, ConnectionRateData, HotLeadsData,
+  FollowupsDueData, ActiveCallSessionData,
+} from '@/features/prospecting/widgets/types'
+import {
+  defaultProspectingSummaryConfig, defaultConnectionRateConfig, defaultHotLeadsConfig,
+  defaultFollowupsDueConfig, defaultActiveCallSessionConfig,
+} from '@/features/prospecting/widgets/types'
 
 export type { WidgetType }
+export type {
+  ProspectingSummaryData, ConnectionRateData, HotLeadsData,
+  FollowupsDueData, ActiveCallSessionData,
+}
 export type {
   GoalProgressWidgetConfig, FunnelPaceWidgetConfig, GapAnalysisWidgetConfig,
   GoalProgressData, FunnelPaceData, GapAnalysisData,
@@ -180,6 +192,11 @@ export type WidgetData =
   | { type: 'gap_analysis'; data: GapAnalysisData }
   | { type: 'today_summary'; data: TodaySummaryWidgetData }
   | { type: 'daily_actions_list'; data: DailyActionsListWidgetData }
+  | { type: 'prospecting_summary'; data: ProspectingSummaryData }
+  | { type: 'connection_rate'; data: ConnectionRateData }
+  | { type: 'hot_leads'; data: HotLeadsData }
+  | { type: 'followups_due'; data: FollowupsDueData }
+  | { type: 'active_call_session'; data: ActiveCallSessionData }
   | { type: 'error'; message: string }
 
 // ── Icon names usable in widget configs ───────────────────────────────────────
@@ -240,5 +257,15 @@ export function defaultConfig(type: WidgetType): Record<string, unknown> {
     return defaultTodaySummaryConfig() as unknown as Record<string, unknown>
   if (type === 'daily_actions_list')
     return defaultDailyActionsListConfig() as unknown as Record<string, unknown>
+  if (type === 'prospecting_summary')
+    return defaultProspectingSummaryConfig() as unknown as Record<string, unknown>
+  if (type === 'connection_rate')
+    return defaultConnectionRateConfig() as unknown as Record<string, unknown>
+  if (type === 'hot_leads')
+    return defaultHotLeadsConfig() as unknown as Record<string, unknown>
+  if (type === 'followups_due')
+    return defaultFollowupsDueConfig() as unknown as Record<string, unknown>
+  if (type === 'active_call_session')
+    return defaultActiveCallSessionConfig() as unknown as Record<string, unknown>
   return {}
 }

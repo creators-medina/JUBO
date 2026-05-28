@@ -42,6 +42,8 @@ interface Props {
   followUpsDue?: number                // communication follow-ups due today (coaching)
   callsToday?: number                  // prospecting calls logged today (coaching)
   callGoal?: number                    // daily call goal (coaching)
+  connectionRate?: number              // today connection rate 0..1 (coaching)
+  sessionActive?: boolean              // a prospecting session is live (coaching)
 }
 
 const STATUS_COLOR: Record<DailyProgressStatus, string> = {
@@ -62,6 +64,7 @@ export function TodayPageClient({
   organizationId, organizationName, todayISO,
   actions, summary, paces, staleRecords, attentionViews, streak,
   productionGoals, recordBoardMap, lastUpdatedAt, setupChecklist, followUpsDue, callsToday, callGoal,
+  connectionRate, sessionActive,
 }: Props) {
   const router = useRouter()
   const [showManual, setShowManual] = useState(false)
@@ -188,6 +191,8 @@ export function TodayPageClient({
           followUpsDue={followUpsDue}
           callsToday={callsToday}
           callGoal={callGoal}
+          connectionRate={connectionRate}
+          sessionActive={sessionActive}
         />
 
         {/* Progress strip */}
