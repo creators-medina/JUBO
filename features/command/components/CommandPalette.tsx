@@ -9,6 +9,7 @@ import {
   ArrowRight, ArrowLeft, ArrowRightLeft, Circle, CircleDot, Zap, CheckCircle2,
   Activity, Link as LinkIcon, Archive, Copy, History, Workflow, RefreshCw,
   ListChecks, Upload, GitBranch, Phone, PhoneOff, Mail, MessageSquare, Calendar,
+  PhoneCall, Play,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCommandPalette } from '../providers/CommandPaletteProvider'
@@ -29,7 +30,7 @@ const ICONS: Record<string, React.ElementType> = {
   CheckSquare, Sunrise, TrendingUp, Plug, Settings, X, XCircle, Clock, Flag,
   ArrowRightLeft, Circle, CircleDot, Zap, CheckCircle2, Activity, Link: LinkIcon,
   Archive, Copy, History, Workflow, RefreshCw, ListChecks, Upload, GitBranch,
-  Phone, PhoneOff, Mail, MessageSquare, Calendar,
+  Phone, PhoneOff, Mail, MessageSquare, Calendar, PhoneCall, Play,
 }
 const IconFor = (name?: string): React.ElementType => (name && ICONS[name]) || Search
 
@@ -145,6 +146,19 @@ export function CommandPalette() {
       case 'open-integrations':  return () => { router.push('/settings/integrations'); close() }
       case 'open-settings':      return () => { router.push('/settings');  close() }
       case 'open-workflows':     return () => { router.push('/settings/workflows'); close() }
+      case 'open-prospecting':   return () => { router.push('/prospecting'); close() }
+      case 'start-prospecting-session':
+        return currentOrganization
+          ? async () => {
+              close()
+              try {
+                const { startProspectingSession } = await import('@/features/prospecting/sessions/actions')
+                await startProspectingSession(currentOrganization.id)
+                toast.success('Prospecting session started')
+                router.push('/prospecting')
+              } catch { toast.error('Could not start session') }
+            }
+          : undefined
       case 'resume-setup':         return () => { router.push('/onboarding/setup'); close() }
       case 'open-setup-checklist': return () => { router.push('/today'); close() }
       case 'new-import':           return () => { router.push('/imports/new'); close() }

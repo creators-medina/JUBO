@@ -16,6 +16,8 @@ export type QuickActionId =
   | 'open-integrations'
   | 'open-settings'
   | 'open-workflows'
+  | 'open-prospecting'
+  | 'start-prospecting-session'
   | 'run-workflow-scans'
   | 'resume-setup'
   | 'open-setup-checklist'
@@ -58,6 +60,8 @@ export const QUICK_ACTIONS: QuickActionDef[] = [
   { id: 'open-integrations',   title: 'Go to Integrations',  iconName: 'Plug',            group: 'Navigate',    keywords: ['integrations', 'connections'] },
   { id: 'open-settings',       title: 'Go to Settings',      iconName: 'Settings',        group: 'Navigate',    keywords: ['settings', 'preferences'] },
   { id: 'open-workflows',      title: 'Manage Workflows',    iconName: 'Workflow',        group: 'Navigate',    keywords: ['workflows', 'automation', 'triggers'] },
+  { id: 'open-prospecting',    title: 'Open Prospecting',    iconName: 'PhoneCall',       group: 'Navigate',    keywords: ['prospecting', 'calls', 'queue', 'cockpit', 'dial'] },
+  { id: 'start-prospecting-session', title: 'Start Prospecting Session', iconName: 'Play',   group: 'System',      keywords: ['prospecting', 'session', 'calls', 'start', 'dial'] },
   { id: 'run-workflow-scans',  title: 'Run Workflow Scans',  iconName: 'RefreshCw',       group: 'System',      keywords: ['scan', 'stale', 'overdue', 'workflow', 'run'] },
 
   // Setup / onboarding

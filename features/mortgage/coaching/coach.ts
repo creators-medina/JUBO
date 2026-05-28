@@ -16,9 +16,11 @@ export function buildCoaching(input: {
   staleCount: number
   attentionViews: AttentionLite[]
   followUpsDue?: number
+  callsToday?: number
+  callGoal?: number
 }): CoachLine[] {
   const lines: CoachLine[] = []
-  const { summary, paces, staleCount, attentionViews, followUpsDue = 0 } = input
+  const { summary, paces, staleCount, attentionViews, followUpsDue = 0, callsToday = 0, callGoal = 0 } = input
 
   // 1. Headline pace read.
   const behind = paces.filter((p) => p.status === 'behind')
@@ -30,6 +32,16 @@ export function buildCoaching(input: {
     lines.push({ tone: 'good', icon: 'TrendingUp', text: `You're ahead on ${ahead[0].goal_name}. Keep the momentum.` })
   } else if (paces.length > 0) {
     lines.push({ tone: 'info', icon: 'Target', text: `On pace across ${paces.length} goal${paces.length === 1 ? '' : 's'} — stay consistent.` })
+  }
+
+  // 1b. Prospecting pace.
+  if (callGoal > 0) {
+    const remaining = Math.max(0, callGoal - callsToday)
+    if (remaining > 0 && callsToday > 0) {
+      lines.push({ tone: 'warn', icon: 'PhoneCall', text: `${remaining} more call${remaining === 1 ? '' : 's'} to hit today's pace.` })
+    } else if (remaining === 0) {
+      lines.push({ tone: 'good', icon: 'PhoneCall', text: `Call goal hit — ${callsToday} today.` })
+    }
   }
 
   // 2. Follow-ups due from logged communication.

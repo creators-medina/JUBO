@@ -40,6 +40,8 @@ interface Props {
   lastUpdatedAt: string                // ISO timestamp for "last updated" label
   setupChecklist?: SetupChecklistItemRow[]   // shown until the LO finishes activation
   followUpsDue?: number                // communication follow-ups due today (coaching)
+  callsToday?: number                  // prospecting calls logged today (coaching)
+  callGoal?: number                    // daily call goal (coaching)
 }
 
 const STATUS_COLOR: Record<DailyProgressStatus, string> = {
@@ -59,7 +61,7 @@ const STATUS_BG: Record<DailyProgressStatus, string> = {
 export function TodayPageClient({
   organizationId, organizationName, todayISO,
   actions, summary, paces, staleRecords, attentionViews, streak,
-  productionGoals, recordBoardMap, lastUpdatedAt, setupChecklist, followUpsDue,
+  productionGoals, recordBoardMap, lastUpdatedAt, setupChecklist, followUpsDue, callsToday, callGoal,
 }: Props) {
   const router = useRouter()
   const [showManual, setShowManual] = useState(false)
@@ -184,6 +186,8 @@ export function TodayPageClient({
           staleCount={staleRecords.length}
           attentionViews={attentionViews.map(v => ({ count: v.count }))}
           followUpsDue={followUpsDue}
+          callsToday={callsToday}
+          callGoal={callGoal}
         />
 
         {/* Progress strip */}

@@ -16,6 +16,8 @@ import {
 import { TodayPageClient } from '@/features/daily-actions/components/TodayPageClient'
 import { getSetupChecklist } from '@/features/onboarding/queries'
 import { getFollowUpsDueCount } from '@/features/communications/queries'
+import { getProspectingMetrics } from '@/features/prospecting/metrics'
+import { DEFAULT_DAILY_CALL_GOAL } from '@/features/prospecting/types'
 import type { DailyMetricPace } from '@/features/daily-actions/types'
 
 export const dynamic = 'force-dynamic'
@@ -149,6 +151,7 @@ export default async function TodayPage() {
   const streak = await getStreakData(user.id, today)
   const setupChecklist = await getSetupChecklist(orgId)
   const followUpsDue = await getFollowUpsDueCount(orgId)
+  const prospectingMetrics = await getProspectingMetrics(orgId, user.id)
 
   return (
     <TodayPageClient
@@ -166,6 +169,8 @@ export default async function TodayPage() {
       lastUpdatedAt={new Date().toISOString()}
       setupChecklist={setupChecklist}
       followUpsDue={followUpsDue}
+      callsToday={prospectingMetrics.callsToday}
+      callGoal={DEFAULT_DAILY_CALL_GOAL}
     />
   )
 }
