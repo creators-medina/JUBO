@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { X, BarChart2, List, LayoutGrid, Activity, Bookmark, Target, Zap, AlertTriangle, Sunrise, ListChecks, PhoneCall, TrendingUp, Flame, CalendarClock, Radio } from 'lucide-react'
+import { X, BarChart2, List, LayoutGrid, Activity, Bookmark, Target, Zap, AlertTriangle, Sunrise, ListChecks, PhoneCall, TrendingUp, Flame, CalendarClock, Radio, Users, Handshake, DollarSign, HeartPulse, LineChart, CalendarRange } from 'lucide-react'
 import { addWidget } from '../actions'
 import { WIDGET_META } from '@/features/widgets/registry'
 import { defaultConfig, WIDGET_ICON_NAMES, WIDGET_COLORS } from '@/features/widgets/types'
@@ -29,6 +29,14 @@ const TYPE_ICONS: Record<WidgetType, React.ElementType> = {
   hot_leads:          Flame,
   followups_due:      CalendarClock,
   active_call_session: Radio,
+  execution_score:    Zap,
+  talk_to_pace:       Users,
+  partner_growth:     Handshake,
+  projected_closings: TrendingUp,
+  projected_income:   DollarSign,
+  partner_health:     HeartPulse,
+  pace_forecast:      LineChart,
+  weekly_scorecard:   CalendarRange,
 }
 
 const WIDTH_OPTIONS = [
@@ -424,6 +432,36 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                   className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   {[3, 5, 6, 8, 10].map(n => <option key={n} value={n}>{n} items</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Talk-To Pace cadence */}
+            {selectedType === 'talk_to_pace' && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Cadence</label>
+                <div className="flex gap-2">
+                  {(['daily', 'weekly'] as const).map(c => (
+                    <button key={c} type="button" onClick={() => setConfigField('cadence', c)}
+                      className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
+                        (config.cadence ?? 'daily') === c ? 'bg-primary/20 border-primary text-primary' : 'border-border text-muted-foreground hover:text-foreground'
+                      }`}
+                    >{c}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Partner Growth — top N */}
+            {selectedType === 'partner_growth' && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Show top</label>
+                <select
+                  value={(config.top_n as number) ?? 5}
+                  onChange={e => setConfigField('top_n', Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {[3, 5, 8, 10].map(n => <option key={n} value={n}>{n} partners</option>)}
                 </select>
               </div>
             )}

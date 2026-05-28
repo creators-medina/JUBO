@@ -20,8 +20,10 @@ export function buildCoaching(input: {
   callGoal?: number
   connectionRate?: number
   sessionActive?: boolean
+  /** Pre-built business-coach lines (talk-to pace, partner gap, income projection) surfaced first. */
+  priorityLines?: CoachLine[]
 }): CoachLine[] {
-  const lines: CoachLine[] = []
+  const lines: CoachLine[] = [...(input.priorityLines ?? [])]
   const { summary, paces, staleCount, attentionViews, followUpsDue = 0, callsToday = 0, callGoal = 0, connectionRate = 0, sessionActive = false } = input
 
   // 1. Headline pace read.
@@ -78,5 +80,5 @@ export function buildCoaching(input: {
     lines.push({ tone: 'good', icon: 'CheckCheck', text: `All ${summary.total} actions done. Strong day.` })
   }
 
-  return lines.slice(0, 5)
+  return lines.slice(0, 6)
 }

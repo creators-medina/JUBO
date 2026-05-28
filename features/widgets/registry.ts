@@ -13,6 +13,13 @@ import { ConnectionRateWidget } from '@/features/prospecting/widgets/components/
 import { HotLeadsWidget } from '@/features/prospecting/widgets/components/HotLeadsWidget'
 import { FollowupsDueWidget } from '@/features/prospecting/widgets/components/FollowupsDueWidget'
 import { ActiveCallSessionWidget } from '@/features/prospecting/widgets/components/ActiveCallSessionWidget'
+import { ExecutionScoreWidget } from '@/features/coaching/widgets/components/ExecutionScoreWidget'
+import { TalkToPaceWidget } from '@/features/coaching/widgets/components/TalkToPaceWidget'
+import { PartnerGrowthWidget } from '@/features/coaching/widgets/components/PartnerGrowthWidget'
+import { ProjectionWidget } from '@/features/coaching/widgets/components/ProjectionWidget'
+import { PartnerHealthWidget } from '@/features/coaching/widgets/components/PartnerHealthWidget'
+import { PaceForecastWidget } from '@/features/coaching/widgets/components/PaceForecastWidget'
+import { WeeklyScorecardWidget } from '@/features/coaching/widgets/components/WeeklyScorecardWidget'
 
 export const WIDGET_REGISTRY: Record<WidgetType, React.ElementType> = {
   metric:              MetricWidget,
@@ -30,6 +37,14 @@ export const WIDGET_REGISTRY: Record<WidgetType, React.ElementType> = {
   hot_leads:           HotLeadsWidget,
   followups_due:       FollowupsDueWidget,
   active_call_session: ActiveCallSessionWidget,
+  execution_score:     ExecutionScoreWidget,
+  talk_to_pace:        TalkToPaceWidget,
+  partner_growth:      PartnerGrowthWidget,
+  projected_closings:  ProjectionWidget,
+  projected_income:    ProjectionWidget,
+  partner_health:      PartnerHealthWidget,
+  pace_forecast:       PaceForecastWidget,
+  weekly_scorecard:    WeeklyScorecardWidget,
 }
 
 export const WIDGET_META: Record<WidgetType, { label: string; description: string; defaultWidth: number }> = {
@@ -107,5 +122,45 @@ export const WIDGET_META: Record<WidgetType, { label: string; description: strin
     label: 'Call Session',
     description: 'Your live prospecting session — calls, connects, pace',
     defaultWidth: 1,
+  },
+  execution_score: {
+    label: 'Execution Score',
+    description: 'Daily discipline score across talk-tos, pacing, and follow-up',
+    defaultWidth: 1,
+  },
+  talk_to_pace: {
+    label: 'Talk-To Pace',
+    description: 'Real conversations vs your reverse-engineered target',
+    defaultWidth: 1,
+  },
+  partner_growth: {
+    label: 'Partner Growth',
+    description: 'Active partners vs needed, with your top partners',
+    defaultWidth: 2,
+  },
+  projected_closings: {
+    label: 'Projected Closings',
+    description: 'Where your closings land on current pace',
+    defaultWidth: 1,
+  },
+  projected_income: {
+    label: 'Projected Income',
+    description: 'Where your income lands on current pace',
+    defaultWidth: 1,
+  },
+  partner_health: {
+    label: 'Partner Health',
+    description: 'Partner status mix and who to reconnect with',
+    defaultWidth: 2,
+  },
+  pace_forecast: {
+    label: 'Pace Forecast',
+    description: 'Closings, income, and talk-tos projected to goal',
+    defaultWidth: 2,
+  },
+  weekly_scorecard: {
+    label: 'Weekly Scorecard',
+    description: 'This week’s talk-tos, partner touches, and execution',
+    defaultWidth: 2,
   },
 }

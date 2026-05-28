@@ -18,7 +18,7 @@ const TONE: Record<CoachTone, string> = {
 
 export function CoachingStrip({
   summary, paces, staleCount, attentionViews, followUpsDue = 0, callsToday = 0, callGoal = 0,
-  connectionRate = 0, sessionActive = false,
+  connectionRate = 0, sessionActive = false, coachInsights = [],
 }: {
   summary: { total: number; completed: number; open: number; paceStatus: string }
   paces: { goal_name: string; status: string; pace_percent: number; daily_target?: number }[]
@@ -29,8 +29,9 @@ export function CoachingStrip({
   callGoal?: number
   connectionRate?: number
   sessionActive?: boolean
+  coachInsights?: { text: string; tone: CoachTone; icon: string }[]
 }) {
-  const lines = buildCoaching({ summary, paces, staleCount, attentionViews, followUpsDue, callsToday, callGoal, connectionRate, sessionActive })
+  const lines = buildCoaching({ summary, paces, staleCount, attentionViews, followUpsDue, callsToday, callGoal, connectionRate, sessionActive, priorityLines: coachInsights })
   if (lines.length === 0) return null
 
   return (

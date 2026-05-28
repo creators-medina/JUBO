@@ -72,7 +72,7 @@ export async function saveOnboardingProgress(
  * Today cockpit, and mark the profile completed. Returns provisioning counts.
  */
 export async function completeOnboarding(organizationId: string): Promise<ProvisionResult> {
-  const { supabase } = await requireUser()
+  const { supabase, user } = await requireUser()
 
   const { data: profile } = await supabase
     .from('onboarding_profiles')
@@ -98,6 +98,28 @@ export async function completeOnboarding(organizationId: string): Promise<Provis
     await regenerateDailyActions()
   } catch (err) {
     console.warn('[onboarding] daily action generation failed:', err)
+  }
+
+  // Seed the org coaching baselines from captured answers (best-effort). The
+  // coaching engine falls back to DEFAULT_BASELINES if no row exists, so this
+  // only persists what the LO told us (loan size, inferred commission).
+  try {
+    const { data: existing } = await supabase
+      .from('coaching_assumptions').select('id').eq('organization_id', organizationId).is('user_id', null).maybeSingle()
+    if (!existing) {
+      const avgLoan = typeof answers.average_loan_size === 'number' ? answers.average_loan_size : null
+      const avgComm = (answers.target_income && answers.target_closings && answers.target_closings > 0)
+        ? Math.round(answers.target_income / answers.target_closings) : null
+      await supabase.from('coaching_assumptions').insert({
+        organization_id: organizationId,
+        user_id: null,
+        ...(avgLoan != null ? { avg_loan_size: avgLoan } : {}),
+        ...(avgComm != null ? { avg_commission: avgComm } : {}),
+        created_by: user.id,
+      })
+    }
+  } catch (err) {
+    console.warn('[onboarding] coaching assumptions seed failed:', err)
   }
 
   await supabase

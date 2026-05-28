@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import {
   textValue, numberValue, dateValue, rawValue, formatCurrency, formatDate, daysUntil, currentGroupName,
 } from '../data'
+import { DEFAULT_BASELINES } from '@/features/coaching/calculations/baselines'
 import type { MortgageData, OpportunitySignal } from '../types'
 
 function Icon({ name, className }: { name: string; className?: string }) {
@@ -105,6 +106,40 @@ export function RelationshipSummary({ data }: { data: MortgageData }) {
         <Fact label="Stage" value={currentGroupName(data)} />
         <Fact label="Email" value={textValue(data, 'email')} />
         <Fact label="Phone" value={textValue(data, 'phone')} />
+      </div>
+    </SectionCard>
+  )
+}
+
+// ── Partner coaching (Phase 24) ─────────────────────────────────────────────
+export function PartnerCoachingPanel({ data }: { data: MortgageData }) {
+  const refs = numberValue(data, 'referrals_ytd') ?? 0
+  const target = DEFAULT_BASELINES.leadsPerPartner
+  const pct = target > 0 ? Math.round((refs / target) * 100) : 0
+  const trajectory = pct >= 100 ? 'Exceeding' : pct >= 75 ? 'On track' : 'Below target'
+  const projectedValue = refs * DEFAULT_BASELINES.referralConversionRate * DEFAULT_BASELINES.avgCommission
+  return (
+    <SectionCard title="Partner Coaching" icon="Target" accent="text-teal-400">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <Fact label="Referrals YTD" value={refs} emphasis />
+        <Fact label="Annual Target" value={target} />
+        <Fact label="Trajectory" value={`${trajectory} · ${pct}%`} />
+        <Fact label="Proj. Yearly Value" value={formatCurrency(projectedValue)} />
+      </div>
+    </SectionCard>
+  )
+}
+
+// ── Loan contribution toward goals (Phase 24) ───────────────────────────────
+export function LoanContributionPanel({ data }: { data: MortgageData }) {
+  const loanAmount = numberValue(data, 'loan_amount') ?? 0
+  const commission = DEFAULT_BASELINES.avgCommission
+  return (
+    <SectionCard title="Goal Impact" icon="Zap" accent="text-purple-400">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <Fact label="Loan Amount" value={formatCurrency(loanAmount)} emphasis />
+        <Fact label="Est. Commission" value={formatCurrency(commission)} />
+        <Fact label="Counts As" value="1 closing toward goal" />
       </div>
     </SectionCard>
   )

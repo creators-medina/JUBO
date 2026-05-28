@@ -53,3 +53,5 @@ export type SectionKey =
   | 'opportunity_signals'
   | 'key_facts'
   | 'pipeline_history'
+  | 'partner_coaching'
+  | 'loan_contribution'

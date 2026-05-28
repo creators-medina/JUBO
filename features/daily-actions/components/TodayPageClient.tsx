@@ -44,6 +44,7 @@ interface Props {
   callGoal?: number                    // daily call goal (coaching)
   connectionRate?: number              // today connection rate 0..1 (coaching)
   sessionActive?: boolean              // a prospecting session is live (coaching)
+  coachInsights?: { text: string; tone: 'good' | 'warn' | 'urgent' | 'info'; icon: string }[]  // Phase 24 business-coach lines
 }
 
 const STATUS_COLOR: Record<DailyProgressStatus, string> = {
@@ -64,7 +65,7 @@ export function TodayPageClient({
   organizationId, organizationName, todayISO,
   actions, summary, paces, staleRecords, attentionViews, streak,
   productionGoals, recordBoardMap, lastUpdatedAt, setupChecklist, followUpsDue, callsToday, callGoal,
-  connectionRate, sessionActive,
+  connectionRate, sessionActive, coachInsights,
 }: Props) {
   const router = useRouter()
   const [showManual, setShowManual] = useState(false)
@@ -193,6 +194,7 @@ export function TodayPageClient({
           callGoal={callGoal}
           connectionRate={connectionRate}
           sessionActive={sessionActive}
+          coachInsights={coachInsights}
         />
 
         {/* Progress strip */}

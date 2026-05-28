@@ -21,11 +21,22 @@ import {
   defaultProspectingSummaryConfig, defaultConnectionRateConfig, defaultHotLeadsConfig,
   defaultFollowupsDueConfig, defaultActiveCallSessionConfig,
 } from '@/features/prospecting/widgets/types'
+import type {
+  ExecutionScoreData, TalkToPaceData, PartnerGrowthData, ProjectionData,
+  PartnerHealthData, PaceForecastData, WeeklyScorecardData,
+} from '@/features/coaching/types'
+import {
+  defaultExecutionScoreConfig, defaultTalkToPaceConfig, defaultPartnerGrowthConfig,
+  defaultProjectedClosingsConfig, defaultProjectedIncomeConfig, defaultPartnerHealthConfig,
+  defaultPaceForecastConfig, defaultWeeklyScorecardConfig,
+} from '@/features/coaching/types'
 
 export type { WidgetType }
 export type {
   ProspectingSummaryData, ConnectionRateData, HotLeadsData,
   FollowupsDueData, ActiveCallSessionData,
+  ExecutionScoreData, TalkToPaceData, PartnerGrowthData, ProjectionData,
+  PartnerHealthData, PaceForecastData, WeeklyScorecardData,
 }
 export type {
   GoalProgressWidgetConfig, FunnelPaceWidgetConfig, GapAnalysisWidgetConfig,
@@ -197,6 +208,14 @@ export type WidgetData =
   | { type: 'hot_leads'; data: HotLeadsData }
   | { type: 'followups_due'; data: FollowupsDueData }
   | { type: 'active_call_session'; data: ActiveCallSessionData }
+  | { type: 'execution_score'; data: ExecutionScoreData }
+  | { type: 'talk_to_pace'; data: TalkToPaceData }
+  | { type: 'partner_growth'; data: PartnerGrowthData }
+  | { type: 'projected_closings'; data: ProjectionData }
+  | { type: 'projected_income'; data: ProjectionData }
+  | { type: 'partner_health'; data: PartnerHealthData }
+  | { type: 'pace_forecast'; data: PaceForecastData }
+  | { type: 'weekly_scorecard'; data: WeeklyScorecardData }
   | { type: 'error'; message: string }
 
 // ── Icon names usable in widget configs ───────────────────────────────────────
@@ -267,5 +286,21 @@ export function defaultConfig(type: WidgetType): Record<string, unknown> {
     return defaultFollowupsDueConfig() as unknown as Record<string, unknown>
   if (type === 'active_call_session')
     return defaultActiveCallSessionConfig() as unknown as Record<string, unknown>
+  if (type === 'execution_score')
+    return defaultExecutionScoreConfig() as unknown as Record<string, unknown>
+  if (type === 'talk_to_pace')
+    return defaultTalkToPaceConfig() as unknown as Record<string, unknown>
+  if (type === 'partner_growth')
+    return defaultPartnerGrowthConfig() as unknown as Record<string, unknown>
+  if (type === 'projected_closings')
+    return defaultProjectedClosingsConfig() as unknown as Record<string, unknown>
+  if (type === 'projected_income')
+    return defaultProjectedIncomeConfig() as unknown as Record<string, unknown>
+  if (type === 'partner_health')
+    return defaultPartnerHealthConfig() as unknown as Record<string, unknown>
+  if (type === 'pace_forecast')
+    return defaultPaceForecastConfig() as unknown as Record<string, unknown>
+  if (type === 'weekly_scorecard')
+    return defaultWeeklyScorecardConfig() as unknown as Record<string, unknown>
   return {}
 }

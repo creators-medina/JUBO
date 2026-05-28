@@ -31,6 +31,14 @@ import {
 import type {
   HotLeadsWidgetConfig, FollowupsDueWidgetConfig,
 } from '@/features/prospecting/widgets/types'
+import {
+  getExecutionScoreData, getTalkToPaceData, getPartnerGrowthData,
+  getProjectedClosingsData, getProjectedIncomeData, getPartnerHealthData,
+  getPaceForecastData, getWeeklyScorecardData,
+} from '@/features/coaching/widgets/queries'
+import type {
+  TalkToPaceWidgetConfig, PartnerGrowthWidgetConfig,
+} from '@/features/coaching/types'
 
 // ── Filter application helper ─────────────────────────────────────────────────
 
@@ -466,6 +474,46 @@ export async function getDashboardWidgetData(
           const data = await getActiveCallSessionData(orgId)
           if (!data) return [w.id, { type: 'error', message: 'Sign in to see prospecting.' }]
           return [w.id, { type: 'active_call_session', data }]
+        }
+        if (w.widget_type === 'execution_score') {
+          const data = await getExecutionScoreData(orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Sign in to see coaching.' }]
+          return [w.id, { type: 'execution_score', data }]
+        }
+        if (w.widget_type === 'talk_to_pace') {
+          const data = await getTalkToPaceData(w.config as TalkToPaceWidgetConfig, orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Sign in to see coaching.' }]
+          return [w.id, { type: 'talk_to_pace', data }]
+        }
+        if (w.widget_type === 'partner_growth') {
+          const data = await getPartnerGrowthData(w.config as PartnerGrowthWidgetConfig, orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Sign in to see coaching.' }]
+          return [w.id, { type: 'partner_growth', data }]
+        }
+        if (w.widget_type === 'projected_closings') {
+          const data = await getProjectedClosingsData(orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Set an income goal to project closings.' }]
+          return [w.id, { type: 'projected_closings', data }]
+        }
+        if (w.widget_type === 'projected_income') {
+          const data = await getProjectedIncomeData(orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Set an income goal to project income.' }]
+          return [w.id, { type: 'projected_income', data }]
+        }
+        if (w.widget_type === 'partner_health') {
+          const data = await getPartnerHealthData(orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Sign in to see coaching.' }]
+          return [w.id, { type: 'partner_health', data }]
+        }
+        if (w.widget_type === 'pace_forecast') {
+          const data = await getPaceForecastData(orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Sign in to see coaching.' }]
+          return [w.id, { type: 'pace_forecast', data }]
+        }
+        if (w.widget_type === 'weekly_scorecard') {
+          const data = await getWeeklyScorecardData(orgId)
+          if (!data) return [w.id, { type: 'error', message: 'Sign in to see coaching.' }]
+          return [w.id, { type: 'weekly_scorecard', data }]
         }
         return [w.id, { type: 'error', message: 'Unknown widget type' }]
       } catch (err) {

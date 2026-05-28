@@ -19,6 +19,7 @@ import { getFollowUpsDueCount } from '@/features/communications/queries'
 import { getProspectingMetrics } from '@/features/prospecting/metrics'
 import { getActiveSession } from '@/features/prospecting/sessions/queries'
 import { getDailyCallTarget } from '@/features/prospecting/target'
+import { getCoachInsights } from '@/features/coaching/queries'
 import type { DailyMetricPace } from '@/features/daily-actions/types'
 
 export const dynamic = 'force-dynamic'
@@ -156,6 +157,13 @@ export default async function TodayPage() {
   const prospectingSession = await getActiveSession(orgId, user.id)
   const callTarget = await getDailyCallTarget(orgId, user.id, prospectingSession)
 
+  // Business-coach insights (reverse-engineered targets, partner gap, projections).
+  let coachInsights: { text: string; tone: 'good' | 'warn' | 'urgent' | 'info'; icon: string }[] = []
+  try {
+    const insights = await getCoachInsights(orgId, user.id)
+    coachInsights = insights.slice(0, 3).map((i) => ({ text: i.body, tone: i.tone, icon: i.icon }))
+  } catch { /* coaching is best-effort */ }
+
   return (
     <TodayPageClient
       organizationId={orgId}
@@ -176,6 +184,7 @@ export default async function TodayPage() {
       callGoal={callTarget.target}
       connectionRate={prospectingMetrics.connectionRate}
       sessionActive={!!prospectingSession}
+      coachInsights={coachInsights}
     />
   )
 }

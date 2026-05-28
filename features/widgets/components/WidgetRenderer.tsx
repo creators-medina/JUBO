@@ -15,6 +15,13 @@ import { ConnectionRateWidget } from '@/features/prospecting/widgets/components/
 import { HotLeadsWidget } from '@/features/prospecting/widgets/components/HotLeadsWidget'
 import { FollowupsDueWidget } from '@/features/prospecting/widgets/components/FollowupsDueWidget'
 import { ActiveCallSessionWidget } from '@/features/prospecting/widgets/components/ActiveCallSessionWidget'
+import { ExecutionScoreWidget } from '@/features/coaching/widgets/components/ExecutionScoreWidget'
+import { TalkToPaceWidget } from '@/features/coaching/widgets/components/TalkToPaceWidget'
+import { PartnerGrowthWidget } from '@/features/coaching/widgets/components/PartnerGrowthWidget'
+import { ProjectionWidget } from '@/features/coaching/widgets/components/ProjectionWidget'
+import { PartnerHealthWidget } from '@/features/coaching/widgets/components/PartnerHealthWidget'
+import { PaceForecastWidget } from '@/features/coaching/widgets/components/PaceForecastWidget'
+import { WeeklyScorecardWidget } from '@/features/coaching/widgets/components/WeeklyScorecardWidget'
 import type {
   DashboardWidgetRow, WidgetData,
   MetricWidgetConfig,
@@ -146,6 +153,34 @@ export function WidgetRenderer({ widget, data, onRemove, onEdit, onRecordClick, 
         <ActiveCallSessionWidget data={data.data} />
       </WidgetShell>
     )
+  }
+
+  if (data.type === 'execution_score') {
+    return <WidgetShell {...shellProps}><ExecutionScoreWidget data={data.data} /></WidgetShell>
+  }
+
+  if (data.type === 'talk_to_pace') {
+    return <WidgetShell {...shellProps}><TalkToPaceWidget data={data.data} /></WidgetShell>
+  }
+
+  if (data.type === 'partner_growth') {
+    return <WidgetShell {...shellProps}><PartnerGrowthWidget data={data.data} onRecordClick={onRecordClick} /></WidgetShell>
+  }
+
+  if (data.type === 'projected_closings' || data.type === 'projected_income') {
+    return <WidgetShell {...shellProps}><ProjectionWidget data={data.data} /></WidgetShell>
+  }
+
+  if (data.type === 'partner_health') {
+    return <WidgetShell {...shellProps}><PartnerHealthWidget data={data.data} onRecordClick={onRecordClick} /></WidgetShell>
+  }
+
+  if (data.type === 'pace_forecast') {
+    return <WidgetShell {...shellProps}><PaceForecastWidget data={data.data} /></WidgetShell>
+  }
+
+  if (data.type === 'weekly_scorecard') {
+    return <WidgetShell {...shellProps}><WeeklyScorecardWidget data={data.data} /></WidgetShell>
   }
 
   return null

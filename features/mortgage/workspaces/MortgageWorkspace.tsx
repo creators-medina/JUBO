@@ -7,7 +7,7 @@ import { resolveWorkspaceTemplate } from '../templates/resolve'
 import { computeOpportunitySignals } from '../scoring/opportunities'
 import {
   LeadOverview, LoanSummary, MilestoneTracker, RelationshipSummary, PastClientOverview,
-  KeyFacts, OpportunitySignals, PipelineHistory,
+  KeyFacts, OpportunitySignals, PipelineHistory, PartnerCoachingPanel, LoanContributionPanel,
 } from '../sections'
 import {
   markContacted, scheduleFollowUp, advanceMilestone, addPartnerTouch, createAnniversaryReminder,
@@ -35,6 +35,8 @@ export function MortgageWorkspace({ data, onChanged }: { data: MortgageData; onC
       case 'pipeline_history':      return <PipelineHistory key={key} data={data} />
       case 'opportunity_signals':   return <OpportunitySignals key={key} signals={signals} />
       case 'key_facts':             return <KeyFacts key={key} data={data} />
+      case 'partner_coaching':      return <PartnerCoachingPanel key={key} data={data} />
+      case 'loan_contribution':     return <LoanContributionPanel key={key} data={data} />
     }
   }
 

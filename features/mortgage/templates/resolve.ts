@@ -13,11 +13,11 @@ const TEMPLATES: Record<WorkspaceTemplateKey, WorkspaceTemplate> = {
   },
   loan: {
     key: 'loan', label: 'Loan File', accent: 'text-violet-400',
-    sections: ['loan_summary', 'milestone_tracker', 'opportunity_signals', 'key_facts'],
+    sections: ['loan_summary', 'loan_contribution', 'milestone_tracker', 'opportunity_signals', 'key_facts'],
   },
   partner: {
     key: 'partner', label: 'Partner', accent: 'text-teal-400',
-    sections: ['relationship_summary', 'opportunity_signals', 'key_facts'],
+    sections: ['relationship_summary', 'partner_coaching', 'opportunity_signals', 'key_facts'],
   },
   past_client: {
     key: 'past_client', label: 'Past Client', accent: 'text-rose-400',

@@ -322,6 +322,34 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
             </div>
           )}
 
+          {type === 'talk_to_pace' && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Cadence</label>
+              <div className="flex gap-2">
+                {(['daily', 'weekly'] as const).map(c => (
+                  <button key={c} type="button" onClick={() => setConfigField('cadence', c)}
+                    className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
+                      (config.cadence ?? 'daily') === c ? 'bg-primary/20 border-primary text-primary' : 'border-border text-muted-foreground hover:text-foreground'
+                    }`}
+                  >{c}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {type === 'partner_growth' && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Show top</label>
+              <select
+                value={(config.top_n as number) ?? 5}
+                onChange={e => setConfigField('top_n', Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                {[3, 5, 8, 10].map(n => <option key={n} value={n}>{n} partners</option>)}
+              </select>
+            </div>
+          )}
+
           {type === 'saved_view' && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">Saved View</label>
