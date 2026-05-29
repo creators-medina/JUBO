@@ -14,6 +14,7 @@ import { importTemplateByKey } from '../templates/importTemplates'
 import {
   analyzeDuplicates, createImportRun, executeImportChunk, finalizeImport, getBoardFieldsAndGroups,
 } from '../actions'
+import { createImportField } from '@/features/fields/actions'
 import { MappingTable } from './MappingTable'
 import { PreviewTable } from './PreviewTable'
 import {
@@ -116,12 +117,25 @@ export function ImportWizard({
 
   const setMapping = (columnIndex: number, target: string) => {
     setMappings((prev) => prev.map((m) => {
-      if (m.columnIndex === columnIndex) return { ...m, target }
+      if (m.columnIndex === columnIndex) return { ...m, target, meta: { confidence: 1, reason: 'manual' } }
       // enforce single title
       if (target === TITLE_TARGET && m.target === TITLE_TARGET) return { ...m, target: '' }
       return m
     }))
   }
+
+  // Create a field on the selected board from a column, add it to the live field
+  // list, and let the caller map to it immediately.
+  const handleCreateField = useCallback(async (_columnIndex: number, name: string, ftype: FieldType): Promise<TargetField | null> => {
+    try {
+      const f = await createImportField({ boardId, name, fieldType: ftype })
+      setFields((prev) => [...prev, f])
+      return f
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not create field')
+      return null
+    }
+  }, [boardId])
 
   const titleColIndex = useMemo(
     () => mappings.find((m) => m.target === TITLE_TARGET)?.columnIndex ?? -1,
@@ -162,8 +176,9 @@ export function ImportWizard({
     setStep('run'); setError(null)
     const duplicates = analysis?.duplicates ?? 0
 
-    // Which rows to create.
-    const createIndexes = rows
+    // Process all rows except duplicates we're skipping. On 'update', duplicates
+    // become in-place updates; on 'create', they create new records.
+    const processIndexes = rows
       .map((_, i) => i)
       .filter((i) => !(dedupeBehavior === 'skip' && matchByRow.get(i)?.isDuplicate))
 
@@ -175,7 +190,7 @@ export function ImportWizard({
       }
     }
 
-    const execRows: ExecutionRow[] = createIndexes.map((i) => {
+    const execRows: ExecutionRow[] = processIndexes.map((i) => {
       const r = rows[i]
       const values: Record<string, string> = {}
       const source: Record<string, string> = {}
@@ -184,13 +199,16 @@ export function ImportWizard({
         source[m.header] = cell
         if (m.target && m.target !== TITLE_TARGET) values[m.target] = cell
       }
-      return { rowIndex: i, title: titleColIndex >= 0 ? (r[titleColIndex] ?? '') : '', values, source }
+      const match = matchByRow.get(i)
+      const matchedRecordId = dedupeBehavior === 'update' && match?.isDuplicate ? match.matchedRecordId : undefined
+      return { rowIndex: i, title: titleColIndex >= 0 ? (r[titleColIndex] ?? '') : '', values, source, matchedRecordId }
     })
 
     setProgress({ done: 0, total: execRows.length })
 
     let importId = ''
     let imported = 0
+    let updated = 0
     let failed = 0
     try {
       importId = await createImportRun({
@@ -207,13 +225,14 @@ export function ImportWizard({
           recordType, fieldTypes, rows: chunk,
         })
         imported += res.imported
+        updated += res.updated
         failed += res.failed
         setProgress({ done: Math.min(i + chunk.length, execRows.length), total: execRows.length })
       }
 
       const skipped = dedupeBehavior === 'skip' ? duplicates : 0
-      await finalizeImport(importId, organizationId, { imported, skipped, failed, duplicates })
-      setSummary({ imported, skipped, failed, duplicates })
+      await finalizeImport(importId, organizationId, { imported, updated, skipped, failed, duplicates })
+      setSummary({ imported, updated, skipped, failed, duplicates })
       setStep('done')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Import failed.')
@@ -264,14 +283,14 @@ export function ImportWizard({
 
         {step === 'map' && (
           <div className="space-y-4">
-            <Intro title="Map your columns" subtitle={`Jubo auto-matched what it could. Confirm the mapping — ★ Record name is required.`} />
-            <MappingTable mappings={mappings} fields={fields} sampleRow={rows[0] ?? []} onChange={setMapping} />
+            <Intro title="Tell Jubo where this data belongs" subtitle={`We matched what we could. Confirm each column, create a field for anything missing, or skip it. ★ Record name is required.`} />
+            <MappingTable mappings={mappings} fields={fields} sampleRow={rows[0] ?? []} onChange={setMapping} onCreateField={handleCreateField} />
           </div>
         )}
 
         {step === 'preview' && analysis && (
           <div className="space-y-4">
-            <Intro title="Review & dedupe" subtitle="Confirm what will import. Duplicates are matched against existing records." />
+            <Intro title="Review what Jubo will do" subtitle="Confirm before importing. Duplicates are matched against existing records by email, phone, or name." />
             <div className="flex flex-wrap gap-3">
               <Stat label="Rows" value={rows.length} />
               <Stat label="New" value={rows.length - analysis.duplicates} tone="green" />
@@ -281,11 +300,11 @@ export function ImportWizard({
               <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-1 px-4 py-2.5">
                 <span className="text-sm text-foreground">Duplicates:</span>
                 <div className="flex gap-1">
-                  {(['skip', 'create'] as DedupeBehavior[]).map((b) => (
+                  {(['skip', 'update', 'create'] as DedupeBehavior[]).map((b) => (
                     <button key={b} onClick={() => setDedupeBehavior(b)}
-                      className={cn('rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors',
+                      className={cn('rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
                         dedupeBehavior === b ? 'bg-primary text-primary-foreground' : 'bg-surface-2 text-muted-foreground hover:text-foreground')}>
-                      {b === 'skip' ? 'Skip them' : 'Import anyway'}
+                      {b === 'skip' ? 'Skip them' : b === 'update' ? 'Update existing' : 'Import anyway'}
                     </button>
                   ))}
                 </div>
@@ -323,7 +342,13 @@ export function ImportWizard({
           )}
           {step === 'preview' && (
             <Button className="gap-1.5" onClick={runImport}>
-              Import {dedupeBehavior === 'skip' ? rows.length - (analysis?.duplicates ?? 0) : rows.length} records
+              {(() => {
+                const dupes = analysis?.duplicates ?? 0
+                const newCount = rows.length - dupes
+                if (dedupeBehavior === 'update' && dupes > 0) return `Import ${newCount} & update ${dupes}`
+                if (dedupeBehavior === 'skip') return `Import ${newCount} record${newCount === 1 ? '' : 's'}`
+                return `Import ${rows.length} record${rows.length === 1 ? '' : 's'}`
+              })()}
               <ArrowRight className="h-4 w-4" />
             </Button>
           )}
@@ -449,8 +474,9 @@ function DoneStep({ summary, boardId, router }: { summary: ImportSummary; boardI
       <h2 className="mt-5 text-2xl font-semibold text-foreground">Import complete</h2>
       <p className="mt-1 text-sm text-muted-foreground">Your business is now in Jubo.</p>
 
-      <div className="mt-6 grid grid-cols-4 gap-3">
+      <div className="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-5">
         <Stat label="imported" value={summary.imported} tone="green" />
+        <Stat label="updated" value={summary.updated} tone="green" />
         <Stat label="duplicates" value={summary.duplicates} tone="amber" />
         <Stat label="skipped" value={summary.skipped} />
         <Stat label="failed" value={summary.failed} />

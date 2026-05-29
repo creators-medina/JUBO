@@ -144,70 +144,83 @@ export async function executeImportChunk(input: {
 }): Promise<ExecuteChunkResult> {
   const { supabase, user } = await requireUser()
   const rows = input.rows.slice(0, MAX_CHUNK)
-  if (rows.length === 0) return { imported: 0, failed: 0, errors: [] }
+  if (rows.length === 0) return { imported: 0, updated: 0, failed: 0, errors: [] }
 
-  // 1. Bulk insert the records.
-  const recordInserts = rows.map((r) => ({
-    organization_id: input.organizationId,
-    board_id: input.boardId,
-    group_id: input.groupId,
-    title: r.title || 'Untitled',
-    record_type: input.recordType,
-    owner_user_id: user.id,
-    created_by: user.id,
-  }))
+  // Rows matched to an existing record (dedupe 'update') update in place; the rest create.
+  const createRows = rows.filter((r) => !r.matchedRecordId)
+  const updateRows = rows.filter((r) => r.matchedRecordId)
 
-  const { data: created, error: recErr } = await supabase
-    .from('records')
-    .insert(recordInserts)
-    .select('id')
-
-  if (recErr || !created) {
-    return { imported: 0, failed: rows.length, errors: rows.map((r) => ({ rowIndex: r.rowIndex, error: recErr?.message ?? 'insert failed' })) }
-  }
-
-  // 2. Build + bulk-upsert field values.
+  let imported = 0
+  let updated = 0
+  let failed = 0
+  const errors: { rowIndex: number; error: string }[] = []
   const fvInserts: { field_id: string; record_id: string; value_text?: string | null; value_number?: number | null; value_boolean?: boolean | null; value_date?: string | null; value_json?: unknown }[] = []
-  const importRowInserts: { import_id: string; organization_id: string; row_index: number; status: string; record_id: string; source_data: Record<string, string> }[] = []
+  const importRowInserts: { import_id: string; organization_id: string; row_index: number; status: string; record_id: string; matched_record_id?: string; source_data: Record<string, string> }[] = []
 
-  created.forEach((rec, i) => {
-    const row = rows[i]
-    for (const [fieldId, raw] of Object.entries(row.values)) {
+  // coerceValue returns null for empty cells → blanks never overwrite existing data.
+  const coerceInto = (recordId: string, values: Record<string, string>) => {
+    for (const [fieldId, raw] of Object.entries(values)) {
       const ftype = input.fieldTypes[fieldId]
       if (!ftype) continue
       const patch = coerceValue(raw, ftype)
-      if (patch) fvInserts.push({ field_id: fieldId, record_id: rec.id, ...patch })
+      if (patch) fvInserts.push({ field_id: fieldId, record_id: recordId, ...patch })
     }
-    importRowInserts.push({
-      import_id: input.importId,
+  }
+
+  // ── CREATE ────────────────────────────────────────────────────────────────
+  if (createRows.length > 0) {
+    const recordInserts = createRows.map((r) => ({
       organization_id: input.organizationId,
-      row_index: row.rowIndex,
-      status: 'imported',
-      record_id: rec.id,
-      source_data: row.source,
-    })
-  })
+      board_id: input.boardId,
+      group_id: input.groupId,
+      title: r.title || 'Untitled',
+      record_type: input.recordType,
+      owner_user_id: user.id,
+      created_by: user.id,
+    }))
+    const { data: created, error: recErr } = await supabase.from('records').insert(recordInserts).select('id')
+    if (recErr || !created) {
+      failed += createRows.length
+      for (const r of createRows) errors.push({ rowIndex: r.rowIndex, error: recErr?.message ?? 'insert failed' })
+    } else {
+      imported = created.length
+      created.forEach((rec, i) => {
+        const row = createRows[i]
+        coerceInto(rec.id, row.values)
+        importRowInserts.push({ import_id: input.importId, organization_id: input.organizationId, row_index: row.rowIndex, status: 'imported', record_id: rec.id, source_data: row.source })
+      })
+    }
+  }
+
+  // ── UPDATE EXISTING (never wipes — empty incoming cells are skipped) ─────────
+  for (const row of updateRows) {
+    const rid = row.matchedRecordId as string
+    coerceInto(rid, row.values)
+    importRowInserts.push({ import_id: input.importId, organization_id: input.organizationId, row_index: row.rowIndex, status: 'updated', record_id: rid, matched_record_id: rid, source_data: row.source })
+    updated++
+  }
 
   if (fvInserts.length > 0) {
-    // Upsert guards against the UNIQUE(field_id, record_id) constraint on retries.
+    // Upsert guards the UNIQUE(field_id, record_id) constraint (retry- + update-safe).
     await supabase.from('field_values').upsert(fvInserts, { onConflict: 'field_id,record_id' })
   }
   if (importRowInserts.length > 0) {
     await supabase.from('import_rows').insert(importRowInserts)
   }
 
-  return { imported: created.length, failed: 0, errors: [] }
+  return { imported, updated, failed, errors }
 }
 
 /** Finalize the import: write counts/status + log one activity. Maps funnel stages. */
 export async function finalizeImport(
   importId: string,
   organizationId: string,
-  summary: { imported: number; skipped: number; failed: number; duplicates: number },
+  summary: { imported: number; updated: number; skipped: number; failed: number; duplicates: number },
 ): Promise<void> {
   const { supabase, user } = await requireUser()
 
-  const status = summary.failed > 0 && summary.imported === 0 ? 'failed'
+  const touched = summary.imported + summary.updated
+  const status = summary.failed > 0 && touched === 0 ? 'failed'
     : summary.failed > 0 ? 'partial'
     : 'completed'
 
@@ -219,18 +232,22 @@ export async function finalizeImport(
       skipped_count: summary.skipped,
       failed_count: summary.failed,
       duplicate_count: summary.duplicates,
-      summary,
+      summary,                       // `updated` count persists here (no column needed)
       completed_at: new Date().toISOString(),
     })
     .eq('id', importId)
 
   // Single audit activity for the whole import (not one per row).
-  if (summary.imported > 0) {
+  if (touched > 0) {
+    const parts = [
+      summary.imported > 0 ? `imported ${summary.imported}` : null,
+      summary.updated > 0 ? `updated ${summary.updated}` : null,
+    ].filter(Boolean).join(' · ')
     await supabase.from('activities').insert({
       organization_id: organizationId,
       user_id: user.id,
       activity_type: 'integration_event',
-      content: `Imported ${summary.imported} record${summary.imported === 1 ? '' : 's'}`,
+      content: `Import complete — ${parts} record${touched === 1 ? '' : 's'}`,
       metadata: { source: 'import', import_id: importId, ...summary },
     })
   }

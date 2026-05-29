@@ -36,6 +36,14 @@ export type InferredType = {
 /** Special target for the record's title column (records.title is required). */
 export const TITLE_TARGET = '__title__' as const
 
+/** Why a column was mapped — surfaced as a confidence badge to build trust. */
+export type MappingReason = 'matched-by-header' | 'synonym' | 'type-detected' | 'fuzzy-match' | 'manual' | 'created' | 'skipped'
+
+export type MappingMetadata = {
+  confidence: number        // 0..1
+  reason: MappingReason
+}
+
 /** One column → target mapping. target is a field id, TITLE_TARGET, or '' (skip). */
 export type ColumnMapping = {
   columnIndex: number
@@ -44,6 +52,8 @@ export type ColumnMapping = {
   inferred: InferredType
   /** for newly-created fields not yet persisted (later-ready); unused in v1 */
   createFieldType?: FieldType
+  /** confidence/reason for the auto-mapping (trust signal) */
+  meta?: MappingMetadata
 }
 
 /** A board's field, as the mapper sees it. */
@@ -58,7 +68,7 @@ export type TargetField = {
 
 export type DedupeKey = 'email' | 'phone' | 'name'
 
-export type DedupeBehavior = 'skip' | 'create'
+export type DedupeBehavior = 'skip' | 'create' | 'update'
 
 /** Per-row dedupe outcome computed by the server analyze step. */
 export type RowMatch = {
@@ -84,16 +94,20 @@ export type ExecutionRow = {
   values: Record<string, string>
   /** raw source row (header → cell) for audit */
   source: Record<string, string>
+  /** existing record to update instead of creating (dedupe behavior 'update') */
+  matchedRecordId?: string
 }
 
 export type ExecuteChunkResult = {
   imported: number
+  updated: number
   failed: number
   errors: { rowIndex: number; error: string }[]
 }
 
 export type ImportSummary = {
   imported: number
+  updated: number
   skipped: number
   failed: number
   duplicates: number

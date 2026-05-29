@@ -1,7 +1,9 @@
 'use client'
 
-import { cn } from '@/lib/utils'
+import { AlertTriangle } from 'lucide-react'
 import { TITLE_TARGET, type ColumnMapping, type TargetField } from '../types'
+import type { FieldType } from '@/types/database'
+import { FieldMappingControl } from './FieldMappingControl'
 
 const TYPE_LABEL: Record<string, string> = {
   email: 'Email', phone: 'Phone', currency: 'Currency', number: 'Number',
@@ -14,56 +16,62 @@ export function MappingTable({
   fields,
   sampleRow,
   onChange,
+  onCreateField,
 }: {
   mappings: ColumnMapping[]
   fields: TargetField[]
   sampleRow: string[]
   onChange: (columnIndex: number, target: string) => void
+  onCreateField: (columnIndex: number, name: string, fieldType: FieldType) => Promise<TargetField | null>
 }) {
   const titleUsed = mappings.some((m) => m.target === TITLE_TARGET)
+  const ignored = mappings.filter((m) => m.target === '')
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border">
-      <div className="grid grid-cols-[1.4fr_1fr_1.4fr] gap-2 border-b border-border bg-surface-1 px-4 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
-        <span>Column</span>
-        <span>Sample</span>
-        <span>Maps to</span>
-      </div>
-      <div className="max-h-[46vh] divide-y divide-border overflow-y-auto">
-        {mappings.map((m) => {
-          const sample = sampleRow[m.columnIndex] ?? ''
-          const mapped = m.target !== ''
-          return (
-            <div key={m.columnIndex} className="grid grid-cols-[1.4fr_1fr_1.4fr] items-center gap-2 px-4 py-2.5">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">{m.header}</p>
-                <span className="text-2xs text-muted-foreground">{TYPE_LABEL[m.inferred.type] ?? m.inferred.type}</span>
-              </div>
-              <p className="truncate text-xs text-muted-foreground">{sample || <span className="opacity-40">—</span>}</p>
-              <div className="flex items-center gap-2">
-                <select
+    <div className="space-y-3">
+      <div className="overflow-hidden rounded-xl border border-border">
+        <div className="grid grid-cols-[1.4fr_1fr_1.4fr] gap-2 border-b border-border bg-surface-1 px-4 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <span>Column</span>
+          <span>Sample</span>
+          <span>Maps to</span>
+        </div>
+        <div className="max-h-[46vh] divide-y divide-border overflow-y-auto">
+          {mappings.map((m) => {
+            const sample = sampleRow[m.columnIndex] ?? ''
+            return (
+              <div key={m.columnIndex} className="grid grid-cols-[1.4fr_1fr_1.4fr] items-center gap-2 px-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{m.header}</p>
+                  <span className="text-2xs text-muted-foreground">{TYPE_LABEL[m.inferred.type] ?? m.inferred.type}</span>
+                </div>
+                <p className="truncate text-xs text-muted-foreground">{sample || <span className="opacity-40">—</span>}</p>
+                <FieldMappingControl
                   value={m.target}
-                  onChange={(e) => onChange(m.columnIndex, e.target.value)}
-                  className={cn(
-                    'w-full rounded-md border bg-surface-1 px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary',
-                    mapped ? 'border-border' : 'border-dashed border-border text-muted-foreground',
-                  )}
-                >
-                  <option value="">Ignore this column</option>
-                  <option value={TITLE_TARGET} disabled={titleUsed && m.target !== TITLE_TARGET}>
-                    ★ Record name {titleUsed && m.target !== TITLE_TARGET ? '(taken)' : ''}
-                  </option>
-                  <optgroup label="Fields">
-                    {fields.map((f) => (
-                      <option key={f.id} value={f.id}>{f.name}</option>
-                    ))}
-                  </optgroup>
-                </select>
+                  fields={fields}
+                  columnHeader={m.header}
+                  inferred={m.inferred}
+                  meta={m.meta}
+                  titleTaken={titleUsed}
+                  onChange={(t) => onChange(m.columnIndex, t)}
+                  onCreateField={(name, type) => onCreateField(m.columnIndex, name, type)}
+                />
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
+
+      {ignored.length > 0 && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-foreground">{ignored.length} column{ignored.length === 1 ? '' : 's'} will be skipped</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Not importing: {ignored.map((m) => m.header).join(', ')}. Map them — or create a field — so nothing is lost.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

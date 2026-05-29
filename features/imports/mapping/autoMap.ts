@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { inferColumnType } from '../validation/typeInference'
-import { TITLE_TARGET, type ColumnMapping, type TargetField } from '../types'
+import { TITLE_TARGET, type ColumnMapping, type MappingMetadata, type TargetField } from '../types'
 
 function norm(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -71,30 +71,37 @@ export function autoMapColumns(headers: string[], rows: string[][], fields: Targ
     const inferred = inferColumnType(samples)
 
     let target = ''
+    let meta: MappingMetadata = { confidence: 0, reason: 'skipped' }
 
     // 1. Title column — take the first strong title-synonym match.
     if (!titleAssigned && TITLE_SYNONYMS.some((t) => nHeader === t || nHeader.includes(t))) {
       target = TITLE_TARGET
       titleAssigned = true
+      meta = { confidence: 0.95, reason: 'matched-by-header' }
     } else {
       // 2. Synonym → field slug.
       const synSlug = FIELD_SYNONYMS[nHeader]
       const synField = synSlug ? fieldBySlug.get(synSlug) : undefined
       if (synField) {
         target = synField.id
+        meta = { confidence: 0.9, reason: 'synonym' }
       } else {
         // 3. Fuzzy match against field names/slugs, with a type-match bonus.
-        let best: { id: string; score: number } | null = null
+        let best: { id: string; score: number; typeMatch: boolean } | null = null
         for (const f of fields) {
+          const typeMatch = f.field_type === inferred.type && inferred.confidence >= 0.6
           let score = Math.max(similarity(nHeader, norm(f.name)), similarity(nHeader, norm(f.slug)))
-          if (f.field_type === inferred.type && inferred.confidence >= 0.6) score += 0.15
-          if (!best || score > best.score) best = { id: f.id, score }
+          if (typeMatch) score += 0.15
+          if (!best || score > best.score) best = { id: f.id, score, typeMatch }
         }
-        if (best && best.score >= 0.5) target = best.id
+        if (best && best.score >= 0.5) {
+          target = best.id
+          meta = { confidence: Math.min(1, best.score), reason: best.typeMatch ? 'type-detected' : 'fuzzy-match' }
+        }
       }
     }
 
-    mappings.push({ columnIndex: i, header, target, inferred })
+    mappings.push({ columnIndex: i, header, target, inferred, meta })
   }
 
   return mappings
