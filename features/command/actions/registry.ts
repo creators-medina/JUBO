@@ -45,6 +45,9 @@ export type QuickActionId =
   | 'log-sms'
   | 'log-meeting'
   | 'customize-dashboard'
+  | 'open-analytics'
+  | 'report-issue'
+  | 'request-feature'
   | 'close-active-workspace'
   | 'close-all-workspaces'
 
@@ -92,6 +95,9 @@ export const QUICK_ACTIONS: QuickActionDef[] = [
   { id: 'run-integration-worker',  title: 'Process Integration Events', iconName: 'RefreshCw', group: 'System',    keywords: ['integration', 'worker', 'sync', 'process', 'drain', 'pending', 'arive'] },
   { id: 'open-stage-mapping',      title: 'Open Stage Mapping',    iconName: 'GitBranch',       group: 'Setup',       keywords: ['stage', 'mapping', 'pipeline', 'status', 'movement', 'integration'] },
   { id: 'customize-dashboard',  title: 'Customize Dashboard',   iconName: 'LayoutDashboard', group: 'Setup',       keywords: ['customize', 'dashboard', 'widgets'] },
+  { id: 'open-analytics',       title: 'Open Product Analytics', iconName: 'BarChart3',      group: 'Setup',       keywords: ['analytics', 'usage', 'metrics', 'admin', 'adoption'] },
+  { id: 'report-issue',         title: 'Report an Issue',        iconName: 'Bug',            group: 'Help',        keywords: ['bug', 'report', 'issue', 'problem', 'feedback'] },
+  { id: 'request-feature',      title: 'Request a Feature',      iconName: 'Lightbulb',      group: 'Help',        keywords: ['feature', 'request', 'idea', 'suggestion', 'feedback'] },
 
   // Record operations (act on the open workspace record)
   { id: 'schedule-followup',    title: 'Schedule Follow-Up',    iconName: 'Clock',           group: 'Record',      keywords: ['follow up', 'followup', 'next action', 'remind', 'schedule'] },

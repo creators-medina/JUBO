@@ -130,6 +130,15 @@ export async function completeOnboarding(organizationId: string): Promise<Provis
   revalidatePath('/dashboard')
   revalidatePath('/today')
   revalidatePath('/boards')
+
+  // Product analytics (best-effort): mark onboarding as completed.
+  try {
+    await supabase.from('analytics_events').insert({
+      organization_id: organizationId, user_id: user.id, event_name: 'onboarding_completed',
+      props: { boards: result.boards, dashboards: result.dashboards, widgets: result.widgets },
+    })
+  } catch { /* telemetry is best-effort */ }
+
   return result
 }
 

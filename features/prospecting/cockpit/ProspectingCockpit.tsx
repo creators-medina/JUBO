@@ -13,6 +13,8 @@ import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsPr
 import { useToast } from '@/features/feedback/ToastProvider'
 import { quickCallOutcome } from '@/features/communications/actions'
 import { PhoneActions } from '@/features/communications/components/PhoneActions'
+import { track } from '@/features/analytics/client'
+import { TrackView } from '@/features/analytics/TrackView'
 import { OUTCOME_LABEL, type CommunicationOutcome } from '@/features/communications/types'
 import { startProspectingSession, endProspectingSession } from '../sessions/actions'
 import type { ScoredLead, ProspectingMetrics, SessionRow, LiveSessionStats, LeadTemperature, QueueBucketKey } from '../types'
@@ -93,6 +95,7 @@ export function ProspectingCockpit({
   const logOutcome = useCallback((recordId: string, outcome: CommunicationOutcome) => {
     if (workedRef.current.has(recordId)) return   // already logged/skipped — no double-log
     workedRef.current.add(recordId)
+    track('prospecting_outcome', { outcome })
     setWorked((s) => new Set(s).add(recordId))    // optimistic removal
     startTransition(async () => {
       const res = await quickCallOutcome(recordId, outcome)
@@ -143,6 +146,7 @@ export function ProspectingCockpit({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
+      <TrackView surface="prospecting" />
       {/* Banner */}
       <header className="border-b border-border bg-gradient-to-br from-surface-1 to-card px-6 py-4">
         <div className="flex flex-wrap items-start justify-between gap-4">

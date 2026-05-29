@@ -9,13 +9,15 @@ import {
   ArrowRight, ArrowLeft, ArrowRightLeft, Circle, CircleDot, Zap, CheckCircle2,
   Activity, Link as LinkIcon, Archive, Copy, History, Workflow, RefreshCw,
   ListChecks, Upload, GitBranch, Phone, PhoneOff, Mail, MessageSquare, Calendar,
-  PhoneCall, Play, Square, Flame, CalendarCheck, ThumbsUp, ThumbsDown,
+  PhoneCall, Play, Square, Flame, CalendarCheck, ThumbsUp, ThumbsDown, Bug, Lightbulb, BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCommandPalette } from '../providers/CommandPaletteProvider'
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { useOrganization } from '@/providers/OrganizationProvider'
 import { useToast } from '@/features/feedback/ToastProvider'
+import { useAnalyticsUi } from '@/features/analytics/AnalyticsProvider'
+import { track } from '@/features/analytics/client'
 import { runWorkflowScansAction } from '@/features/workflows/actions'
 import { useGlobalSearch } from '../hooks/useGlobalSearch'
 import { useRecentItems, pushRecentItem } from '../recent/useRecentItems'
@@ -31,7 +33,7 @@ const ICONS: Record<string, React.ElementType> = {
   ArrowRightLeft, Circle, CircleDot, Zap, CheckCircle2, Activity, Link: LinkIcon,
   Archive, Copy, History, Workflow, RefreshCw, ListChecks, Upload, GitBranch,
   Phone, PhoneOff, Mail, MessageSquare, Calendar, PhoneCall, Play,
-  Square, Flame, CalendarCheck, ThumbsUp, ThumbsDown,
+  Square, Flame, CalendarCheck, ThumbsUp, ThumbsDown, Bug, Lightbulb, BarChart3,
 }
 const IconFor = (name?: string): React.ElementType => (name && ICONS[name]) || Search
 
@@ -46,6 +48,9 @@ export function CommandPalette() {
   } = useWorkspaceTabs()
   const { items: recents } = useRecentItems()
   const { topCommands } = useCommandHistory()
+  const { openFeedback } = useAnalyticsUi()
+
+  useEffect(() => { if (isOpen) track('command_palette_opened') }, [isOpen])
 
   const [query, setQuery] = useState('')
   const [pages, setPages] = useState<CommandPage[]>([])
@@ -224,6 +229,9 @@ export function CommandPalette() {
           : undefined
       case 'open-stage-mapping':   return () => { router.push('/settings/integrations/stage-mapping'); close() }
       case 'customize-dashboard':  return () => { router.push('/dashboard'); close() }
+      case 'open-analytics':       return () => { router.push('/settings/analytics'); close() }
+      case 'report-issue':         return () => { close(); openFeedback('bug') }
+      case 'request-feature':      return () => { close(); openFeedback('feature') }
       case 'run-workflow-scans':
         return currentOrganization
           ? async () => {
@@ -278,7 +286,7 @@ export function CommandPalette() {
       case 'close-all-workspaces':
         return tabs.length > 0 ? () => { closeAll(); close() } : undefined
     }
-  }), [router, close, activeRecordId, closeWorkspace, closeAll, tabs.length, currentOrganization, toast])
+  }), [router, close, activeRecordId, closeWorkspace, closeAll, tabs.length, currentOrganization, toast, openFeedback])
 
   function handleRecentSelect(r: RecentItem) {
     if (r.kind === 'record') openWorkspace({ recordId: r.id, title: r.title })

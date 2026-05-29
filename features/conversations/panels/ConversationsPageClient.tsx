@@ -7,6 +7,7 @@ import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsPr
 import { ConversationTimeline } from '../timeline/ConversationTimeline'
 import { SMSComposeBox } from '../compose/SMSComposeBox'
 import { loadThreadMessages, markThreadRead } from '../actions'
+import { TrackView } from '@/features/analytics/TrackView'
 import type { ConversationMessage, ThreadListItem } from '../types'
 
 function rel(iso: string): string {
@@ -55,6 +56,7 @@ export function ConversationsPageClient({ threads }: { threads: ThreadListItem[]
 
   return (
     <div className="flex h-full overflow-hidden">
+      <TrackView surface="conversations" />
       {/* Thread list */}
       <aside className={cn('w-full flex-shrink-0 overflow-y-auto border-r border-border md:w-80', selected && 'hidden md:block')}>
         {threads.map((t) => {

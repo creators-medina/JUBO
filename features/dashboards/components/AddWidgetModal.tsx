@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { X, BarChart2, List, LayoutGrid, Activity, Bookmark, Target, Zap, AlertTriangle, Sunrise, ListChecks, PhoneCall, TrendingUp, Flame, CalendarClock, Radio, Users, Handshake, DollarSign, HeartPulse, LineChart, CalendarRange } from 'lucide-react'
 import { addWidget } from '../actions'
+import { track } from '@/features/analytics/client'
 import { WIDGET_META } from '@/features/widgets/registry'
 import { defaultConfig, WIDGET_ICON_NAMES, WIDGET_COLORS } from '@/features/widgets/types'
 import type { WidgetType } from '@/types/database'
@@ -97,6 +98,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
           width,
           config,
         })
+        track('widget_added', { type: selectedType })
         onSuccess()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to add widget')

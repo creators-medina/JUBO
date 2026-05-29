@@ -25,6 +25,7 @@ import { SetupChecklist } from '@/features/onboarding/setup/SetupChecklist'
 import type { SetupChecklistItemRow } from '@/features/onboarding/types'
 import { CoachingStrip } from '@/features/mortgage/coaching/CoachingStrip'
 import { PlanExplanationCard, type PlanSummary } from '@/features/coaching/components/PlanExplanationCard'
+import { TrackView } from '@/features/analytics/TrackView'
 
 interface Props {
   organizationId: string
@@ -184,6 +185,8 @@ export function TodayPageClient({
         {setupChecklist && setupChecklist.some(i => !i.completed) && (
           <SetupChecklist items={setupChecklist} compact />
         )}
+
+        <TrackView surface="today" />
 
         {/* The plan: how the income goal becomes today's number */}
         <PlanExplanationCard plan={plan ?? null} />

@@ -9,6 +9,7 @@ import { WorkspacePanel } from "@/features/workspace/components/WorkspacePanel";
 import { CommandPaletteProvider } from "@/features/command/providers/CommandPaletteProvider";
 import { CommandPalette } from "@/features/command/components/CommandPalette";
 import { ToastProvider } from "@/features/feedback/ToastProvider";
+import { AnalyticsProvider } from "@/features/analytics/AnalyticsProvider";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -22,6 +23,7 @@ export function AppShell({ children, pageTitle }: AppShellProps) {
     <ToastProvider>
       <CommandPaletteProvider>
         <WorkspaceTabsProvider>
+          <AnalyticsProvider>
           <div className="flex h-screen w-screen overflow-hidden bg-background">
             <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
             <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
@@ -34,6 +36,7 @@ export function AppShell({ children, pageTitle }: AppShellProps) {
             <WorkspacePanel />
             <CommandPalette />
           </div>
+          </AnalyticsProvider>
         </WorkspaceTabsProvider>
       </CommandPaletteProvider>
     </ToastProvider>
