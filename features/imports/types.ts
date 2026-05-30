@@ -96,6 +96,8 @@ export type ExecutionRow = {
   source: Record<string, string>
   /** existing record to update instead of creating (dedupe behavior 'update') */
   matchedRecordId?: string
+  /** per-row group override (used by Create-Board-From-File to route rows by status). */
+  groupId?: string
 }
 
 export type ExecuteChunkResult = {

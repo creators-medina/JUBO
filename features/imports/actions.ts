@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { coerceValue } from './validation/typeInference'
-import type { FieldType, RecordType } from '@/types/database'
+import type { BoardType, FieldType, RecordType } from '@/types/database'
 import type {
   AnalyzeResult, RowMatch, DedupeKey, ExecutionRow, ExecuteChunkResult, ImportSourceType,
 } from './types'
@@ -169,10 +169,12 @@ export async function executeImportChunk(input: {
 
   // ── CREATE ────────────────────────────────────────────────────────────────
   if (createRows.length > 0) {
+    // Per-row groupId wins when present (Create-Board-From-File routes by status);
+    // existing flows leave it unset so we fall back to the import-wide groupId.
     const recordInserts = createRows.map((r) => ({
       organization_id: input.organizationId,
       board_id: input.boardId,
-      group_id: input.groupId,
+      group_id: r.groupId ?? input.groupId,
       title: r.title || 'Untitled',
       record_type: input.recordType,
       owner_user_id: user.id,
@@ -261,4 +263,104 @@ export async function finalizeImport(
   revalidatePath('/imports')
   revalidatePath('/today')
   revalidatePath('/boards')
+}
+
+// ── Create Board From File (Phase 27B) ────────────────────────────────────────
+/**
+ * Provision a new board + groups + fields atomically (from the caller's session)
+ * so the existing import pipeline can write into it. Slug-dedupes the board
+ * against the org's existing boards, in-memory-dedupes field slugs (fresh board
+ * has none), preserves the caller's group order. Reusable for Create-Board UIs.
+ */
+export async function provisionBoardFromImport(input: {
+  organizationId: string
+  name: string
+  boardType: BoardType
+  fields: { columnIndex: number; name: string; fieldType: FieldType }[]
+  /** Group names in order. Empty → a single default group named "New". */
+  groups: string[]
+}): Promise<{
+  boardId: string
+  fields: { columnIndex: number; id: string; field_type: FieldType }[]
+  groups: { name: string; id: string }[]
+  defaultGroupId: string
+}> {
+  const { supabase, user } = await requireUser()
+
+  const name = input.name.trim()
+  if (!name) throw new Error('Board name is required')
+
+  // boards has UNIQUE(organization_id, slug) — dedupe within the org.
+  const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'board'
+  const { data: existingBoards } = await supabase
+    .from('boards').select('slug').eq('organization_id', input.organizationId)
+  const usedBoardSlugs = new Set((existingBoards ?? []).map((b) => b.slug))
+  let slug = base
+  let n = 1
+  while (usedBoardSlugs.has(slug)) slug = `${base}_${n++}`
+
+  const { data: board, error: boardErr } = await supabase
+    .from('boards')
+    .insert({
+      organization_id: input.organizationId,
+      name,
+      slug,
+      board_type: input.boardType,
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
+  if (boardErr || !board) throw new Error(boardErr?.message ?? 'Could not create board')
+  const boardId = board.id
+
+  // Groups — at least one; default to "New" so records always have a home.
+  const groupNames = input.groups.length > 0 ? input.groups : ['New']
+  const groupRows = groupNames.map((gname, i) => ({ board_id: boardId, name: gname, position: i }))
+  const { data: createdGroups, error: groupErr } = await supabase
+    .from('board_groups').insert(groupRows).select('id, name, position').order('position', { ascending: true })
+  if (groupErr || !createdGroups) throw new Error(groupErr?.message ?? 'Could not create groups')
+
+  // Preserve user-supplied order.
+  const groups = groupNames.map((gname, i) => {
+    const match = createdGroups.find((g) => g.position === i)
+    if (!match) throw new Error(`Group ${gname} could not be created`)
+    return { name: gname, id: match.id }
+  })
+  const defaultGroupId = groups[0].id
+
+  // Fields — fresh board so dedupe slugs in-memory.
+  let createdFieldsByIndex: { columnIndex: number; id: string; field_type: FieldType }[] = []
+  if (input.fields.length > 0) {
+    const usedFieldSlugs = new Set<string>()
+    const fieldRows = input.fields.map((f, i) => {
+      const fname = (f.name || '').trim() || `field_${i + 1}`
+      const fbase = fname.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `field_${i + 1}`
+      let fslug = fbase
+      let k = 1
+      while (usedFieldSlugs.has(fslug)) fslug = `${fbase}_${k++}`
+      usedFieldSlugs.add(fslug)
+      return {
+        organization_id: input.organizationId,
+        board_id: boardId,
+        name: fname,
+        slug: fslug,
+        field_type: f.fieldType,
+        config: {},
+        position: i + 1,
+      }
+    })
+    const { data: createdFields, error: fieldErr } = await supabase
+      .from('fields').insert(fieldRows).select('id, slug, field_type')
+    if (fieldErr || !createdFields) throw new Error(fieldErr?.message ?? 'Could not create fields')
+
+    createdFieldsByIndex = input.fields.map((f, i) => {
+      const row = fieldRows[i]
+      const created = createdFields.find((c) => c.slug === row.slug)
+      if (!created) throw new Error(`Field ${f.name} could not be created`)
+      return { columnIndex: f.columnIndex, id: created.id, field_type: created.field_type as FieldType }
+    })
+  }
+
+  revalidatePath('/boards')
+  return { boardId, fields: createdFieldsByIndex, groups, defaultGroupId }
 }

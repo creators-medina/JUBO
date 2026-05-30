@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   UploadCloud, FileSpreadsheet, ArrowRight, ArrowLeft, Check, Loader2,
-  Columns3, Sparkles, AlertTriangle, ListChecks, Workflow, Sunrise,
+  Columns3, Sparkles, AlertTriangle, ListChecks, Workflow, Sunrise, Plus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -12,16 +12,24 @@ import { parseFile } from '../parsers'
 import { autoMapColumns } from '../mapping/autoMap'
 import { importTemplateByKey } from '../templates/importTemplates'
 import {
-  analyzeDuplicates, createImportRun, executeImportChunk, finalizeImport, getBoardFieldsAndGroups,
+  analyzeDuplicates, createImportRun, executeImportChunk, finalizeImport,
+  getBoardFieldsAndGroups, provisionBoardFromImport,
 } from '../actions'
 import { createImportField } from '@/features/fields/actions'
 import { MappingTable } from './MappingTable'
 import { PreviewTable } from './PreviewTable'
+import { CreateBoardStep } from './CreateBoardStep'
+import {
+  inferBoard, detectGroupColumn, humanize,
+  type BoardSuggestion, type ProposedField, type GroupSuggestion,
+} from '../inference/boardInference'
 import {
   TITLE_TARGET, type ParsedFile, type ColumnMapping, type TargetField,
   type AnalyzeResult, type DedupeKey, type DedupeBehavior, type ExecutionRow, type ImportSummary,
 } from '../types'
 import type { FieldType, RecordType } from '@/types/database'
+
+type ImportMode = 'existing' | 'create'
 
 type Step = 'upload' | 'board' | 'map' | 'preview' | 'run' | 'done'
 const STEPS: { key: Step; label: string }[] = [
@@ -62,6 +70,15 @@ export function ImportWizard({
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [summary, setSummary] = useState<ImportSummary | null>(null)
 
+  // ── Create-Board-From-File state (Phase 27B) ─────────────────────────────
+  const [mode, setMode] = useState<ImportMode>('existing')
+  const [boardSuggestion, setBoardSuggestion] = useState<BoardSuggestion | null>(null)
+  const [newBoardName, setNewBoardName] = useState('')
+  const [proposedFields, setProposedFields] = useState<ProposedField[]>([])
+  const [groupSuggestion, setGroupSuggestion] = useState<GroupSuggestion | null>(null)
+  const [createGroups, setCreateGroups] = useState(true)
+  const [createTitleIdx, setCreateTitleIdx] = useState(0)
+
   const dedupeKeys: DedupeKey[] = template?.dedupeKeys ?? ['email', 'phone']
   const recordType: RecordType = template?.recordType ?? 'lead'
 
@@ -89,6 +106,37 @@ export function ImportWizard({
     })
     return () => { cancelled = true }
   }, [boardId])
+
+  // No boards yet → default to "Create new board" so the user isn't stuck.
+  useEffect(() => {
+    if (boards.length === 0 && parsed) setMode('create')
+  }, [boards.length, parsed])
+
+  // Build the board suggestion + proposed fields + group column on entering
+  // create mode (or when the sheet changes). Recomputed only when inputs change.
+  useEffect(() => {
+    if (mode !== 'create' || !parsed || !sheet) return
+    const baseMap = autoMapColumns(headers, rows, [])
+    const titleIdx = baseMap.find((m) => m.target === TITLE_TARGET)?.columnIndex ?? 0
+    const sug = inferBoard(parsed.fileName, headers)
+    const grp = detectGroupColumn(headers, rows)
+    const proposed: ProposedField[] = baseMap
+      .filter((m) => m.columnIndex !== titleIdx)
+      .map((m) => ({
+        columnIndex: m.columnIndex,
+        header: m.header,
+        name: humanize(m.header),
+        fieldType: m.inferred.type,
+        confidence: m.inferred.confidence,
+        include: true,
+      }))
+    setBoardSuggestion(sug)
+    setNewBoardName(sug.name)
+    setProposedFields(proposed)
+    setGroupSuggestion(grp)
+    setCreateGroups(grp !== null)
+    setCreateTitleIdx(titleIdx)
+  }, [mode, parsed, sheet, headers, rows])
 
   // ── File upload ─────────────────────────────────────────────────────────
   const handleFile = useCallback(async (file: File) => {
@@ -137,6 +185,19 @@ export function ImportWizard({
     }
   }, [boardId])
 
+  // Create-mode field editing handlers — local-only until provisioning runs.
+  const toggleProposedField = useCallback((columnIndex: number) => {
+    setProposedFields((prev) => prev.map((f) => f.columnIndex === columnIndex ? { ...f, include: !f.include } : f))
+  }, [])
+  const setProposedFieldName = useCallback((columnIndex: number, name: string) => {
+    setProposedFields((prev) => prev.map((f) => f.columnIndex === columnIndex ? { ...f, name } : f))
+  }, [])
+  const setProposedFieldType = useCallback((columnIndex: number, fieldType: FieldType) => {
+    setProposedFields((prev) => prev.map((f) => f.columnIndex === columnIndex ? { ...f, fieldType } : f))
+  }, [])
+
+  const groupColumnIndex = createGroups && groupSuggestion ? groupSuggestion.columnIndex : null
+
   const titleColIndex = useMemo(
     () => mappings.find((m) => m.target === TITLE_TARGET)?.columnIndex ?? -1,
     [mappings],
@@ -170,6 +231,102 @@ export function ImportWizard({
     for (const m of analysis?.matches ?? []) map.set(m.rowIndex, m)
     return map
   }, [analysis])
+
+  // ── Create-board + import (single workflow) ───────────────────────────────
+  const handleCreateAndImport = useCallback(async () => {
+    if (!parsed || !boardSuggestion) return
+    setError(null)
+    const titleIdx = createTitleIdx
+    const groupColIdx = createGroups && groupSuggestion ? groupSuggestion.columnIndex : null
+    const includedFields = proposedFields.filter((f) => f.include && f.columnIndex !== groupColIdx)
+    setStep('run')
+    setProgress({ done: 0, total: rows.length })
+
+    let importId = ''
+    let imported = 0
+    let updated = 0
+    let failed = 0
+
+    try {
+      const provision = await provisionBoardFromImport({
+        organizationId,
+        name: newBoardName,
+        boardType: boardSuggestion.boardType,
+        fields: includedFields.map((f) => ({ columnIndex: f.columnIndex, name: f.name, fieldType: f.fieldType })),
+        groups: createGroups && groupSuggestion ? groupSuggestion.values : [],
+      })
+      setBoardId(provision.boardId)
+
+      const fieldByColIdx = new Map(provision.fields.map((f) => [f.columnIndex, f.id]))
+      const fieldTypes: Record<string, FieldType> = {}
+      for (const f of provision.fields) fieldTypes[f.id] = f.field_type
+      const groupByValue = new Map(provision.groups.map((g) => [g.name, g.id]))
+      const defaultGroupId = provision.defaultGroupId
+
+      const execRows: ExecutionRow[] = rows.map((r, i) => {
+        const values: Record<string, string> = {}
+        const source: Record<string, string> = {}
+        for (let c = 0; c < headers.length; c++) {
+          const cell = r[c] ?? ''
+          source[headers[c]] = cell
+          const fid = fieldByColIdx.get(c)
+          if (fid) values[fid] = cell
+        }
+        const title = (r[titleIdx] ?? '').trim() || 'Untitled'
+        let rowGroupId: string | undefined
+        if (groupColIdx != null) {
+          const v = (r[groupColIdx] ?? '').trim()
+          rowGroupId = (v && groupByValue.get(v)) || defaultGroupId
+        }
+        return { rowIndex: i, title, values, source, groupId: rowGroupId }
+      })
+
+      importId = await createImportRun({
+        organizationId,
+        boardId: provision.boardId,
+        groupId: defaultGroupId,
+        sourceType: parsed.sourceType,
+        templateKey: templateKey ?? null,
+        fileName: parsed.fileName,
+        rowCount: rows.length,
+        mapping: {
+          mode: 'create-board',
+          boardName: newBoardName,
+          boardType: boardSuggestion.boardType,
+          createGroups: createGroups && Boolean(groupSuggestion),
+          groupColumn: groupSuggestion?.header ?? null,
+          columns: headers.map((h, c) => ({
+            header: h,
+            target: c === titleIdx ? TITLE_TARGET : (fieldByColIdx.get(c) ?? (c === groupColIdx ? '__group__' : '')),
+          })),
+        },
+      })
+
+      for (let i = 0; i < execRows.length; i += CHUNK_SIZE) {
+        const chunk = execRows.slice(i, i + CHUNK_SIZE)
+        const res = await executeImportChunk({
+          importId,
+          organizationId,
+          boardId: provision.boardId,
+          groupId: defaultGroupId,
+          recordType: boardSuggestion.recordType,
+          fieldTypes,
+          rows: chunk,
+        })
+        imported += res.imported
+        updated += res.updated
+        failed += res.failed
+        setProgress({ done: Math.min(i + chunk.length, execRows.length), total: execRows.length })
+      }
+
+      await finalizeImport(importId, organizationId, { imported, updated, skipped: 0, failed, duplicates: 0 })
+      setSummary({ imported, updated, skipped: 0, failed, duplicates: 0 })
+      setStep('done')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not create the board.')
+      setStep('board')
+    }
+  }, [parsed, boardSuggestion, createTitleIdx, createGroups, groupSuggestion, proposedFields, organizationId, newBoardName, headers, rows, templateKey])
 
   // ── Execution ──────────────────────────────────────────────────────────────
   const runImport = useCallback(async () => {
@@ -273,12 +430,39 @@ export function ImportWizard({
         {step === 'upload' && <UploadStep busy={busy} template={template?.label} onFile={handleFile} />}
 
         {step === 'board' && (
-          <BoardStep
-            boards={boards} boardId={boardId} setBoardId={setBoardId}
-            groups={groups} groupId={groupId} setGroupId={setGroupId}
-            parsed={parsed!} sheetIndex={sheetIndex} setSheetIndex={setSheetIndex}
-            templateBoardSlug={template?.targetBoardSlug ?? null}
-          />
+          <div className="space-y-5">
+            <ModeToggle mode={mode} setMode={setMode} parsed={parsed!} sheetIndex={sheetIndex} setSheetIndex={setSheetIndex} boardsCount={boards.length} />
+            {mode === 'existing' ? (
+              <BoardStep
+                boards={boards} boardId={boardId} setBoardId={setBoardId}
+                groups={groups} groupId={groupId} setGroupId={setGroupId}
+                templateBoardSlug={template?.targetBoardSlug ?? null}
+              />
+            ) : (
+              boardSuggestion ? (
+                <CreateBoardStep
+                  fileName={parsed!.fileName}
+                  rowsCount={rows.length}
+                  columnsCount={headers.length}
+                  suggestion={boardSuggestion}
+                  name={newBoardName}
+                  setName={setNewBoardName}
+                  proposedFields={proposedFields}
+                  groupColumnIndex={groupColumnIndex}
+                  onToggleField={toggleProposedField}
+                  onFieldName={setProposedFieldName}
+                  onFieldType={setProposedFieldType}
+                  groupSuggestion={groupSuggestion}
+                  createGroups={createGroups}
+                  setCreateGroups={setCreateGroups}
+                />
+              ) : (
+                <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyzing your file…
+                </div>
+              )
+            )}
+          </div>
         )}
 
         {step === 'map' && (
@@ -332,8 +516,18 @@ export function ImportWizard({
           }} disabled={step === 'upload'}>
             <ArrowLeft className="h-4 w-4" /> Back
           </Button>
-          {step === 'board' && (
+          {step === 'board' && mode === 'existing' && (
             <Button className="gap-1.5" disabled={!boardId} onClick={enterMap}>Map columns <ArrowRight className="h-4 w-4" /></Button>
+          )}
+          {step === 'board' && mode === 'create' && (
+            <Button
+              className="gap-1.5"
+              disabled={!boardSuggestion || !newBoardName.trim() || proposedFields.filter((f) => f.include && f.columnIndex !== groupColumnIndex).length === 0}
+              onClick={handleCreateAndImport}
+            >
+              Create board & import {rows.length.toLocaleString()} record{rows.length === 1 ? '' : 's'}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           )}
           {step === 'map' && (
             <Button className="gap-1.5" disabled={busy || titleColIndex < 0} onClick={enterPreview}>
@@ -401,19 +595,23 @@ function UploadStep({ busy, template, onFile }: { busy: boolean; template?: stri
   )
 }
 
-function BoardStep({
-  boards, boardId, setBoardId, groups, groupId, setGroupId, parsed, sheetIndex, setSheetIndex, templateBoardSlug,
+function ModeToggle({
+  mode, setMode, parsed, sheetIndex, setSheetIndex, boardsCount,
 }: {
-  boards: { id: string; name: string; slug: string }[]
-  boardId: string; setBoardId: (v: string) => void
-  groups: { id: string; name: string }[]; groupId: string; setGroupId: (v: string) => void
-  parsed: ParsedFile; sheetIndex: number; setSheetIndex: (i: number) => void
-  templateBoardSlug: string | null
+  mode: ImportMode
+  setMode: (m: ImportMode) => void
+  parsed: ParsedFile
+  sheetIndex: number
+  setSheetIndex: (i: number) => void
+  boardsCount: number
 }) {
+  const rows = parsed.sheets[sheetIndex]?.rows.length ?? 0
   return (
-    <div className="space-y-5">
-      <Intro title="Where should this go?" subtitle={`${parsed.fileName} · ${parsed.sheets[sheetIndex]?.rows.length ?? 0} rows${parsed.isMonday ? ' · Monday export detected' : ''}`} />
-
+    <div className="space-y-4">
+      <Intro
+        title="Where should this go?"
+        subtitle={`${parsed.fileName} · ${rows.toLocaleString()} row${rows === 1 ? '' : 's'}${parsed.isMonday ? ' · Monday export detected' : ''}`}
+      />
       {parsed.sheets.length > 1 && (
         <div>
           <p className="mb-1.5 text-xs font-medium text-foreground">Sheet</p>
@@ -423,7 +621,51 @@ function BoardStep({
           </select>
         </div>
       )}
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button
+          onClick={() => setMode('existing')}
+          disabled={boardsCount === 0}
+          className={cn(
+            'flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+            mode === 'existing' ? 'border-primary/60 bg-primary/10' : 'border-border bg-surface-1 hover:bg-surface-2',
+          )}
+        >
+          <Columns3 className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-medium text-foreground">Import into existing board</p>
+            <p className="mt-0.5 text-2xs text-muted-foreground">
+              {boardsCount > 0 ? `Add to one of your ${boardsCount} board${boardsCount === 1 ? '' : 's'}.` : 'No boards yet.'}
+            </p>
+          </div>
+        </button>
+        <button
+          onClick={() => setMode('create')}
+          className={cn(
+            'flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-left transition-colors',
+            mode === 'create' ? 'border-primary/60 bg-primary/10' : 'border-border bg-surface-1 hover:bg-surface-2',
+          )}
+        >
+          <Plus className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-medium text-foreground">Create new board from file</p>
+            <p className="mt-0.5 text-2xs text-muted-foreground">Jubo builds the board for you.</p>
+          </div>
+        </button>
+      </div>
+    </div>
+  )
+}
 
+function BoardStep({
+  boards, boardId, setBoardId, groups, groupId, setGroupId, templateBoardSlug,
+}: {
+  boards: { id: string; name: string; slug: string }[]
+  boardId: string; setBoardId: (v: string) => void
+  groups: { id: string; name: string }[]; groupId: string; setGroupId: (v: string) => void
+  templateBoardSlug: string | null
+}) {
+  return (
+    <div className="space-y-5">
       <div>
         <p className="mb-1.5 text-xs font-medium text-foreground">Target board</p>
         <div className="grid gap-2 sm:grid-cols-2">
