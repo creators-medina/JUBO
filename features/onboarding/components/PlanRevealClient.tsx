@@ -5,19 +5,20 @@ import { useRouter } from 'next/navigation'
 import {
   Sparkles, ArrowRight, ArrowDown, Target, Users, Phone, TrendingUp,
   Columns3, LayoutDashboard, Workflow as WorkflowIcon, Filter,
-  CheckCircle2, Upload, Loader2, Trophy,
+  CheckCircle2, Upload, Loader2, Trophy, AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { markPlanRevealed } from '../actions'
 import type { PlanSummary } from '@/features/coaching/components/PlanExplanationCard'
 
 interface RevealData {
-  boards: { id: string; name: string; board_type: string | null; icon: string | null; color: string | null }[]
+  boards: { id: string; name: string; board_type: string | null; icon: string | null; color: string | null; recordCount: number }[]
   dashboards: { id: string; name: string; description: string | null; is_default: boolean | null }[]
   funnelName: string | null
   enabledWorkflows: { title: string; trigger_type: string | null }[]
   integrationsInterested: { provider: string; status: string }[]
   uploadsCount: number
+  uploadsNeedingReview: { kind: string; file_name: string }[]
 }
 
 interface Props {
@@ -165,6 +166,27 @@ export function PlanRevealClient({
         </section>
       )}
 
+      {/* ── Needs-review banner (Phase 30B) — files we held for manual mapping ─ */}
+      {data.uploadsNeedingReview.length > 0 && (
+        <section className="mt-8 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-300" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-200">
+                {data.uploadsNeedingReview.length} file{data.uploadsNeedingReview.length === 1 ? ' needs' : 's need'} a quick review
+              </p>
+              <p className="mt-0.5 text-xs text-amber-200/80">
+                We couldn&apos;t confidently match every column ({data.uploadsNeedingReview.map((u) => u.file_name).join(', ')}).
+                Map the columns yourself in the importer.
+              </p>
+              <Button variant="outline" size="sm" className="mt-3 gap-1.5" onClick={() => router.push('/imports/new')}>
+                <Upload className="h-3.5 w-3.5" /> Review in importer
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── Section 3 — What Jubo created (REAL rows for this org) ─────── */}
       <section className="mt-10">
         <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground text-center">
@@ -175,7 +197,7 @@ export function PlanRevealClient({
             <CreatedCard
               icon={<Columns3 className="h-4 w-4" />}
               title={`${data.boards.length} board${data.boards.length === 1 ? '' : 's'}`}
-              items={data.boards.map((b) => b.name)}
+              items={data.boards.map((b) => b.recordCount > 0 ? `${b.name} · ${b.recordCount.toLocaleString()} record${b.recordCount === 1 ? '' : 's'}` : b.name)}
             />
           )}
           {data.dashboards.length > 0 && (

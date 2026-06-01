@@ -4,7 +4,12 @@ import { useRef, useState } from 'react'
 import { Upload, Check, FileSpreadsheet } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { recordOnboardingUpload } from '../actions'
+import { useOnboardingWizard } from '../state/OnboardingWizardProvider'
 import type { OnboardingUploadKind } from '../types'
+
+// Match the existing import wizard's cap so onboarding-time imports behave
+// the same as the dedicated /imports/new flow.
+const MAX_BYTES = 15 * 1024 * 1024 // 15 MB
 
 const UPLOAD_KINDS: { kind: OnboardingUploadKind; label: string; hint: string }[] = [
   { kind: 'past_clients', label: 'Past clients',  hint: 'Your closed-loan database' },
@@ -17,7 +22,9 @@ const UPLOAD_KINDS: { kind: OnboardingUploadKind; label: string; hint: string }[
 const ACCEPT = '.csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 export function ImportCenter({ organizationId }: { organizationId: string }) {
+  const { setPendingUpload } = useOnboardingWizard()
   const [done, setDone] = useState<Record<string, string>>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   return (
     <div className="space-y-3">
@@ -29,13 +36,19 @@ export function ImportCenter({ organizationId }: { organizationId: string }) {
           label={u.label}
           hint={u.hint}
           uploadedName={done[u.kind]}
-          onUploaded={(name) => setDone((d) => ({ ...d, [u.kind]: name }))}
+          errorMessage={errors[u.kind]}
+          setPendingUpload={setPendingUpload}
+          onUploaded={(name) => {
+            setDone((d) => ({ ...d, [u.kind]: name }))
+            setErrors((e) => { const { [u.kind]: _omit, ...rest } = e; return rest })
+          }}
+          onError={(msg) => setErrors((e) => ({ ...e, [u.kind]: msg }))}
         />
       ))}
       <div className="rounded-lg border border-dashed border-border bg-surface-1/50 px-4 py-3">
         <p className="text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Column mapping is coming next.</span>{' '}
-          For now Jubo records what you dropped in so we can map it to your boards in the next release.
+          <span className="font-medium text-foreground">Jubo will import these into your new boards.</span>{' '}
+          We auto-map columns to your fields; low-confidence files get queued for a quick review.
         </p>
       </div>
     </div>
@@ -48,14 +61,20 @@ function UploadRow({
   label,
   hint,
   uploadedName,
+  errorMessage,
+  setPendingUpload,
   onUploaded,
+  onError,
 }: {
   organizationId: string
   kind: OnboardingUploadKind
   label: string
   hint: string
   uploadedName?: string
+  errorMessage?: string
+  setPendingUpload: (kind: OnboardingUploadKind, payload: { file: File; uploadId: string }) => void
   onUploaded: (name: string) => void
+  onError: (msg: string) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
@@ -63,15 +82,22 @@ function UploadRow({
   const handleFile = async (file: File) => {
     setBusy(true)
     try {
-      await recordOnboardingUpload(organizationId, {
+      if (file.size > MAX_BYTES) {
+        onError(`File is too large (max 15 MB). Split it into smaller files.`)
+        return
+      }
+      const uploadId = await recordOnboardingUpload(organizationId, {
         kind,
         file_name: file.name,
         mime_type: file.type || undefined,
         size_bytes: file.size,
       })
+      // Hold the blob in wizard state — GeneratingStep will drive the import
+      // pipeline against it after boards exist.
+      setPendingUpload(kind, { file, uploadId })
       onUploaded(file.name)
-    } catch {
-      /* surfaced as no checkmark */
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Could not capture upload')
     } finally {
       setBusy(false)
     }
@@ -90,7 +116,9 @@ function UploadRow({
         </div>
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">{label}</p>
-          <p className="truncate text-xs text-muted-foreground">{uploadedName ?? hint}</p>
+          <p className={cn('truncate text-xs', errorMessage ? 'text-amber-300' : 'text-muted-foreground')}>
+            {errorMessage ?? uploadedName ?? hint}
+          </p>
         </div>
       </div>
       <input

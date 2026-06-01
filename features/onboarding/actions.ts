@@ -86,6 +86,7 @@ export async function completeOnboarding(organizationId: string): Promise<Provis
   let result: ProvisionResult = {
     boards: 0, groups: 0, fields: 0, dashboards: 0, widgets: 0,
     goalCreated: false, workflowsEnabled: 0, checklistItems: 0,
+    createdBoards: [],
   }
 
   // Guard against double-provisioning if the LO re-runs the final step.
@@ -188,21 +189,58 @@ export async function setIntegrationPreference(
   revalidatePath('/integrations')
 }
 
-// ── Import upload metadata (Phase 16 will add the mapping engine) ──────────────
+// ── Import upload metadata + status updates (Phase 30B) ────────────────────────
+/**
+ * Record an onboarding-time file upload. Returns the audit row id so the wizard
+ * can update its status after the post-provision import pipeline runs.
+ *
+ * Phase 30B: the file BLOB is held in OnboardingWizardProvider state until
+ * GeneratingStep drives the import — this action persists only the metadata.
+ */
 export async function recordOnboardingUpload(
   organizationId: string,
   upload: { kind: OnboardingUploadKind; file_name: string; mime_type?: string; size_bytes?: number; row_count?: number },
-): Promise<void> {
+): Promise<string> {
   const { supabase, user } = await requireUser()
-  const { error } = await supabase.from('onboarding_uploads').insert({
-    organization_id: organizationId,
-    kind: upload.kind,
-    file_name: upload.file_name,
-    mime_type: upload.mime_type ?? null,
-    size_bytes: upload.size_bytes ?? null,
-    row_count: upload.row_count ?? null,
-    status: 'pending_mapping',
-    created_by: user.id,
-  })
-  if (error) throw new Error(error.message)
+  const { data, error } = await supabase
+    .from('onboarding_uploads')
+    .insert({
+      organization_id: organizationId,
+      kind: upload.kind,
+      file_name: upload.file_name,
+      mime_type: upload.mime_type ?? null,
+      size_bytes: upload.size_bytes ?? null,
+      row_count: upload.row_count ?? null,
+      status: 'pending_mapping',
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
+  if (error || !data) throw new Error(error?.message ?? 'Could not record upload')
+  return data.id as string
+}
+
+/** Flip an onboarding upload's status after the post-provision import runs. */
+export async function updateOnboardingUploadStatus(
+  uploadId: string,
+  status: 'completed' | 'failed' | 'needs_review',
+  fields: { row_count?: number } = {},
+): Promise<void> {
+  const { supabase } = await requireUser()
+  const update: Record<string, unknown> = { status }
+  if (fields.row_count != null) update.row_count = fields.row_count
+  await supabase.from('onboarding_uploads').update(update).eq('id', uploadId)
+}
+
+/** Mark a checklist item complete by item_key (org-scoped) — used post-import
+ *  so the LO doesn't still see "Import past clients" after we did it for them. */
+export async function completeChecklistItemByKey(organizationId: string, itemKey: string): Promise<void> {
+  const { supabase } = await requireUser()
+  await supabase
+    .from('setup_checklist_items')
+    .update({ completed: true, completed_at: new Date().toISOString() })
+    .eq('organization_id', organizationId)
+    .eq('item_key', itemKey)
+    .eq('completed', false)
+  revalidatePath('/today')
 }

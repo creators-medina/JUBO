@@ -12,18 +12,20 @@ export const dynamic = 'force-dynamic'
 // template list. All queries scoped to organization_id.
 
 type RevealQueries = {
-  boards: { id: string; name: string; board_type: string | null; icon: string | null; color: string | null }[]
+  boards: { id: string; name: string; board_type: string | null; icon: string | null; color: string | null; recordCount: number }[]
   dashboards: { id: string; name: string; description: string | null; is_default: boolean | null }[]
   funnelName: string | null
   enabledWorkflows: { title: string; trigger_type: string | null }[]
   integrationsInterested: { provider: string; status: string }[]
   uploadsCount: number
+  // Phase 30B — uploads queued for manual review (low autoMap confidence).
+  uploadsNeedingReview: { kind: string; file_name: string }[]
 }
 
 async function loadRevealData(orgId: string): Promise<RevealQueries> {
   const supabase = await createClient()
 
-  const [boardsQ, dashboardsQ, funnelsQ, workflowsQ, prefsQ, uploadsQ] = await Promise.all([
+  const [boardsQ, dashboardsQ, funnelsQ, workflowsQ, prefsQ, uploadsQ, needsReviewQ] = await Promise.all([
     supabase.from('boards')
       .select('id, name, board_type, icon, color')
       .eq('organization_id', orgId)
@@ -51,15 +53,39 @@ async function loadRevealData(orgId: string): Promise<RevealQueries> {
     supabase.from('onboarding_uploads')
       .select('id', { count: 'exact', head: true })
       .eq('organization_id', orgId),
+    supabase.from('onboarding_uploads')
+      .select('kind, file_name')
+      .eq('organization_id', orgId)
+      .eq('status', 'needs_review'),
   ])
 
+  // Per-board record counts (Phase 30B — show populated boards in Section 5).
+  const boardIds = (boardsQ.data ?? []).map((b) => b.id)
+  const countByBoard = new Map<string, number>()
+  if (boardIds.length > 0) {
+    // Run counts in parallel — Supabase's head-count query is cheap.
+    const counts = await Promise.all(
+      boardIds.map(async (id) => {
+        const { count } = await supabase
+          .from('records')
+          .select('id', { count: 'exact', head: true })
+          .eq('board_id', id)
+          .eq('is_archived', false)
+          .is('parent_record_id', null)
+        return { id, count: count ?? 0 }
+      }),
+    )
+    for (const c of counts) countByBoard.set(c.id, c.count)
+  }
+
   return {
-    boards: boardsQ.data ?? [],
+    boards: (boardsQ.data ?? []).map((b) => ({ ...b, recordCount: countByBoard.get(b.id) ?? 0 })),
     dashboards: dashboardsQ.data ?? [],
     funnelName: (funnelsQ.data as { name: string } | null)?.name ?? null,
     enabledWorkflows: workflowsQ.data ?? [],
     integrationsInterested: prefsQ.data ?? [],
     uploadsCount: uploadsQ.count ?? 0,
+    uploadsNeedingReview: needsReviewQ.data ?? [],
   }
 }
 

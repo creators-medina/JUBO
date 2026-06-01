@@ -12,8 +12,17 @@ import { QuestionField } from '../components/QuestionField'
 import { ImportCenter } from '../imports/ImportCenter'
 import { IntegrationSetup } from '../integrations/IntegrationSetup'
 import { completeOnboarding } from '../actions'
+import { runOnboardingImports, type OnboardingImportResult, type ProgressEvent } from '../imports/runOnboardingImports'
 import type { ProvisionResult } from '../generators/provision'
-import type { IntegrationPreferenceRow } from '../types'
+import type { IntegrationPreferenceRow, OnboardingUploadKind } from '../types'
+
+const UPLOAD_LABELS: Record<OnboardingUploadKind, string> = {
+  past_clients: 'past clients',
+  active_leads: 'active leads',
+  call_list: 'call list',
+  realtors: 'partners',
+  loans: 'loan pipeline',
+}
 
 function stepDef(key: string) {
   return ONBOARDING_STEPS.find((s) => s.key === key)!
@@ -108,15 +117,16 @@ const BUILD_STAGES = [
 ]
 
 function GeneratingStep() {
-  const { organizationId, goTo } = useOnboardingWizard()
+  const { organizationId, goTo, pendingUploads } = useOnboardingWizard()
   const [stage, setStage] = useState(0)
+  const [importLines, setImportLines] = useState<Record<string, ProgressEvent>>({})
   const ran = useRef(false)
 
   useEffect(() => {
     if (ran.current) return
     ran.current = true
 
-    // Animate the stage list while provisioning runs.
+    // Animate the build stages while provisioning runs.
     const interval = setInterval(() => {
       setStage((s) => Math.min(s + 1, BUILD_STAGES.length - 1))
     }, 700)
@@ -124,14 +134,35 @@ function GeneratingStep() {
     const run = async () => {
       const started = Date.now()
       let result: ProvisionResult | null = null
+      let importResults: OnboardingImportResult[] = []
+
       try {
         result = await completeOnboarding(organizationId)
       } catch (err) {
         console.error('[onboarding] provisioning failed:', err)
       }
+
+      // Phase 30B — populate the freshly-created boards from the in-memory blobs.
+      const blobs = Object.values(pendingUploads).filter(Boolean)
+      if (result && blobs.length > 0) {
+        try {
+          importResults = await runOnboardingImports({
+            organizationId,
+            createdBoards: result.createdBoards,
+            pendingUploads,
+            onProgress: (e) => setImportLines((prev) => ({ ...prev, [e.kind]: e })),
+          })
+        } catch (err) {
+          console.error('[onboarding] post-provision imports failed:', err)
+        }
+      }
+
       if (result) {
         try {
-          sessionStorage.setItem(`jubo:onboarding:result:${organizationId}`, JSON.stringify(result))
+          sessionStorage.setItem(
+            `jubo:onboarding:result:${organizationId}`,
+            JSON.stringify({ ...result, imports: importResults }),
+          )
         } catch { /* ignore */ }
       }
       // Let the animation breathe for a beat before revealing the result.
@@ -146,7 +177,9 @@ function GeneratingStep() {
     void run()
 
     return () => clearInterval(interval)
-  }, [organizationId, goTo])
+  }, [organizationId, goTo, pendingUploads])
+
+  const importEntries = Object.entries(importLines) as [OnboardingUploadKind, ProgressEvent][]
 
   return (
     <div className="flex h-full items-center justify-center p-6">
@@ -182,6 +215,35 @@ function GeneratingStep() {
             )
           })}
         </ul>
+
+        {importEntries.length > 0 && (
+          <div className="mt-6 border-t border-border pt-5">
+            <p className="mb-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Importing your data</p>
+            <ul className="space-y-2">
+              {importEntries.map(([kind, evt]) => (
+                <li key={kind} className="flex items-center justify-between gap-3 text-xs">
+                  <span className="truncate text-foreground">
+                    {UPLOAD_LABELS[kind]} · <span className="text-muted-foreground">{evt.fileName}</span>
+                  </span>
+                  <span className={
+                    evt.phase === 'done' ? 'text-emerald-400'
+                      : evt.phase === 'needs_review' ? 'text-amber-300'
+                      : evt.phase === 'failed' ? 'text-red-400'
+                      : 'text-muted-foreground'
+                  }>
+                    {evt.phase === 'parsing' ? 'Reading…'
+                      : evt.phase === 'mapping' ? 'Mapping…'
+                      : evt.phase === 'analyzing' ? 'Checking…'
+                      : evt.phase === 'importing' ? `${evt.done ?? 0} / ${evt.total ?? 0}`
+                      : evt.phase === 'done' ? `${evt.done ?? 0} imported`
+                      : evt.phase === 'needs_review' ? 'Needs review'
+                      : 'Failed'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   )

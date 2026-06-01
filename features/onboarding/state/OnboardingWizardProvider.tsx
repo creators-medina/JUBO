@@ -12,7 +12,13 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { saveOnboardingProgress } from '../actions'
 import { STEP_ORDER, stepIndex } from '../questions'
-import type { OnboardingAnswers, FocusWeights, OnboardingStepKey } from '../types'
+import type { OnboardingAnswers, FocusWeights, OnboardingStepKey, OnboardingUploadKind } from '../types'
+
+/** Phase 30B — in-memory hold of uploaded file blobs + their audit-row ids.
+ *  The wizard runs the existing import pipeline (parse → autoMap → execute)
+ *  against these AFTER provisionWorkspace creates the boards. Cleared on tab
+ *  close — we don't persist blobs to storage. */
+export type PendingUpload = { file: File; uploadId: string }
 
 type WizardState = {
   organizationId: string
@@ -27,6 +33,8 @@ type WizardState = {
   next: () => void
   back: () => void
   saving: boolean
+  pendingUploads: Partial<Record<OnboardingUploadKind, PendingUpload>>
+  setPendingUpload: (kind: OnboardingUploadKind, payload: PendingUpload) => void
 }
 
 const Ctx = createContext<WizardState | null>(null)
@@ -58,7 +66,12 @@ export function OnboardingWizardProvider({
   const [focusWeights, setFocusWeights] = useState<FocusWeights>(initialFocus)
   const [stepKey, setStepKey] = useState<OnboardingStepKey>(initialStep)
   const [saving, setSaving] = useState(false)
+  const [pendingUploads, setPendingUploads] = useState<Partial<Record<OnboardingUploadKind, PendingUpload>>>({})
   const hydrated = useRef(false)
+
+  const setPendingUpload = useCallback((kind: OnboardingUploadKind, payload: PendingUpload) => {
+    setPendingUploads((prev) => ({ ...prev, [kind]: payload }))
+  }, [])
 
   // Hydrate from localStorage (overrides server seed only if newer/local edits).
   useEffect(() => {
@@ -144,6 +157,8 @@ export function OnboardingWizardProvider({
     next,
     back,
     saving,
+    pendingUploads,
+    setPendingUpload,
   }
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

@@ -49,6 +49,9 @@ export type ProvisionResult = {
   goalCreated: boolean
   workflowsEnabled: number
   checklistItems: number
+  /** Created boards in template-key form so the wizard can run post-provision
+   *  imports against the right board (Phase 30B). */
+  createdBoards: { key: string; id: string; slug: string; name: string }[]
 }
 
 /**
@@ -69,6 +72,7 @@ export async function provisionWorkspace(
   const result: ProvisionResult = {
     boards: 0, groups: 0, fields: 0, dashboards: 0, widgets: 0,
     goalCreated: false, workflowsEnabled: 0, checklistItems: 0,
+    createdBoards: [],
   }
 
   // ── 1. Boards + groups + fields ──────────────────────────────────────────
@@ -77,12 +81,13 @@ export async function provisionWorkspace(
   const orderedBoards = orderBoards(personalization.board_order)
 
   for (const tpl of orderedBoards) {
+    const boardSlug = slug(tpl.name)
     const { data: board, error } = await supabase
       .from('boards')
       .insert({
         organization_id: organizationId,
         name: tpl.name,
-        slug: slug(tpl.name),
+        slug: boardSlug,
         description: tpl.description,
         board_type: tpl.board_type,
         color: tpl.color,
@@ -94,6 +99,7 @@ export async function provisionWorkspace(
     if (error || !board) throw new Error(`Board "${tpl.name}": ${error?.message ?? 'no id'}`)
     boardMap.set(tpl.key, { id: board.id })
     result.boards++
+    result.createdBoards.push({ key: tpl.key, id: board.id, slug: boardSlug, name: tpl.name })
 
     // Groups
     const groupRows = tpl.groups.map((g, i) => ({
