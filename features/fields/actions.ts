@@ -64,6 +64,25 @@ export async function createImportField(input: {
   return created as { id: string; name: string; slug: string; field_type: FieldType; position: number }
 }
 
+/** Replace the options config for a select/status field. Used by StatusCell's
+ *  inline "Add option" affordance and by the importer when promoting a status
+ *  column to a colored select. Slug + name untouched. */
+export async function updateFieldOptions(fieldId: string, options: { label: string; color?: string }[]): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data: field } = await supabase
+    .from('fields').select('id, board_id, config').eq('id', fieldId).maybeSingle()
+  if (!field) throw new Error('Field not found or access denied')
+
+  const nextConfig = { ...(field.config as Record<string, unknown> | null ?? {}), options }
+  const { error } = await supabase.from('fields').update({ config: nextConfig }).eq('id', fieldId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath(`/boards/${field.board_id}`)
+}
+
 /**
  * Rename a field's display name (e.g. via the board table's double-click rename).
  * Only updates `name`. The slug is intentionally STABLE — downstreams

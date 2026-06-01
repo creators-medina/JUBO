@@ -23,6 +23,7 @@ import {
   inferBoard, detectGroupColumn, humanize,
   type BoardSuggestion, type ProposedField, type GroupSuggestion,
 } from '../inference/boardInference'
+import { statusOptionsFromValues } from '@/features/fields/status'
 import {
   TITLE_TARGET, type ParsedFile, type ColumnMapping, type TargetField,
   type AnalyzeResult, type DedupeKey, type DedupeBehavior, type ExecutionRow, type ImportSummary,
@@ -122,15 +123,31 @@ export function ImportWizard({
     const grp = detectGroupColumn(headers, rows)
     const proposed: ProposedField[] = baseMap
       .filter((m) => m.columnIndex !== titleIdx)
-      .map((m) => ({
-        columnIndex: m.columnIndex,
-        header: m.header,
-        // Blank header → blank name so the preview shows "Name this column".
-        name: m.header.trim() ? humanize(m.header) : '',
-        fieldType: m.inferred.type,
-        confidence: m.inferred.confidence,
-        include: true,
-      }))
+      .map((m) => {
+        const isStatusCol = grp && m.columnIndex === grp.columnIndex
+        // Promote the detected status column to a colored select so when it's
+        // used as a FIELD (groups toggle off) it shows colored pills out of the box.
+        if (isStatusCol) {
+          return {
+            columnIndex: m.columnIndex,
+            header: m.header,
+            name: m.header.trim() ? humanize(m.header) : '',
+            fieldType: 'select' as const,
+            confidence: 0.9,
+            include: true,
+            config: { options: statusOptionsFromValues(grp!.values) },
+          }
+        }
+        return {
+          columnIndex: m.columnIndex,
+          header: m.header,
+          // Blank header → blank name so the preview shows "Name this column".
+          name: m.header.trim() ? humanize(m.header) : '',
+          fieldType: m.inferred.type,
+          confidence: m.inferred.confidence,
+          include: true,
+        }
+      })
     setBoardSuggestion(sug)
     setNewBoardName(sug.name)
     setProposedFields(proposed)
@@ -253,7 +270,7 @@ export function ImportWizard({
         organizationId,
         name: newBoardName,
         boardType: boardSuggestion.boardType,
-        fields: includedFields.map((f) => ({ columnIndex: f.columnIndex, name: f.name, fieldType: f.fieldType })),
+        fields: includedFields.map((f) => ({ columnIndex: f.columnIndex, name: f.name, fieldType: f.fieldType, config: f.config })),
         groups: createGroups && groupSuggestion ? groupSuggestion.values : [],
       })
       setBoardId(provision.boardId)

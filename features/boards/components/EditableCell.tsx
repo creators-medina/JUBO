@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { upsertFieldValue } from '@/features/records/actions'
+import { StatusCell } from './StatusCell'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -65,21 +66,8 @@ export function EditableCell({ field, fieldValue, recordId, boardId }: Props) {
     )
   }
 
-  if (ft === 'select' && field.config?.options) {
-    return (
-      <div className="flex items-center gap-1">
-        <select
-          value={draft}
-          onChange={async e => { setDraft(e.target.value); await save(e.target.value) }}
-          disabled={saving}
-          className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer max-w-[130px]"
-        >
-          <option value="">—</option>
-          {(field.config.options as string[]).map((o: string) => <option key={o} value={o}>{o}</option>)}
-        </select>
-        {saving && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
-      </div>
-    )
+  if (ft === 'select') {
+    return <StatusCell field={field} fieldValue={fieldValue} recordId={recordId} boardId={boardId} />
   }
 
   // Click-to-edit for text, number, currency, date

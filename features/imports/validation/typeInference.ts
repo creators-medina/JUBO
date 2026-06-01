@@ -84,7 +84,9 @@ export function coerceValue(raw: string, fieldType: FieldType): FieldValuePatch 
       return { value_json: parts }
     }
     case 'select':
-      return { value_json: v }
+      // Single-select stores in value_text so the in-app cell editor and the
+      // imported value read from the same column (multiselect stays in value_json).
+      return { value_text: v }
     default:
       return { value_text: v }
   }

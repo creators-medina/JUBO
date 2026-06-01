@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { Check, ExternalLink } from 'lucide-react'
+import { parseOptions, isColoredStatus } from '@/features/fields/status'
 
 interface Props {
   field: any
@@ -30,6 +31,16 @@ export function FieldValueCell({ field, fieldValue }: Props) {
   }
 
   if (ft === 'select' && fieldValue.value_text) {
+    const opts = parseOptions(field.config)
+    const colored = isColoredStatus(opts)
+    const opt = opts.find((o) => o.label === fieldValue.value_text)
+    if (colored && opt?.color) {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-medium text-white" style={{ backgroundColor: opt.color }}>
+          {fieldValue.value_text}
+        </span>
+      )
+    }
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-medium bg-surface-3 text-foreground border border-border">
         {fieldValue.value_text}

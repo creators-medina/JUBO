@@ -276,7 +276,7 @@ export async function provisionBoardFromImport(input: {
   organizationId: string
   name: string
   boardType: BoardType
-  fields: { columnIndex: number; name: string; fieldType: FieldType }[]
+  fields: { columnIndex: number; name: string; fieldType: FieldType; config?: Record<string, unknown> }[]
   /** Group names in order. Empty → a single default group named "New". */
   groups: string[]
 }): Promise<{
@@ -345,7 +345,7 @@ export async function provisionBoardFromImport(input: {
         name: fname,
         slug: fslug,
         field_type: f.fieldType,
-        config: {},
+        config: f.config ?? {},
         position: i + 1,
       }
     })

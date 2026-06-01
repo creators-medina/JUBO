@@ -20,6 +20,10 @@ interface Props {
   boardId: string
   hasActiveFilters: boolean
   totalCount: number
+  subitemsByParent?: Record<string, any[]>
+  selectedIds?: Set<string>
+  onToggleSelect?: (id: string) => void
+  onToggleSelectMany?: (ids: string[], on: boolean) => void
   onAddRecord: () => void
   onAddField: () => void
   onSelectRecord: (id: string) => void
@@ -35,6 +39,10 @@ export function BoardGroupTable({
   boardId,
   hasActiveFilters,
   totalCount,
+  subitemsByParent,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectMany,
   onAddRecord,
   onAddField,
   onSelectRecord,
@@ -146,6 +154,21 @@ export function BoardGroupTable({
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-1">
+                <th className="w-7 pl-2 pr-0 py-2">
+                  {onToggleSelectMany && records.length > 0 && (() => {
+                    const allOn = records.every((r) => selectedIds?.has(r.id))
+                    const someOn = !allOn && records.some((r) => selectedIds?.has(r.id))
+                    return (
+                      <input
+                        type="checkbox"
+                        checked={allOn}
+                        ref={(el) => { if (el) el.indeterminate = someOn }}
+                        onChange={(e) => onToggleSelectMany(records.map((r) => r.id), e.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-border bg-surface-1 text-primary focus:ring-primary"
+                      />
+                    )
+                  })()}
+                </th>
                 <th className="w-6 pl-1 pr-0" />
                 <th className="sticky left-0 z-10 bg-surface-1 text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[200px]">Item</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground w-28">Status</th>
@@ -166,7 +189,7 @@ export function BoardGroupTable({
             <tbody>
               {records.length === 0 ? (
                 <tr>
-                  <td colSpan={5 + fields.length + 2} className="px-3 py-4 text-center text-xs text-muted-foreground">
+                  <td colSpan={6 + fields.length + 2} className="px-3 py-4 text-center text-xs text-muted-foreground">
                     {isOver ? (
                       <span className="text-primary">Drop here</span>
                     ) : hasActiveFilters ? 'No records match filters' : (
@@ -183,6 +206,9 @@ export function BoardGroupTable({
                     fieldValueMap={fieldValuesIndex[record.id] ?? {}}
                     groups={groups}
                     boardId={boardId}
+                    subitems={subitemsByParent?.[record.id] ?? []}
+                    isSelected={selectedIds?.has(record.id) ?? false}
+                    onToggleSelect={onToggleSelect}
                     onClick={() => onSelectRecord(record.id)}
                     onOptimisticMove={onOptimisticMove}
                   />
@@ -190,7 +216,7 @@ export function BoardGroupTable({
               )}
               {records.length > 0 && (
                 <tr className="border-t border-border">
-                  <td colSpan={5 + fields.length + 2}>
+                  <td colSpan={6 + fields.length + 2}>
                     <button onClick={onAddRecord} className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-surface-1 transition-colors w-full text-left">
                       <Plus className="w-3 h-3" />Add record
                     </button>

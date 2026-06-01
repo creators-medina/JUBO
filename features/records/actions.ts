@@ -161,3 +161,79 @@ export async function moveRecord(recordId: string, toGroupId: string, boardId: s
     })
   }
 }
+
+// ── Phase 29 — Subitems + bulk actions ────────────────────────────────────────
+
+/** Create a subitem (child record) under a parent. Inherits board + group. */
+export async function createSubitem(parentRecordId: string, title: string): Promise<{ id: string } | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const t = title.trim()
+  if (!t) throw new Error('Title is required')
+
+  const { data: parent } = await supabase
+    .from('records')
+    .select('organization_id, board_id, group_id, record_type')
+    .eq('id', parentRecordId).maybeSingle()
+  if (!parent) throw new Error('Parent record not found')
+
+  const { data: created, error } = await supabase.from('records').insert({
+    organization_id: parent.organization_id,
+    board_id: parent.board_id,
+    group_id: parent.group_id,
+    parent_record_id: parentRecordId,
+    title: t,
+    record_type: parent.record_type ?? 'custom',
+    owner_user_id: user.id,
+    created_by: user.id,
+  }).select('id').single()
+  if (error || !created) throw new Error(error?.message ?? 'Could not create subitem')
+
+  revalidatePath(`/boards/${parent.board_id}`)
+  return { id: created.id }
+}
+
+/** Move many records to a single group on the SAME board (loops the RPC so
+ * each one gets movement history + workflow dispatch). */
+export async function bulkMoveRecords(recordIds: string[], toGroupId: string, boardId: string): Promise<{ moved: number; failed: number }> {
+  if (recordIds.length === 0) return { moved: 0, failed: 0 }
+  let moved = 0, failed = 0
+  for (const id of recordIds) {
+    try { await moveRecord(id, toGroupId, boardId); moved++ } catch { failed++ }
+  }
+  revalidatePath(`/boards/${boardId}`)
+  return { moved, failed }
+}
+
+/** Archive a batch of records — preserves data, hides from default board views. */
+export async function bulkArchiveRecords(recordIds: string[], boardId: string): Promise<{ archived: number }> {
+  if (recordIds.length === 0) return { archived: 0 }
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { error } = await supabase
+    .from('records')
+    .update({ is_archived: true, status: 'archived', updated_at: new Date().toISOString() })
+    .in('id', recordIds)
+  if (error) throw new Error(error.message)
+
+  revalidatePath(`/boards/${boardId}`)
+  return { archived: recordIds.length }
+}
+
+/** Permanently delete a batch of records. Field values cascade via FK. */
+export async function bulkDeleteRecords(recordIds: string[], boardId: string): Promise<{ deleted: number }> {
+  if (recordIds.length === 0) return { deleted: 0 }
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { error } = await supabase.from('records').delete().in('id', recordIds)
+  if (error) throw new Error(error.message)
+
+  revalidatePath(`/boards/${boardId}`)
+  return { deleted: recordIds.length }
+}

@@ -29,6 +29,8 @@ export type ProposedField = {
   fieldType: FieldType
   confidence: number
   include: boolean
+  /** Optional config passed through to the created field (e.g. select options). */
+  config?: Record<string, unknown>
 }
 
 export type GroupSuggestion = {

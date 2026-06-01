@@ -14,6 +14,7 @@ import { CreateRecordModal } from '@/features/records/components/CreateRecordMod
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { BoardGroupTable } from './BoardGroupTable'
 import { BoardSettingsModal } from './BoardSettingsModal'
+import { BulkActionBar } from './BulkActionBar'
 import { DragOverlayRow } from './DragOverlayRow'
 import { useBoardRealtime } from '@/hooks/useBoardRealtime'
 import { moveRecord } from '@/features/records/actions'
@@ -158,6 +159,35 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
     })
   }
 
+  // ── Selection state (Phase 29 bulk actions) ────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }, [])
+  const toggleSelectMany = useCallback((ids: string[], on: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (on) ids.forEach((id) => next.add(id))
+      else ids.forEach((id) => next.delete(id))
+      return next
+    })
+  }, [])
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), [])
+
+  // ── Subitem partition (Phase 29) — top-level records + children map ────────
+  const topLevelRecords = useMemo(() => localRecords.filter((r: any) => !r.parent_record_id), [localRecords])
+  const subitemsByParent = useMemo(() => {
+    const out: Record<string, any[]> = {}
+    for (const r of localRecords as any[]) {
+      if (r.parent_record_id) (out[r.parent_record_id] ??= []).push(r)
+    }
+    return out
+  }, [localRecords])
+
   // Build field values index
   const fieldValuesIndex = useMemo(() => {
     const index: Record<string, Record<string, any>> = {}
@@ -168,9 +198,9 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
     return index
   }, [fieldValues])
 
-  // Filtered records
+  // Filtered records (top-level only — subitems are nested under their parent)
   const filteredRecords = useMemo(() => {
-    let result = localRecords
+    let result = topLevelRecords
     if (search.trim()) {
       const q = search.toLowerCase()
       result = result.filter((r: any) => r.title.toLowerCase().includes(q))
@@ -178,7 +208,7 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
     if (filterPriority) result = result.filter((r: any) => r.priority === filterPriority)
     if (filterStatus) result = result.filter((r: any) => r.status === filterStatus)
     return result
-  }, [localRecords, search, filterPriority, filterStatus])
+  }, [topLevelRecords, search, filterPriority, filterStatus])
 
   const filteredByGroup = useMemo(() =>
     groups.reduce<Record<string, any[]>>((acc, g) => {
@@ -189,10 +219,10 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
 
   const totalByGroup = useMemo(() =>
     groups.reduce<Record<string, number>>((acc, g) => {
-      acc[g.id] = localRecords.filter((r: any) => r.group_id === g.id).length
+      acc[g.id] = topLevelRecords.filter((r: any) => r.group_id === g.id).length
       return acc
     }, {}),
-  [localRecords, groups])
+  [topLevelRecords, groups])
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -335,6 +365,10 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
                   boardId={board.id}
                   hasActiveFilters={hasActiveFilters}
                   totalCount={totalByGroup[group.id] ?? 0}
+                  subitemsByParent={subitemsByParent}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                  onToggleSelectMany={toggleSelectMany}
                   onAddRecord={() => setShowCreateRecord(group.id)}
                   onAddField={() => setShowCreateField(true)}
                   onSelectRecord={id => {
@@ -355,6 +389,13 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
           <CreateRecordModal open onClose={() => setShowCreateRecord(null)} boardId={board.id} groupId={showCreateRecord} organizationId={organizationId} fields={fields} />
         )}
         <BoardSettingsModal open={showSettings} onClose={() => setShowSettings(false)} board={board} />
+
+        <BulkActionBar
+          selectedIds={Array.from(selectedIds)}
+          groups={groups}
+          boardId={board.id}
+          onClear={clearSelection}
+        />
       </div>
 
       <DragOverlay>
