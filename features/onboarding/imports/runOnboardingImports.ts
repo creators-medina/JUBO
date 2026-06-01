@@ -32,7 +32,11 @@ import type { OnboardingUploadKind } from '@/features/onboarding/types'
 import type { PendingUpload } from '@/features/onboarding/state/OnboardingWizardProvider'
 
 const CHUNK_SIZE = 100
-const MIN_HIGH_CONF_MAPPINGS = 2 // need title + ≥2 named-field matches
+// V1: loosened from 2 → 1. The autoMap title fallback (col 0) always succeeds,
+// so records always have a usable name; field mapping is bonus. Imports with
+// zero high-confidence field matches still need_review so the LO is prompted
+// to do the mapping themselves in /imports/new.
+const MIN_HIGH_CONF_MAPPINGS = 1
 const CONF_THRESHOLD = 0.5
 
 // kind → board template key + record type used by executeImportChunk.
@@ -109,7 +113,12 @@ export async function runOnboardingImports(input: RunInput): Promise<OnboardingI
 
       // ── Map ──────────────────────────────────────────────────────────────
       input.onProgress?.({ kind, fileName, phase: 'mapping' })
-      const { fields } = await getBoardFieldsAndGroups(board.id)
+      const { fields, groups } = await getBoardFieldsAndGroups(board.id)
+      // FIX: records.group_id is nullable, but the board view buckets records
+      // by exact group match — NULL-group records are invisible. Default to
+      // the FIRST group (the starter "intake" stage of each pipeline) so
+      // imported records land where the LO can see them.
+      const defaultGroupId = groups[0]?.id ?? null
       let mappings = autoMapColumns(headers, rows, fields)
       // Guarantee a title column — fall back to col 0 (mirrors ImportWizard).
       if (!mappings.some((m) => m.target === TITLE_TARGET) && mappings.length > 0) {
@@ -154,7 +163,7 @@ export async function runOnboardingImports(input: RunInput): Promise<OnboardingI
       const importId = await createImportRun({
         organizationId: input.organizationId,
         boardId: board.id,
-        groupId: null,
+        groupId: defaultGroupId,
         sourceType: parsed.sourceType,
         templateKey: null,
         fileName,
@@ -183,7 +192,7 @@ export async function runOnboardingImports(input: RunInput): Promise<OnboardingI
           importId,
           organizationId: input.organizationId,
           boardId: board.id,
-          groupId: null,
+          groupId: defaultGroupId,
           recordType: mapEntry.recordType,
           fieldTypes,
           rows: chunk,

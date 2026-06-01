@@ -20,12 +20,13 @@ type RevealQueries = {
   uploadsCount: number
   // Phase 30B — uploads queued for manual review (low autoMap confidence).
   uploadsNeedingReview: { kind: string; file_name: string }[]
+  uploadsFailed: { kind: string; file_name: string }[]
 }
 
 async function loadRevealData(orgId: string): Promise<RevealQueries> {
   const supabase = await createClient()
 
-  const [boardsQ, dashboardsQ, funnelsQ, workflowsQ, prefsQ, uploadsQ, needsReviewQ] = await Promise.all([
+  const [boardsQ, dashboardsQ, funnelsQ, workflowsQ, prefsQ, uploadsQ, needsReviewQ, failedQ] = await Promise.all([
     supabase.from('boards')
       .select('id, name, board_type, icon, color')
       .eq('organization_id', orgId)
@@ -57,6 +58,10 @@ async function loadRevealData(orgId: string): Promise<RevealQueries> {
       .select('kind, file_name')
       .eq('organization_id', orgId)
       .eq('status', 'needs_review'),
+    supabase.from('onboarding_uploads')
+      .select('kind, file_name')
+      .eq('organization_id', orgId)
+      .eq('status', 'failed'),
   ])
 
   // Per-board record counts (Phase 30B — show populated boards in Section 5).
@@ -86,6 +91,7 @@ async function loadRevealData(orgId: string): Promise<RevealQueries> {
     integrationsInterested: prefsQ.data ?? [],
     uploadsCount: uploadsQ.count ?? 0,
     uploadsNeedingReview: needsReviewQ.data ?? [],
+    uploadsFailed: failedQ.data ?? [],
   }
 }
 

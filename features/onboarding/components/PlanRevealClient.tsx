@@ -19,6 +19,7 @@ interface RevealData {
   integrationsInterested: { provider: string; status: string }[]
   uploadsCount: number
   uploadsNeedingReview: { kind: string; file_name: string }[]
+  uploadsFailed: { kind: string; file_name: string }[]
 }
 
 interface Props {
@@ -166,7 +167,7 @@ export function PlanRevealClient({
         </section>
       )}
 
-      {/* ── Needs-review banner (Phase 30B) — files we held for manual mapping ─ */}
+      {/* ── Needs-review banner — files we held for manual mapping ──────── */}
       {data.uploadsNeedingReview.length > 0 && (
         <section className="mt-8 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
           <div className="flex items-start gap-3">
@@ -181,6 +182,26 @@ export function PlanRevealClient({
               </p>
               <Button variant="outline" size="sm" className="mt-3 gap-1.5" onClick={() => router.push('/imports/new')}>
                 <Upload className="h-3.5 w-3.5" /> Review in importer
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Failed-upload banner — surfaced loudly (Phase 30B follow-up fix) ─ */}
+      {data.uploadsFailed.length > 0 && (
+        <section className="mt-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-300" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-red-200">
+                {data.uploadsFailed.length} file{data.uploadsFailed.length === 1 ? '' : 's'} couldn&apos;t be imported
+              </p>
+              <p className="mt-0.5 text-xs text-red-200/80">
+                {data.uploadsFailed.map((u) => u.file_name).join(', ')} — try again from the importer.
+              </p>
+              <Button variant="outline" size="sm" className="mt-3 gap-1.5" onClick={() => router.push('/imports/new')}>
+                <Upload className="h-3.5 w-3.5" /> Retry in importer
               </Button>
             </div>
           </div>

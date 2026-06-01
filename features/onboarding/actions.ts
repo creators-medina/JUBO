@@ -92,6 +92,28 @@ export async function completeOnboarding(organizationId: string): Promise<Provis
   // Guard against double-provisioning if the LO re-runs the final step.
   if (!profile?.provisioned) {
     result = await provisionWorkspace(organizationId, answers, weights)
+  } else {
+    // Re-run path: provisionWorkspace was skipped, so createdBoards is empty.
+    // Populate it from the live boards so the wizard's post-provision import
+    // loop can still resolve kind→board. Match the template key by SLUG since
+    // provisionWorkspace slugs each board's name.
+    const { data: liveBoards } = await supabase
+      .from('boards')
+      .select('id, name, slug')
+      .eq('organization_id', organizationId)
+      .eq('is_archived', false)
+    if (liveBoards) {
+      const SLUG_TO_KEY: Record<string, string> = {
+        'prospecting':         'prospecting',
+        'active-leads':        'active_leads',
+        'loan-pipeline':       'pipeline',
+        'past-clients':        'past_clients',
+        'realtors-partners':   'partners',
+      }
+      result.createdBoards = liveBoards
+        .map((b) => ({ key: SLUG_TO_KEY[b.slug as string], id: b.id, slug: b.slug as string, name: b.name as string }))
+        .filter((b) => b.key)
+    }
   }
 
   // Populate the Today cockpit (best-effort).
