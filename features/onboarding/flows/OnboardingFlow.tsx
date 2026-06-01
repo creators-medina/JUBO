@@ -229,12 +229,12 @@ function DoneStep() {
         </div>
 
         <div className="mt-8 flex justify-center gap-3">
-          <Button size="lg" className="gap-2" onClick={() => router.push('/today')}>
-            Go to Today
+          <Button size="lg" className="gap-2" onClick={() => router.push('/onboarding/reveal')}>
+            See your plan
             <ArrowRight className="h-4 w-4" />
           </Button>
           <Button size="lg" variant="outline" onClick={() => router.push('/dashboard')}>
-            View dashboards
+            Skip to dashboards
           </Button>
         </div>
         <p className="mt-4 text-2xs text-muted-foreground">

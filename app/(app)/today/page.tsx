@@ -14,7 +14,7 @@ import {
   calculateGoalPacing, calculateRequiredStageTargets,
 } from '@/features/goals/calculations/engine'
 import { TodayPageClient } from '@/features/daily-actions/components/TodayPageClient'
-import { getSetupChecklist } from '@/features/onboarding/queries'
+import { getOnboardingProfile, getSetupChecklist } from '@/features/onboarding/queries'
 import { getFollowUpsDueCount } from '@/features/communications/queries'
 import { getProspectingMetrics } from '@/features/prospecting/metrics'
 import { getActiveSession } from '@/features/prospecting/sessions/queries'
@@ -40,6 +40,14 @@ export default async function TodayPage() {
 
   const orgId = membership.organization_id
   const orgName = (membership as { organizations?: { name?: string } | null }).organizations?.name ?? 'Organization'
+
+  // Phase 30A — once-only plan reveal gate. Show /onboarding/reveal the FIRST
+  // time a completed-onboarding user lands here. The reveal page stamps the
+  // column when the LO clicks the primary CTA.
+  const onboardingProfile = await getOnboardingProfile(orgId)
+  if (onboardingProfile?.status === 'completed' && !onboardingProfile.plan_revealed_at) {
+    redirect('/onboarding/reveal')
+  }
 
   const today = todayISO()
 

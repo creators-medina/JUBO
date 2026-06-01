@@ -10,6 +10,7 @@ import {
   Activity, Link as LinkIcon, Archive, Copy, History, Workflow, RefreshCw,
   ListChecks, Upload, GitBranch, Phone, PhoneOff, Mail, MessageSquare, Calendar,
   PhoneCall, Play, Square, Flame, CalendarCheck, ThumbsUp, ThumbsDown, Bug, Lightbulb, BarChart3,
+  Trophy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCommandPalette } from '../providers/CommandPaletteProvider'
@@ -34,6 +35,7 @@ const ICONS: Record<string, React.ElementType> = {
   Archive, Copy, History, Workflow, RefreshCw, ListChecks, Upload, GitBranch,
   Phone, PhoneOff, Mail, MessageSquare, Calendar, PhoneCall, Play,
   Square, Flame, CalendarCheck, ThumbsUp, ThumbsDown, Bug, Lightbulb, BarChart3,
+  Trophy,
 }
 const IconFor = (name?: string): React.ElementType => (name && ICONS[name]) || Search
 
@@ -208,6 +210,7 @@ export function CommandPalette() {
           : undefined
       case 'resume-setup':         return () => { router.push('/onboarding/setup'); close() }
       case 'open-setup-checklist': return () => { router.push('/today'); close() }
+      case 'open-plan-reveal':     return () => { router.push('/onboarding/reveal?replay=1'); close() }
       case 'new-import':           return () => { router.push('/imports/new'); close() }
       case 'import-clients':       return () => { router.push('/imports/new?template=past_clients'); close() }
       case 'import-leads':         return () => { router.push('/imports/new?template=active_leads'); close() }

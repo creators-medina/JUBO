@@ -142,6 +142,22 @@ export async function completeOnboarding(organizationId: string): Promise<Provis
   return result
 }
 
+// ── Plan reveal (Phase 30A) ─────────────────────────────────────────────────
+/**
+ * Stamp `plan_revealed_at` so the post-onboarding reveal only appears once. Called
+ * from the reveal page's primary CTA. Re-opening via command palette must NOT
+ * call this — the column never moves backwards.
+ */
+export async function markPlanRevealed(organizationId: string): Promise<void> {
+  const { supabase } = await requireUser()
+  await supabase
+    .from('onboarding_profiles')
+    .update({ plan_revealed_at: new Date().toISOString() })
+    .eq('organization_id', organizationId)
+    .is('plan_revealed_at', null)
+  revalidatePath('/today')
+}
+
 // ── Setup checklist ──────────────────────────────────────────────────────────
 export async function setChecklistItemCompleted(itemId: string, completed: boolean): Promise<void> {
   const { supabase } = await requireUser()

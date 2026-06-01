@@ -28,6 +28,7 @@ export type QuickActionId =
   | 'run-workflow-scans'
   | 'resume-setup'
   | 'open-setup-checklist'
+  | 'open-plan-reveal'
   | 'import-clients'
   | 'import-leads'
   | 'import-loans'
@@ -84,6 +85,7 @@ export const QUICK_ACTIONS: QuickActionDef[] = [
   // Setup / onboarding
   { id: 'resume-setup',         title: 'Resume Setup',          iconName: 'Sparkles',        group: 'Setup',       keywords: ['setup', 'onboarding', 'resume', 'wizard'] },
   { id: 'open-setup-checklist', title: 'Open Setup Checklist',  iconName: 'ListChecks',      group: 'Setup',       keywords: ['checklist', 'activation', 'setup', 'progress'] },
+  { id: 'open-plan-reveal',     title: 'View Business Plan',    iconName: 'Trophy',          group: 'Setup',       keywords: ['plan', 'reveal', 'business plan', 'recap', 'onboarding', 'goal', 'welcome'] },
   { id: 'new-import',           title: 'New Import',            iconName: 'Upload',          group: 'Import',      keywords: ['import', 'csv', 'xlsx', 'upload', 'data'] },
   { id: 'import-clients',       title: 'Import Clients',        iconName: 'Upload',          group: 'Import',      keywords: ['import', 'clients', 'csv', 'past clients'] },
   { id: 'import-leads',         title: 'Import Leads',          iconName: 'Upload',          group: 'Import',      keywords: ['import', 'leads', 'csv'] },

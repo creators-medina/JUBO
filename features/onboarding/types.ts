@@ -80,6 +80,7 @@ export type OnboardingProfileRow = {
   provisioned: boolean
   provisioned_at: string | null
   completed_at: string | null
+  plan_revealed_at: string | null
   created_by: string | null
   created_at: string
   updated_at: string
