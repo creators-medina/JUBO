@@ -1,17 +1,81 @@
-import { ContentContainer } from "@/components/primitives/ContentContainer";
-import { PageHeader } from "@/components/primitives/PageHeader";
-import { EmptyState } from "@/components/primitives/EmptyState";
-import { Settings } from "lucide-react";
+import Link from 'next/link'
+import { ContentContainer } from '@/components/primitives/ContentContainer'
+import { PageHeader } from '@/components/primitives/PageHeader'
+import { UserCircle, Building2, Target, Plug, ChevronRight } from 'lucide-react'
+
+type SectionCard = {
+  title: string
+  description: string
+  href: string
+  icon: React.ElementType
+  status?: 'live' | 'soon'
+}
+
+const SECTIONS: SectionCard[] = [
+  {
+    title: 'Profile',
+    description: 'Your name, email, organization, and role.',
+    href: '/profile',
+    icon: UserCircle,
+    status: 'live',
+  },
+  {
+    title: 'Organization',
+    description: 'Workspace name, team members, and roles.',
+    href: '/settings',
+    icon: Building2,
+    status: 'soon',
+  },
+  {
+    title: 'Goals',
+    description: 'Production goals, funnels, and conversion assumptions.',
+    href: '/goals',
+    icon: Target,
+    status: 'live',
+  },
+  {
+    title: 'Integrations',
+    description: 'Connect Arive, Twilio, Zapier, and more.',
+    href: '/settings/integrations',
+    icon: Plug,
+    status: 'live',
+  },
+]
 
 export default function SettingsPage() {
   return (
-    <ContentContainer>
-      <PageHeader title="Settings" description="Manage your workspace settings" />
-      <EmptyState
-        icon={Settings}
-        title="Settings coming soon"
-        description="Workspace and organization settings will be built in a future phase."
-      />
+    <ContentContainer maxWidth="md">
+      <PageHeader title="Settings" description="Manage your workspace, profile, goals, and integrations." />
+      <div className="grid gap-3 sm:grid-cols-2">
+        {SECTIONS.map((s) => (
+          <SectionLink key={s.title} {...s} />
+        ))}
+      </div>
     </ContentContainer>
-  );
+  )
+}
+
+function SectionLink({ title, description, href, icon: Icon, status }: SectionCard) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-surface-1"
+    >
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-foreground">{title}</p>
+          {status === 'soon' && (
+            <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-2xs text-muted-foreground">
+              Coming soon
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+      </div>
+      <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+    </Link>
+  )
 }
