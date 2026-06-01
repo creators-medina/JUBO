@@ -64,6 +64,32 @@ export async function createImportField(input: {
   return created as { id: string; name: string; slug: string; field_type: FieldType; position: number }
 }
 
+/**
+ * Rename a field's display name (e.g. via the board table's double-click rename).
+ * Only updates `name`. The slug is intentionally STABLE — downstreams
+ * (features/mortgage/data.ts, features/coaching, integration runtime, import
+ * synonym mapping) read fields by slug, so changing it would silently break them.
+ * RLS scopes the update to the caller's org.
+ */
+export async function updateField(fieldId: string, updates: { name: string }): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const name = updates.name.trim()
+  if (!name) throw new Error('Field name is required')
+  if (name.length > 60) throw new Error('Field name is too long')
+
+  const { data: field } = await supabase
+    .from('fields').select('id, board_id').eq('id', fieldId).maybeSingle()
+  if (!field) throw new Error('Field not found or access denied')
+
+  const { error } = await supabase.from('fields').update({ name }).eq('id', fieldId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath(`/boards/${field.board_id}`)
+}
+
 export async function getBoardFields(boardId: string) {
   const supabase = await createClient()
   const { data } = await supabase

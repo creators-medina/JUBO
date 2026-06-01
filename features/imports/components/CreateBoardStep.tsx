@@ -1,6 +1,6 @@
 'use client'
 
-import { Sparkles, Layers, Tag, Phone, Mail, CheckCircle2 } from 'lucide-react'
+import { Sparkles, Layers, Tag, Phone, Mail, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FieldType } from '@/types/database'
 import type { BoardSuggestion, ProposedField, GroupSuggestion } from '../inference/boardInference'
@@ -48,6 +48,7 @@ export function CreateBoardStep({
   const groupCount = createGroups && groupSuggestion ? groupSuggestion.values.length : 1
   const hasPhone = proposedFields.some((f) => f.fieldType === 'phone')
   const hasEmail = proposedFields.some((f) => f.fieldType === 'email')
+  const blankIncluded = proposedFields.filter((f) => f.include && f.columnIndex !== groupColumnIndex && !f.name.trim())
 
   return (
     <div className="space-y-5">
@@ -152,6 +153,21 @@ export function CreateBoardStep({
         </div>
       )}
 
+      {/* Blank-header warning — surfaced ABOVE the fields card so it's the first thing the user sees. */}
+      {blankIncluded.length > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <div>
+            <p className="font-medium">
+              {blankIncluded.length} column{blankIncluded.length === 1 ? '' : 's'} had no header.
+            </p>
+            <p className="mt-0.5 text-xs text-amber-200/80">
+              Name them below or uncheck to skip. We won&apos;t create a board with unnamed columns.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Fields review */}
       <div className="rounded-xl border border-border bg-card">
         <div className="border-b border-border px-4 py-2.5">
@@ -161,8 +177,16 @@ export function CreateBoardStep({
         <div className="max-h-80 overflow-y-auto">
           {proposedFields.map((f) => {
             const isGroupCol = f.columnIndex === groupColumnIndex
+            const blankIncludedField = !isGroupCol && f.include && !f.name.trim()
             return (
-              <div key={f.columnIndex} className={cn('flex items-center gap-3 border-b border-border/60 px-4 py-2.5 last:border-b-0', isGroupCol && 'opacity-60')}>
+              <div
+                key={f.columnIndex}
+                className={cn(
+                  'flex items-center gap-3 border-b border-border/60 px-4 py-2.5 last:border-b-0',
+                  isGroupCol && 'opacity-60',
+                  blankIncludedField && 'bg-amber-500/5',
+                )}
+              >
                 <input
                   type="checkbox"
                   checked={!isGroupCol && f.include}
@@ -173,11 +197,19 @@ export function CreateBoardStep({
                 <div className="min-w-0 flex-1">
                   <input
                     value={f.name}
+                    placeholder={blankIncludedField ? 'Name this column' : ''}
                     onChange={(e) => onFieldName(f.columnIndex, e.target.value)}
                     disabled={isGroupCol || !f.include}
-                    className="w-full bg-transparent text-sm text-foreground focus:outline-none disabled:text-muted-foreground"
+                    className={cn(
+                      'w-full bg-transparent text-sm text-foreground focus:outline-none disabled:text-muted-foreground',
+                      blankIncludedField && 'placeholder:text-amber-300/80',
+                    )}
                   />
-                  <p className="text-2xs text-muted-foreground">from &ldquo;{f.header}&rdquo;{isGroupCol && ' · used for groups'}</p>
+                  <p className="text-2xs text-muted-foreground">
+                    {f.header.trim()
+                      ? <>from &ldquo;{f.header}&rdquo;{isGroupCol && ' · used for groups'}</>
+                      : <span className="text-amber-300/80">no header in the file{isGroupCol && ' · used for groups'}</span>}
+                  </p>
                 </div>
                 {!isGroupCol && (
                   <select

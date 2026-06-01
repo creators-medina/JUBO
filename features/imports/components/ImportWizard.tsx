@@ -125,7 +125,8 @@ export function ImportWizard({
       .map((m) => ({
         columnIndex: m.columnIndex,
         header: m.header,
-        name: humanize(m.header),
+        // Blank header → blank name so the preview shows "Name this column".
+        name: m.header.trim() ? humanize(m.header) : '',
         fieldType: m.inferred.type,
         confidence: m.inferred.confidence,
         include: true,
@@ -519,16 +520,17 @@ export function ImportWizard({
           {step === 'board' && mode === 'existing' && (
             <Button className="gap-1.5" disabled={!boardId} onClick={enterMap}>Map columns <ArrowRight className="h-4 w-4" /></Button>
           )}
-          {step === 'board' && mode === 'create' && (
-            <Button
-              className="gap-1.5"
-              disabled={!boardSuggestion || !newBoardName.trim() || proposedFields.filter((f) => f.include && f.columnIndex !== groupColumnIndex).length === 0}
-              onClick={handleCreateAndImport}
-            >
-              Create board & import {rows.length.toLocaleString()} record{rows.length === 1 ? '' : 's'}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          )}
+          {step === 'board' && mode === 'create' && (() => {
+            const includedFields = proposedFields.filter((f) => f.include && f.columnIndex !== groupColumnIndex)
+            const hasBlankName = includedFields.some((f) => !f.name.trim())
+            const disabled = !boardSuggestion || !newBoardName.trim() || includedFields.length === 0 || hasBlankName
+            return (
+              <Button className="gap-1.5" disabled={disabled} onClick={handleCreateAndImport}>
+                {hasBlankName ? 'Name unnamed columns to continue' : `Create board & import ${rows.length.toLocaleString()} record${rows.length === 1 ? '' : 's'}`}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            )
+          })()}
           {step === 'map' && (
             <Button className="gap-1.5" disabled={busy || titleColIndex < 0} onClick={enterPreview}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} Review
