@@ -83,6 +83,7 @@ export interface Database {
           organization_id: string;
           user_id: string;
           role: OrgRole;
+          status: string;
           invited_by: string | null;
           joined_at: string | null;
           created_at: string;
@@ -92,10 +93,11 @@ export interface Database {
           organization_id: string;
           user_id: string;
           role?: OrgRole;
+          status?: string;
           invited_by?: string | null;
           joined_at?: string | null;
         };
-        Update: { role?: OrgRole; joined_at?: string | null };
+        Update: { role?: OrgRole; status?: string; joined_at?: string | null };
       };
       boards: {
         Row: {

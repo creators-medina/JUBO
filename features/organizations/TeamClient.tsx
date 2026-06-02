@@ -1,0 +1,252 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { Users, MoreHorizontal, Shield, UserMinus, Ban, CircleCheck, Info } from 'lucide-react'
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
+import { useToast } from '@/features/feedback/ToastProvider'
+import type { TeamMember } from './queries'
+import { changeMemberRole, setMemberStatus, removeMember } from './team'
+
+const ASSIGNABLE_ROLES = ['admin', 'manager', 'member'] as const
+
+// Server error codes → human messages.
+const ERRORS: Record<string, string> = {
+  forbidden: 'Only an owner or admin can manage the team.',
+  unauthorized: 'Your session expired. Please sign in again.',
+  not_found: 'That member no longer exists.',
+  last_owner: 'You can’t remove, disable, or demote the last owner. Promote another owner first.',
+  admin_cannot_demote_owner: 'Only the owner can change the owner’s role.',
+  admin_cannot_disable_owner: 'Only the owner can disable an owner.',
+  admin_cannot_remove_owner: 'Admins can’t remove the owner.',
+  cannot_disable_self: 'You can’t disable your own access.',
+  cannot_remove_self: 'You can’t remove yourself from the organization.',
+  transfer_not_available: 'Transferring ownership isn’t available yet — it arrives in a later phase.',
+  invalid_role: 'That role isn’t valid.',
+  invalid_status: 'That status isn’t valid.',
+}
+
+export function TeamClient({
+  members,
+  canManage,
+  currentRole,
+  currentUserId,
+}: {
+  members: TeamMember[]
+  canManage: boolean
+  currentRole: string
+  currentUserId: string
+}) {
+  const router = useRouter()
+  const toast = useToast()
+  const [pending, startTransition] = useTransition()
+  const [confirmRemove, setConfirmRemove] = useState<TeamMember | null>(null)
+
+  const run = (p: Promise<{ ok: true } | { error: string }>, success: string) => {
+    startTransition(async () => {
+      const res = await p
+      if ('error' in res) {
+        toast.error(ERRORS[res.error] ?? 'Something went wrong.')
+        return
+      }
+      toast.success(success)
+      router.refresh()
+    })
+  }
+
+  const soloMember = members.length <= 1
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-6 p-6">
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10"><Users className="h-4.5 w-4.5 text-primary" /></div>
+        <div className="min-w-0">
+          <h1 className="text-lg font-semibold text-foreground">Team</h1>
+          <p className="text-xs text-muted-foreground">
+            {canManage ? 'Manage who has access to this workspace and what they can do.' : 'People in this workspace.'}
+          </p>
+        </div>
+        {!canManage && (
+          <span className="ml-auto rounded-full bg-surface-2 px-2.5 py-1 text-2xs font-medium capitalize text-muted-foreground">{currentRole}</span>
+        )}
+      </div>
+
+      {/* Invitations coming-soon banner */}
+      <div className="flex items-start gap-2.5 rounded-xl border border-border bg-surface-1 px-4 py-3">
+        <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Invitations arrive in Phase 31C.</span> For now, members join when they
+          create the workspace. You can manage roles and access for everyone who&apos;s already here.
+        </p>
+      </div>
+
+      {soloMember ? (
+        <div className="rounded-xl border border-dashed border-border bg-card px-6 py-10 text-center">
+          <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-surface-2"><Users className="h-5 w-5 text-muted-foreground" /></div>
+          <p className="text-sm font-medium text-foreground">It&apos;s just you right now</p>
+          <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">
+            Your workspace has one member. Once invitations land in Phase 31C, you&apos;ll be able to add loan officers,
+            processors, and assistants here.
+          </p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-2xs uppercase tracking-wider text-muted-foreground">
+                <th className="px-4 py-2.5 font-medium">Name</th>
+                <th className="px-4 py-2.5 font-medium">Email</th>
+                <th className="px-4 py-2.5 font-medium">Role</th>
+                <th className="px-4 py-2.5 font-medium">Status</th>
+                <th className="px-4 py-2.5 font-medium">Joined</th>
+                {canManage && <th className="px-4 py-2.5" />}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {members.map((m) => (
+                <tr key={m.membershipId} className={m.status === 'disabled' ? 'opacity-55' : undefined}>
+                  <td className="px-4 py-3">
+                    <span className="font-medium text-foreground">{m.name}</span>
+                    {m.isSelf && <span className="ml-1.5 text-2xs text-muted-foreground">(you)</span>}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{m.email}</td>
+                  <td className="px-4 py-3"><RoleBadge role={m.role} /></td>
+                  <td className="px-4 py-3"><StatusBadge status={m.status} /></td>
+                  <td className="px-4 py-3 text-muted-foreground">{fmtDate(m.joinedAt)}</td>
+                  {canManage && (
+                    <td className="px-4 py-3 text-right">
+                      <RowActions
+                        member={m}
+                        currentRole={currentRole}
+                        currentUserId={currentUserId}
+                        pending={pending}
+                        onChangeRole={(role) => run(changeMemberRole(m.membershipId, role), `${m.name} is now ${role}`)}
+                        onSetStatus={(status) => run(setMemberStatus(m.membershipId, status), status === 'disabled' ? `${m.name} disabled` : `${m.name} re-enabled`)}
+                        onRemove={() => setConfirmRemove(m)}
+                      />
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {confirmRemove && (
+        <ConfirmRemove
+          member={confirmRemove}
+          pending={pending}
+          onCancel={() => setConfirmRemove(null)}
+          onConfirm={() => {
+            const target = confirmRemove
+            setConfirmRemove(null)
+            run(removeMember(target.membershipId), `${target.name} removed`)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function RowActions({
+  member, currentRole, currentUserId, pending, onChangeRole, onSetStatus, onRemove,
+}: {
+  member: TeamMember
+  currentRole: string
+  currentUserId: string
+  pending: boolean
+  onChangeRole: (role: string) => void
+  onSetStatus: (status: 'active' | 'disabled') => void
+  onRemove: () => void
+}) {
+  const isSelf = member.userId === currentUserId
+  const targetIsOwner = member.role === 'owner'
+  // Mirror server rules so the UI only offers what will succeed.
+  const canActOnOwner = currentRole === 'owner'
+  const roleEditable = !targetIsOwner || canActOnOwner
+  const canDisable = !isSelf && (!targetIsOwner || canActOnOwner)
+  const canRemove = !isSelf && (!targetIsOwner || canActOnOwner)
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`Actions for ${member.name}`}
+        disabled={pending}
+        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuLabel className="text-2xs uppercase tracking-wider text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5"><Shield className="h-3 w-3" /> Change role</span>
+        </DropdownMenuLabel>
+        {ASSIGNABLE_ROLES.map((r) => (
+          <DropdownMenuItem
+            key={r}
+            disabled={!roleEditable || member.role === r}
+            onSelect={() => onChangeRole(r)}
+            className="cursor-pointer text-xs capitalize"
+          >
+            {r}{member.role === r && <span className="ml-auto text-2xs text-muted-foreground">current</span>}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        {member.status === 'active' ? (
+          <DropdownMenuItem disabled={!canDisable} onSelect={() => onSetStatus('disabled')} className="cursor-pointer text-xs">
+            <Ban className="mr-2 h-3.5 w-3.5" /> Disable access
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem onSelect={() => onSetStatus('active')} className="cursor-pointer text-xs">
+            <CircleCheck className="mr-2 h-3.5 w-3.5" /> Re-enable access
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem disabled={!canRemove} onSelect={() => onRemove()} className="cursor-pointer text-xs text-red-300 focus:text-red-200">
+          <UserMinus className="mr-2 h-3.5 w-3.5" /> Remove from org
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function ConfirmRemove({ member, pending, onCancel, onConfirm }: { member: TeamMember; pending: boolean; onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onCancel}>
+      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-sm font-semibold text-foreground">Remove {member.name}?</h2>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          They lose access to this workspace. Their account and everything they created stay intact. You can re-add them once
+          invitations ship.
+        </p>
+        <div className="mt-4 flex justify-end gap-2">
+          <button onClick={onCancel} className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-surface-1">Cancel</button>
+          <button onClick={onConfirm} disabled={pending} className="rounded-lg bg-red-500/90 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-500 disabled:opacity-50">
+            {pending ? 'Removing…' : 'Remove'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RoleBadge({ role }: { role: string }) {
+  const tone = role === 'owner' ? 'bg-violet-500/15 text-violet-300'
+    : role === 'admin' ? 'bg-blue-500/15 text-blue-300'
+    : 'bg-surface-2 text-muted-foreground'
+  return <span className={`inline-flex rounded-full px-2 py-0.5 text-2xs font-medium capitalize ${tone}`}>{role}</span>
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return status === 'disabled'
+    ? <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-2xs font-medium text-muted-foreground"><Ban className="h-2.5 w-2.5" /> Disabled</span>
+    : <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-2xs font-medium text-emerald-400"><CircleCheck className="h-2.5 w-2.5" /> Active</span>
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}

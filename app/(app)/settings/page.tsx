@@ -28,10 +28,10 @@ const SECTIONS: SectionCard[] = [
   },
   {
     title: 'Team',
-    description: 'Invite teammates and manage roles.',
-    href: '/settings',
+    description: 'Manage members, roles, and access. (Invites in 31C.)',
+    href: '/settings/team',
     icon: Users,
-    status: 'soon',
+    status: 'live',
   },
   {
     title: 'Goals',
