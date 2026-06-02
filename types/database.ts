@@ -51,6 +51,11 @@ export interface Database {
           name: string;
           slug: string;
           owner_user_id: string;
+          logo_url: string | null;
+          timezone: string;
+          team_size: number | null;
+          monthly_volume_goal: number | null;
+          status: string;
           created_at: string;
           updated_at: string;
         };
@@ -59,8 +64,18 @@ export interface Database {
           name: string;
           slug: string;
           owner_user_id: string;
+          logo_url?: string | null;
+          timezone?: string;
+          team_size?: number | null;
+          monthly_volume_goal?: number | null;
+          status?: string;
         };
-        Update: Partial<Pick<Database["public"]["Tables"]["organizations"]["Insert"], "name" | "slug">>;
+        Update: Partial<
+          Pick<
+            Database["public"]["Tables"]["organizations"]["Insert"],
+            "name" | "slug" | "logo_url" | "timezone" | "team_size" | "monthly_volume_goal" | "status"
+          >
+        >;
       };
       organization_members: {
         Row: {

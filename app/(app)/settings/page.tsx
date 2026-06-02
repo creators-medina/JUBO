@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ContentContainer } from '@/components/primitives/ContentContainer'
 import { PageHeader } from '@/components/primitives/PageHeader'
-import { UserCircle, Building2, Target, Plug, ChevronRight } from 'lucide-react'
+import { UserCircle, Building2, Users, Target, Plug, ChevronRight } from 'lucide-react'
 
 type SectionCard = {
   title: string
@@ -21,9 +21,16 @@ const SECTIONS: SectionCard[] = [
   },
   {
     title: 'Organization',
-    description: 'Workspace name, team members, and roles.',
-    href: '/settings',
+    description: 'Company name, logo, timezone, team size, and volume goal.',
+    href: '/settings/organization',
     icon: Building2,
+    status: 'live',
+  },
+  {
+    title: 'Team',
+    description: 'Invite teammates and manage roles.',
+    href: '/settings',
+    icon: Users,
     status: 'soon',
   },
   {
@@ -56,11 +63,8 @@ export default function SettingsPage() {
 }
 
 function SectionLink({ title, description, href, icon: Icon, status }: SectionCard) {
-  return (
-    <Link
-      href={href}
-      className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-surface-1"
-    >
+  const inner = (
+    <>
       <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
         <Icon className="h-4 w-4" />
       </div>
@@ -75,7 +79,27 @@ function SectionLink({ title, description, href, icon: Icon, status }: SectionCa
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
       </div>
-      <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+      {status !== 'soon' && (
+        <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+      )}
+    </>
+  )
+
+  // "Coming soon" sections render as non-interactive cards — no dead links.
+  if (status === 'soon') {
+    return (
+      <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 opacity-60">
+        {inner}
+      </div>
+    )
+  }
+
+  return (
+    <Link
+      href={href}
+      className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-surface-1"
+    >
+      {inner}
     </Link>
   )
 }
