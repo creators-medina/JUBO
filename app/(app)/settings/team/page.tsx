@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getTeamMembers } from '@/features/organizations/queries'
+import { getTeamMembers, getPendingInvitations } from '@/features/organizations/queries'
 import { isOrgAdmin } from '@/features/auth/guards'
 import { TeamClient } from '@/features/organizations/TeamClient'
 
@@ -21,8 +21,20 @@ export default async function TeamSettingsPage() {
   if (!membership) redirect('/onboarding')
 
   const m = membership as { organization_id: string; role: string }
-  const members = await getTeamMembers(m.organization_id, user.id)
+  const canManage = isOrgAdmin(m.role)
+  const [members, pendingInvites] = await Promise.all([
+    getTeamMembers(m.organization_id, user.id),
+    canManage ? getPendingInvitations(m.organization_id) : Promise.resolve([]),
+  ])
 
   // All members can view the roster; only owner/admin see + use the actions.
-  return <TeamClient members={members} canManage={isOrgAdmin(m.role)} currentRole={m.role} currentUserId={user.id} />
+  return (
+    <TeamClient
+      members={members}
+      pendingInvites={pendingInvites}
+      canManage={canManage}
+      currentRole={m.role}
+      currentUserId={user.id}
+    />
+  )
 }

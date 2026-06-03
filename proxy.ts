@@ -39,7 +39,11 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/api/webhooks") ||
     request.nextUrl.pathname.startsWith("/api/cron");
 
-  if (!user && !isAuthRoute && !isPublicApi) {
+  // Invite acceptance must be reachable while logged OUT — the page itself
+  // routes the user to sign up / log in, preserving the token.
+  const isInviteRoute = request.nextUrl.pathname.startsWith("/invite");
+
+  if (!user && !isAuthRoute && !isPublicApi && !isInviteRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

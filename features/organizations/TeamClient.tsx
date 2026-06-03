@@ -2,14 +2,36 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Users, MoreHorizontal, Shield, UserMinus, Ban, CircleCheck, Info } from 'lucide-react'
+import { Users, MoreHorizontal, Shield, UserMinus, Ban, CircleCheck, Info, UserPlus, Copy, X, Link2 } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/features/feedback/ToastProvider'
-import type { TeamMember } from './queries'
+import type { TeamMember, PendingInvite } from './queries'
 import { changeMemberRole, setMemberStatus, removeMember } from './team'
+import { inviteMember, revokeInvitation, refreshInviteLink } from './invites'
+
+const INVITE_ROLES = ['member', 'manager', 'admin'] as const
+
+const INVITE_ERRORS: Record<string, string> = {
+  forbidden: 'Only an owner or admin can invite people.',
+  unauthorized: 'Your session expired. Please sign in again.',
+  invalid_email: 'Enter a valid email address.',
+  invalid_role: 'Pick a valid role.',
+  already_member: 'That person is already in this workspace.',
+  already_invited: 'There’s already a pending invite for that email. Revoke it first to start over.',
+  not_found: 'That invitation no longer exists.',
+}
+
+function inviteLink(token: string): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  return `${origin}/invite/accept?token=${encodeURIComponent(token)}`
+}
+
+async function copy(text: string): Promise<boolean> {
+  try { await navigator.clipboard.writeText(text); return true } catch { return false }
+}
 
 const ASSIGNABLE_ROLES = ['admin', 'manager', 'member'] as const
 
@@ -31,11 +53,13 @@ const ERRORS: Record<string, string> = {
 
 export function TeamClient({
   members,
+  pendingInvites = [],
   canManage,
   currentRole,
   currentUserId,
 }: {
   members: TeamMember[]
+  pendingInvites?: PendingInvite[]
   canManage: boolean
   currentRole: string
   currentUserId: string
@@ -44,6 +68,7 @@ export function TeamClient({
   const toast = useToast()
   const [pending, startTransition] = useTransition()
   const [confirmRemove, setConfirmRemove] = useState<TeamMember | null>(null)
+  const [inviteOpen, setInviteOpen] = useState(false)
 
   const run = (p: Promise<{ ok: true } | { error: string }>, success: string) => {
     startTransition(async () => {
@@ -69,19 +94,33 @@ export function TeamClient({
             {canManage ? 'Manage who has access to this workspace and what they can do.' : 'People in this workspace.'}
           </p>
         </div>
-        {!canManage && (
+        {canManage ? (
+          <button
+            onClick={() => setInviteOpen(true)}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <UserPlus className="h-3.5 w-3.5" /> Invite user
+          </button>
+        ) : (
           <span className="ml-auto rounded-full bg-surface-2 px-2.5 py-1 text-2xs font-medium capitalize text-muted-foreground">{currentRole}</span>
         )}
       </div>
 
-      {/* Invitations coming-soon banner */}
-      <div className="flex items-start gap-2.5 rounded-xl border border-border bg-surface-1 px-4 py-3">
-        <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
-        <p className="text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Invitations arrive in Phase 31C.</span> For now, members join when they
-          create the workspace. You can manage roles and access for everyone who&apos;s already here.
-        </p>
-      </div>
+      {/* Email-delivery note: invites are link-only for now. */}
+      {canManage && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-border bg-surface-1 px-4 py-3">
+          <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">
+            Email delivery isn&apos;t set up yet, so invites are <span className="font-medium text-foreground">link-based</span>:
+            create one, copy its link, and send it to your teammate. Links expire in 7 days and are single-use.
+          </p>
+        </div>
+      )}
+
+      {/* Pending invitations */}
+      {canManage && pendingInvites.length > 0 && (
+        <PendingInvites invites={pendingInvites} pending={pending} run={run} />
+      )}
 
       {soloMember ? (
         <div className="rounded-xl border border-dashed border-border bg-card px-6 py-10 text-center">
@@ -148,8 +187,138 @@ export function TeamClient({
           }}
         />
       )}
+
+      {inviteOpen && <InviteModal toast={toast} onClose={() => setInviteOpen(false)} onDone={() => router.refresh()} />}
     </div>
   )
+}
+
+function PendingInvites({
+  invites, pending, run,
+}: {
+  invites: PendingInvite[]
+  pending: boolean
+  run: (p: Promise<{ ok: true } | { error: string }>, success: string) => void
+}) {
+  const toast = useToast()
+  const [busy, startBusy] = useTransition()
+
+  const copyLink = (id: string) => {
+    startBusy(async () => {
+      const res = await refreshInviteLink(id)
+      if ('error' in res) { toast.error(INVITE_ERRORS[res.error] ?? 'Could not generate a link.'); return }
+      const ok = await copy(inviteLink(res.token))
+      toast[ok ? 'success' : 'error'](ok ? 'Fresh invite link copied to clipboard' : 'Copy failed — try again')
+    })
+  }
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="border-b border-border px-4 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Pending invitations ({invites.length})
+      </div>
+      <ul className="divide-y divide-border">
+        {invites.map((inv) => (
+          <li key={inv.id} className="flex items-center gap-3 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm text-foreground">{inv.name || inv.email}</p>
+              <p className="truncate text-2xs text-muted-foreground">{inv.email} · <span className="capitalize">{inv.role}</span> · expires {fmtDate(inv.expiresAt)}</p>
+            </div>
+            <button
+              onClick={() => copyLink(inv.id)}
+              disabled={busy || pending}
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-2xs text-muted-foreground hover:bg-surface-1 hover:text-foreground disabled:opacity-50"
+            >
+              <Link2 className="h-3 w-3" /> Copy link
+            </button>
+            <button
+              onClick={() => run(revokeInvitation(inv.id), 'Invitation revoked')}
+              disabled={busy || pending}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-2xs text-red-300 hover:bg-surface-1 hover:text-red-200 disabled:opacity-50"
+            >
+              <X className="h-3 w-3" /> Revoke
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function InviteModal({
+  toast, onClose, onDone,
+}: {
+  toast: ReturnType<typeof useToast>
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [first, setFirst] = useState('')
+  const [last, setLast] = useState('')
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState<string>('member')
+  const [link, setLink] = useState<string | null>(null)
+  const [pending, startTransition] = useTransition()
+
+  const submit = () => {
+    startTransition(async () => {
+      const res = await inviteMember({ firstName: first, lastName: last, email, role })
+      if ('error' in res) { toast.error(INVITE_ERRORS[res.error] ?? 'Could not create the invite.'); return }
+      const l = inviteLink(res.token)
+      setLink(l)
+      await copy(l)
+      toast.success('Invite created — link copied to clipboard')
+      onDone()
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-foreground">Invite a teammate</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+        </div>
+
+        {link ? (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">Send this single-use link to your teammate. It expires in 7 days.</p>
+            <div className="flex items-center gap-2">
+              <code className="block flex-1 truncate rounded-md border border-border bg-surface-1 px-2 py-1.5 text-2xs text-foreground">{link}</code>
+              <button onClick={async () => { const ok = await copy(link); toast[ok ? 'success' : 'error'](ok ? 'Copied' : 'Copy failed') }} className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-2xs font-medium text-primary-foreground hover:bg-primary/90">
+                <Copy className="h-3 w-3" /> Copy
+              </button>
+            </div>
+            <button onClick={onClose} className="w-full rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-surface-1">Done</button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="First name"><input value={first} onChange={(e) => setFirst(e.target.value)} className={inviteInput} placeholder="Jane" /></Field>
+              <Field label="Last name"><input value={last} onChange={(e) => setLast(e.target.value)} className={inviteInput} placeholder="Smith" /></Field>
+            </div>
+            <Field label="Email"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inviteInput} placeholder="teammate@company.com" /></Field>
+            <Field label="Role">
+              <select value={role} onChange={(e) => setRole(e.target.value)} className={inviteInput}>
+                {INVITE_ROLES.map((r) => <option key={r} value={r} className="capitalize">{r}</option>)}
+              </select>
+            </Field>
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={onClose} className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-surface-1">Cancel</button>
+              <button onClick={submit} disabled={pending || !email.trim()} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+                {pending ? 'Creating…' : 'Create invite'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const inviteInput = 'w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary'
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div className="space-y-1.5"><label className="text-xs font-medium text-muted-foreground">{label}</label>{children}</div>
 }
 
 function RowActions({

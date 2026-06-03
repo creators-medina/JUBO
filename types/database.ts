@@ -99,6 +99,44 @@ export interface Database {
         };
         Update: { role?: OrgRole; status?: string; joined_at?: string | null };
       };
+      organization_invitations: {
+        Row: {
+          id: string;
+          organization_id: string;
+          email: string;
+          first_name: string | null;
+          last_name: string | null;
+          role: OrgRole;
+          token_hash: string;
+          invited_by: string | null;
+          status: string;
+          expires_at: string;
+          accepted_at: string | null;
+          accepted_user_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          email: string;
+          first_name?: string | null;
+          last_name?: string | null;
+          role?: OrgRole;
+          token_hash: string;
+          invited_by?: string | null;
+          status?: string;
+          expires_at: string;
+        };
+        Update: Partial<{
+          role: OrgRole;
+          status: string;
+          token_hash: string;
+          expires_at: string;
+          accepted_at: string | null;
+          accepted_user_id: string | null;
+        }>;
+      };
       boards: {
         Row: {
           id: string;
@@ -494,6 +532,14 @@ export interface Database {
       move_record: {
         Args: { p_record_id: string; p_to_group_id: string; p_user_id: string };
         Returns: void;
+      };
+      invitation_preview: {
+        Args: { p_token_hash: string };
+        Returns: Json;
+      };
+      accept_invitation: {
+        Args: { p_token_hash: string };
+        Returns: Json;
       };
     };
     Enums: {

@@ -1,4 +1,58 @@
 import { createClient } from '@/lib/supabase/server'
+import { hashToken } from './inviteToken'
+
+export type InvitationPreview = {
+  found: boolean
+  email?: string
+  role?: string
+  status?: string
+  expired?: boolean
+  organizationName?: string
+}
+
+/** Resolve an invite token to display details. Works for logged-out users (DEFINER RPC). */
+export async function getInvitationPreview(token: string): Promise<InvitationPreview> {
+  const supabase = await createClient()
+  const { data } = await supabase.rpc('invitation_preview', { p_token_hash: hashToken(token) })
+  const r = (data ?? { found: false }) as Record<string, unknown>
+  if (!r.found) return { found: false }
+  return {
+    found: true,
+    email: r.email as string,
+    role: r.role as string,
+    status: r.status as string,
+    expired: !!r.expired,
+    organizationName: r.organization_name as string,
+  }
+}
+
+export type PendingInvite = {
+  id: string
+  email: string
+  name: string
+  role: string
+  expiresAt: string
+  createdAt: string
+}
+
+/** Pending invitations for the Team page (RLS scopes to admins of the org). */
+export async function getPendingInvitations(orgId: string): Promise<PendingInvite[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('organization_invitations')
+    .select('id, email, first_name, last_name, role, expires_at, created_at')
+    .eq('organization_id', orgId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+  return ((data as any[]) ?? []).map((i) => ({
+    id: i.id,
+    email: i.email,
+    name: `${i.first_name ?? ''} ${i.last_name ?? ''}`.trim(),
+    role: i.role,
+    expiresAt: i.expires_at,
+    createdAt: i.created_at,
+  }))
+}
 
 export type OrganizationSettings = {
   id: string

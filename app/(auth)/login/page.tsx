@@ -26,9 +26,16 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push("/dashboard");
+      router.push(safeNext());
       router.refresh();
     }
+  };
+
+  // Honor a ?next= redirect (used by the invite flow). Only allow internal paths.
+  const safeNext = () => {
+    if (typeof window === "undefined") return "/dashboard";
+    const next = new URLSearchParams(window.location.search).get("next");
+    return next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard";
   };
 
   return (
