@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getTodayActions } from '../queries'
 import { todayISO } from '../calculations'
 import { getProductionGoals, getFunnelStages } from '@/features/goals/queries'
+import { resolveProducerUserId } from '@/features/auth/guards'
 import { calculateGoalPacing } from '@/features/goals/calculations/engine'
 
 export type SnapshotMetrics = {
@@ -120,7 +121,9 @@ export async function snapshotDailyProgress(input: {
   baseCalls[1].p_metadata = { completion_pct: completionPct }
 
   // ── Goal-pace snapshots (one per goal with a funnel + group mapping) ────
-  const goals = await getProductionGoals(organizationId)
+  // Phase 33B — snapshot the producer's own goals (legacy org-wide otherwise).
+  const producerId = await resolveProducerUserId(organizationId, userId, supabase)
+  const goals = await getProductionGoals(organizationId, producerId)
   const goalCalls: RpcArgs[] = []
   for (const goal of goals) {
     if (!goal.target_units || !goal.funnel_id) continue

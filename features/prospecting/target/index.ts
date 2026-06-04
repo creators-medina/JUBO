@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { createClient } from '@/lib/supabase/server'
+import { resolveProducerUserId } from '@/features/auth/guards'
 import { DEFAULT_DAILY_CALL_GOAL } from '../types'
 import type { SessionRow } from '../types'
 
@@ -66,7 +67,9 @@ export async function getDailyCallTarget(
   // 3. Goal engine: a production goal whose funnel has a calls/outreach stage
   //    with a cached daily target.
   try {
-    const fromGoal = await deriveCallTargetFromGoals(supabase, organizationId)
+    // Phase 33B — derive from the producer's own goal (legacy org-wide for support/unknown).
+    const producerId = await resolveProducerUserId(organizationId, userId, supabase)
+    const fromGoal = await deriveCallTargetFromGoals(supabase, organizationId, producerId)
     if (fromGoal) return { target: fromGoal, source: 'goal', label: SOURCE_LABEL.goal }
   } catch { /* not derivable — skip */ }
 
@@ -76,14 +79,15 @@ export async function getDailyCallTarget(
 
 type SB = Awaited<ReturnType<typeof createClient>>
 
-async function deriveCallTargetFromGoals(supabase: SB, organizationId: string): Promise<number | null> {
-  const { data: goals } = await supabase
+async function deriveCallTargetFromGoals(supabase: SB, organizationId: string, producerUserId?: string | null): Promise<number | null> {
+  let gq = supabase
     .from('production_goals')
     .select('id, funnel_id')
     .eq('organization_id', organizationId)
     .eq('is_archived', false)
     .not('funnel_id', 'is', null)
-    .limit(5)
+  if (producerUserId) gq = gq.eq('producer_user_id', producerUserId)
+  const { data: goals } = await gq.limit(5)
   if (!goals || goals.length === 0) return null
 
   for (const goal of goals as Array<{ id: string; funnel_id: string | null }>) {

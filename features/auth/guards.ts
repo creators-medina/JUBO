@@ -43,6 +43,28 @@ export function isOrgOwner(role: OrgRole | string | null | undefined): boolean {
 export type UserContext = { supabase: SupabaseClient; user: User }
 export type OrgContext = UserContext & { orgId: string; role: OrgRole }
 
+/**
+ * Resolve the producer who owns the business plan for this (org, user). Phase 33B:
+ *   • a 'producer' member  → themselves (they own their plan)
+ *   • a 'support' member / unknown / unclassified → null (legacy org-wide fallback)
+ * Pass an existing client to avoid a second connection; otherwise one is created.
+ */
+export async function resolveProducerUserId(
+  organizationId: string,
+  userId: string,
+  client?: SupabaseClient,
+): Promise<string | null> {
+  const supabase = client ?? await createClient()
+  const { data } = await supabase
+    .from('organization_members')
+    .select('member_type')
+    .eq('organization_id', organizationId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  const type = (data as { member_type?: string } | null)?.member_type
+  return type === 'producer' ? userId : null
+}
+
 /** Require an authenticated user. Throws if not signed in. */
 export async function requireUser(): Promise<UserContext> {
   const supabase = await createClient()

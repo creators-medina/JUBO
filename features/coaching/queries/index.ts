@@ -6,6 +6,7 @@
 
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import { resolveProducerUserId } from '@/features/auth/guards'
 import { isConnect } from '@/features/communications/outcomes'
 import { getProductionGoals, getFunnelStages } from '@/features/goals/queries'
 import { resolveBaselines } from '../calculations/baselines'
@@ -106,8 +107,10 @@ export const getCoachingSnapshot = cache(async (organizationId: string, userId: 
   const todayStart = startOfTodayISO()
   const weekStart = startOfWeekISO()
 
-  // Income goal + period from the first active production goal.
-  const goals = await getProductionGoals(organizationId)
+  // Income goal + period from the producer's first active goal. Producers see
+  // their own plan; support/unknown fall back to legacy org-wide (producerId null).
+  const producerId = await resolveProducerUserId(organizationId, userId, supabase)
+  const goals = await getProductionGoals(organizationId, producerId)
   const goal = goals[0] ?? null
   const incomeGoal = inferIncomeGoal(goal, baselines)
   const plan: ReverseEngineeredPlan | null = incomeGoal ? reverseEngineerPlan(incomeGoal, baselines) : null

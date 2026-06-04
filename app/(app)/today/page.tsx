@@ -10,6 +10,7 @@ import { getStreakData } from '@/features/daily-actions/progress/streaks'
 import { getAttentionViewsWithCounts } from '@/features/daily-actions/attention/queries'
 import { runWorkflowScans } from '@/features/workflows/triggers/scan'
 import { getProductionGoals, getFunnelStages, getConversionAssumptions, getGoalTargets } from '@/features/goals/queries'
+import { resolveProducerUserId } from '@/features/auth/guards'
 import {
   calculateGoalPacing, calculateRequiredStageTargets,
 } from '@/features/goals/calculations/engine'
@@ -78,10 +79,14 @@ export default async function TodayPage() {
     await snapshotDailyProgress({ organizationId: orgId, userId: user.id })
   } catch { /* silent */ }
 
+  // Phase 33B — producers see their own plan; support/unknown fall back to
+  // legacy org-wide goals (producerId null).
+  const producerId = await resolveProducerUserId(orgId, user.id, supabase)
+
   // Fetch in parallel: actions, goals, stale records, attention views
   const [actions, goals, staleRecords, attentionViews] = await Promise.all([
     getTodayActions(user.id, today),
-    getProductionGoals(orgId),
+    getProductionGoals(orgId, producerId),
     getStaleRecords(orgId, 14, 6),
     getAttentionViewsWithCounts(orgId),
   ])

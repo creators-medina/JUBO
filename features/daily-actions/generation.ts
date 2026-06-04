@@ -18,6 +18,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { calculateGoalPacing, daysBetween, daysElapsed } from '@/features/goals/calculations/engine'
 import { getProductionGoals, getFunnelStages } from '@/features/goals/queries'
+import { resolveProducerUserId } from '@/features/auth/guards'
 import { todayISO } from './calculations'
 
 type GenerateInput = {
@@ -71,7 +72,9 @@ export async function generateDailyActionsForUser({
   }
 
   // ── 2. Behind-pace production goals → review action ─────────────────────
-  const goals = await getProductionGoals(organizationId)
+  // Phase 33B — only the producer's own goals (legacy org-wide for support/unknown).
+  const producerId = await resolveProducerUserId(organizationId, userId, supabase)
+  const goals = await getProductionGoals(organizationId, producerId)
   for (const goal of goals) {
     if (!goal.funnel_id) continue
 

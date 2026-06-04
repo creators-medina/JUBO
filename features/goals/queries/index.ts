@@ -59,14 +59,23 @@ export async function getConversionAssumptions(organizationId: string, funnelId?
   return (data ?? []) as ConversionAssumptionRow[]
 }
 
-export async function getProductionGoals(organizationId: string): Promise<ProductionGoalRow[]> {
+/**
+ * Active production goals for an org. Phase 33B: when `producerUserId` is
+ * provided, returns only that producer's goals (their business plan); when
+ * omitted/null, returns all org goals (legacy org-wide behavior — unchanged).
+ */
+export async function getProductionGoals(
+  organizationId: string,
+  producerUserId?: string | null,
+): Promise<ProductionGoalRow[]> {
   const supabase = await createClient()
-  const { data } = await supabase
+  let q = supabase
     .from('production_goals')
     .select('*')
     .eq('organization_id', organizationId)
     .eq('is_archived', false)
-    .order('end_date', { ascending: false })
+  if (producerUserId) q = q.eq('producer_user_id', producerUserId)
+  const { data } = await q.order('end_date', { ascending: false })
   return (data ?? []) as ProductionGoalRow[]
 }
 

@@ -51,6 +51,7 @@ export type ProductionGoalRow = {
   target_revenue: number | null
   is_archived: boolean
   created_by: string | null
+  producer_user_id: string | null
   created_at: string
   updated_at: string
 }
