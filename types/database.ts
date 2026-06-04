@@ -84,6 +84,7 @@ export interface Database {
           user_id: string;
           role: OrgRole;
           status: string;
+          member_type: string;
           invited_by: string | null;
           joined_at: string | null;
           created_at: string;
@@ -94,10 +95,27 @@ export interface Database {
           user_id: string;
           role?: OrgRole;
           status?: string;
+          member_type?: string;
           invited_by?: string | null;
           joined_at?: string | null;
         };
-        Update: { role?: OrgRole; status?: string; joined_at?: string | null };
+        Update: { role?: OrgRole; status?: string; member_type?: string; joined_at?: string | null };
+      };
+      producer_support_links: {
+        Row: {
+          id: string;
+          organization_id: string;
+          producer_user_id: string;
+          support_user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          producer_user_id: string;
+          support_user_id: string;
+        };
+        Update: Partial<{ producer_user_id: string; support_user_id: string }>;
       };
       organization_invitations: {
         Row: {

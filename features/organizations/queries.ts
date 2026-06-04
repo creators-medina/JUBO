@@ -83,8 +83,29 @@ export type TeamMember = {
   email: string
   role: string
   status: string
+  memberType: string
   joinedAt: string | null
   isSelf: boolean
+}
+
+export type SupportLink = {
+  id: string
+  producerUserId: string
+  supportUserId: string
+}
+
+/** Support→producer links for the org (RLS scopes to org members). */
+export async function getSupportLinks(orgId: string): Promise<SupportLink[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('producer_support_links')
+    .select('id, producer_user_id, support_user_id')
+    .eq('organization_id', orgId)
+  return ((data as any[]) ?? []).map((l) => ({
+    id: l.id,
+    producerUserId: l.producer_user_id,
+    supportUserId: l.support_user_id,
+  }))
 }
 
 /**
@@ -96,7 +117,7 @@ export async function getTeamMembers(orgId: string, currentUserId: string): Prom
   const supabase = await createClient()
   const { data } = await supabase
     .from('organization_members')
-    .select('id, user_id, role, status, joined_at, created_at, profiles(first_name, last_name, email)')
+    .select('id, user_id, role, status, member_type, joined_at, created_at, profiles(first_name, last_name, email)')
     .eq('organization_id', orgId)
     .order('created_at', { ascending: true })
 
@@ -110,6 +131,7 @@ export async function getTeamMembers(orgId: string, currentUserId: string): Prom
       email: p?.email ?? '—',
       role: m.role,
       status: m.status ?? 'active',
+      memberType: m.member_type ?? 'producer',
       joinedAt: m.joined_at ?? m.created_at ?? null,
       isSelf: m.user_id === currentUserId,
     }

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getTeamMembers, getPendingInvitations } from '@/features/organizations/queries'
+import { getTeamMembers, getPendingInvitations, getSupportLinks } from '@/features/organizations/queries'
 import { isOrgAdmin } from '@/features/auth/guards'
 import { TeamClient } from '@/features/organizations/TeamClient'
 
@@ -22,9 +22,10 @@ export default async function TeamSettingsPage() {
 
   const m = membership as { organization_id: string; role: string }
   const canManage = isOrgAdmin(m.role)
-  const [members, pendingInvites] = await Promise.all([
+  const [members, pendingInvites, supportLinks] = await Promise.all([
     getTeamMembers(m.organization_id, user.id),
     canManage ? getPendingInvitations(m.organization_id) : Promise.resolve([]),
+    getSupportLinks(m.organization_id),
   ])
 
   // All members can view the roster; only owner/admin see + use the actions.
@@ -32,6 +33,7 @@ export default async function TeamSettingsPage() {
     <TeamClient
       members={members}
       pendingInvites={pendingInvites}
+      supportLinks={supportLinks}
       canManage={canManage}
       currentRole={m.role}
       currentUserId={user.id}

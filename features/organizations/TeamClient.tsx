@@ -2,14 +2,14 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Users, MoreHorizontal, Shield, UserMinus, Ban, CircleCheck, Info, UserPlus, Copy, X, Link2 } from 'lucide-react'
+import { Users, MoreHorizontal, Shield, UserMinus, Ban, CircleCheck, Info, UserPlus, Copy, X, Link2, Briefcase, LifeBuoy, Network } from 'lucide-react'
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
   DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/features/feedback/ToastProvider'
-import type { TeamMember, PendingInvite } from './queries'
-import { changeMemberRole, setMemberStatus, removeMember } from './team'
+import type { TeamMember, PendingInvite, SupportLink } from './queries'
+import { changeMemberRole, setMemberStatus, removeMember, setMemberType, assignSupportToProducer, unassignSupport } from './team'
 import { inviteMember, revokeInvitation, refreshInviteLink } from './invites'
 
 const INVITE_ROLES = ['member', 'manager', 'admin'] as const
@@ -49,17 +49,25 @@ const ERRORS: Record<string, string> = {
   transfer_not_available: 'Transferring ownership isn’t available yet — it arrives in a later phase.',
   invalid_role: 'That role isn’t valid.',
   invalid_status: 'That status isn’t valid.',
+  invalid_member_type: 'That member type isn’t valid.',
+  same_user: 'A person can’t support themselves.',
+  not_in_org: 'That person isn’t in this workspace.',
+  not_a_support_user: 'Only support users can be assigned to a producer.',
+  not_a_producer: 'You can only assign support to a producer.',
+  already_linked: 'That support user already supports this producer.',
 }
 
 export function TeamClient({
   members,
   pendingInvites = [],
+  supportLinks = [],
   canManage,
   currentRole,
   currentUserId,
 }: {
   members: TeamMember[]
   pendingInvites?: PendingInvite[]
+  supportLinks?: SupportLink[]
   canManage: boolean
   currentRole: string
   currentUserId: string
@@ -69,6 +77,13 @@ export function TeamClient({
   const [pending, startTransition] = useTransition()
   const [confirmRemove, setConfirmRemove] = useState<TeamMember | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [manageLinksFor, setManageLinksFor] = useState<TeamMember | null>(null)
+
+  // Names by user id (for rendering "Supports: …"); producers for the link picker.
+  const nameByUser = new Map(members.map((m) => [m.userId, m.name]))
+  const producers = members.filter((m) => m.memberType === 'producer')
+  const producersForUser = (supportUserId: string) =>
+    supportLinks.filter((l) => l.supportUserId === supportUserId)
 
   const run = (p: Promise<{ ok: true } | { error: string }>, success: string) => {
     startTransition(async () => {
@@ -139,6 +154,7 @@ export function TeamClient({
                 <th className="px-4 py-2.5 font-medium">Name</th>
                 <th className="px-4 py-2.5 font-medium">Email</th>
                 <th className="px-4 py-2.5 font-medium">Role</th>
+                <th className="px-4 py-2.5 font-medium">Member type</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
                 <th className="px-4 py-2.5 font-medium">Joined</th>
                 {canManage && <th className="px-4 py-2.5" />}
@@ -153,6 +169,16 @@ export function TeamClient({
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{m.email}</td>
                   <td className="px-4 py-3"><RoleBadge role={m.role} /></td>
+                  <td className="px-4 py-3">
+                    <MemberTypeBadge type={m.memberType} />
+                    {m.memberType === 'support' && (
+                      <p className="mt-1 text-2xs text-muted-foreground">
+                        {producersForUser(m.userId).length === 0
+                          ? <span className="text-amber-300/80">No producers yet</span>
+                          : <>Supports: {producersForUser(m.userId).map((l) => nameByUser.get(l.producerUserId) ?? '—').join(', ')}</>}
+                      </p>
+                    )}
+                  </td>
                   <td className="px-4 py-3"><StatusBadge status={m.status} /></td>
                   <td className="px-4 py-3 text-muted-foreground">{fmtDate(m.joinedAt)}</td>
                   {canManage && (
@@ -164,6 +190,8 @@ export function TeamClient({
                         pending={pending}
                         onChangeRole={(role) => run(changeMemberRole(m.membershipId, role), `${m.name} is now ${role}`)}
                         onSetStatus={(status) => run(setMemberStatus(m.membershipId, status), status === 'disabled' ? `${m.name} disabled` : `${m.name} re-enabled`)}
+                        onSetMemberType={(t) => run(setMemberType(m.membershipId, t), `${m.name} is now a ${t}`)}
+                        onManageLinks={() => setManageLinksFor(m)}
                         onRemove={() => setConfirmRemove(m)}
                       />
                     </td>
@@ -189,6 +217,17 @@ export function TeamClient({
       )}
 
       {inviteOpen && <InviteModal toast={toast} onClose={() => setInviteOpen(false)} onDone={() => router.refresh()} />}
+
+      {manageLinksFor && (
+        <SupportLinksModal
+          support={manageLinksFor}
+          producers={producers}
+          links={producersForUser(manageLinksFor.userId)}
+          toast={toast}
+          onClose={() => setManageLinksFor(null)}
+          onChanged={() => router.refresh()}
+        />
+      )}
     </div>
   )
 }
@@ -322,7 +361,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function RowActions({
-  member, currentRole, currentUserId, pending, onChangeRole, onSetStatus, onRemove,
+  member, currentRole, currentUserId, pending, onChangeRole, onSetStatus, onSetMemberType, onManageLinks, onRemove,
 }: {
   member: TeamMember
   currentRole: string
@@ -330,6 +369,8 @@ function RowActions({
   pending: boolean
   onChangeRole: (role: string) => void
   onSetStatus: (status: 'active' | 'disabled') => void
+  onSetMemberType: (type: 'producer' | 'support') => void
+  onManageLinks: () => void
   onRemove: () => void
 }) {
   const isSelf = member.userId === currentUserId
@@ -349,7 +390,7 @@ function RowActions({
       >
         <MoreHorizontal className="h-4 w-4" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
+      <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="text-2xs uppercase tracking-wider text-muted-foreground">
           <span className="inline-flex items-center gap-1.5"><Shield className="h-3 w-3" /> Change role</span>
         </DropdownMenuLabel>
@@ -363,6 +404,23 @@ function RowActions({
             {r}{member.role === r && <span className="ml-auto text-2xs text-muted-foreground">current</span>}
           </DropdownMenuItem>
         ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel className="text-2xs uppercase tracking-wider text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5"><Network className="h-3 w-3" /> Member type</span>
+        </DropdownMenuLabel>
+        <DropdownMenuItem disabled={member.memberType === 'producer'} onSelect={() => onSetMemberType('producer')} className="cursor-pointer text-xs">
+          <Briefcase className="mr-2 h-3.5 w-3.5" /> Producer
+          {member.memberType === 'producer' && <span className="ml-auto text-2xs text-muted-foreground">current</span>}
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled={member.memberType === 'support'} onSelect={() => onSetMemberType('support')} className="cursor-pointer text-xs">
+          <LifeBuoy className="mr-2 h-3.5 w-3.5" /> Support
+          {member.memberType === 'support' && <span className="ml-auto text-2xs text-muted-foreground">current</span>}
+        </DropdownMenuItem>
+        {member.memberType === 'support' && (
+          <DropdownMenuItem onSelect={() => onManageLinks()} className="cursor-pointer text-xs">
+            <Network className="mr-2 h-3.5 w-3.5" /> Manage producers…
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         {member.status === 'active' ? (
           <DropdownMenuItem disabled={!canDisable} onSelect={() => onSetStatus('disabled')} className="cursor-pointer text-xs">
@@ -406,6 +464,81 @@ function RoleBadge({ role }: { role: string }) {
     : role === 'admin' ? 'bg-blue-500/15 text-blue-300'
     : 'bg-surface-2 text-muted-foreground'
   return <span className={`inline-flex rounded-full px-2 py-0.5 text-2xs font-medium capitalize ${tone}`}>{role}</span>
+}
+
+function MemberTypeBadge({ type }: { type: string }) {
+  return type === 'support'
+    ? <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2 py-0.5 text-2xs font-medium text-cyan-300"><LifeBuoy className="h-2.5 w-2.5" /> Support</span>
+    : <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/15 px-2 py-0.5 text-2xs font-medium text-indigo-300"><Briefcase className="h-2.5 w-2.5" /> Producer</span>
+}
+
+function SupportLinksModal({
+  support, producers, links, toast, onClose, onChanged,
+}: {
+  support: TeamMember
+  producers: TeamMember[]
+  links: SupportLink[]
+  toast: ReturnType<typeof useToast>
+  onClose: () => void
+  onChanged: () => void
+}) {
+  const [pending, startTransition] = useTransition()
+  const linkByProducer = new Map(links.map((l) => [l.producerUserId, l]))
+
+  const toggle = (producer: TeamMember, existing: SupportLink | undefined) => {
+    startTransition(async () => {
+      const res = existing
+        ? await unassignSupport(existing.id)
+        : await assignSupportToProducer(support.userId, producer.userId)
+      if ('error' in res) { toast.error(ERRORS[res.error] ?? 'Could not update the assignment.'); return }
+      toast.success(existing ? `${support.name} no longer supports ${producer.name}` : `${support.name} now supports ${producer.name}`)
+      onChanged()
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-foreground">Producers {support.name} supports</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+        </div>
+        <p className="mb-4 text-xs text-muted-foreground">Toggle the producers this support user helps. They can support as many as you like.</p>
+
+        {producers.length === 0 ? (
+          <p className="rounded-lg border border-border bg-surface-1 px-3 py-3 text-xs text-muted-foreground">
+            No producers in this workspace yet. Mark someone as a producer first.
+          </p>
+        ) : (
+          <ul className="max-h-72 space-y-1 overflow-y-auto">
+            {producers.map((p) => {
+              const existing = linkByProducer.get(p.userId)
+              const on = !!existing
+              return (
+                <li key={p.userId}>
+                  <button
+                    onClick={() => toggle(p, existing)}
+                    disabled={pending}
+                    className="flex w-full items-center gap-3 rounded-lg border border-border px-3 py-2 text-left text-xs hover:bg-surface-1 disabled:opacity-50"
+                  >
+                    <span className={`flex h-4 w-4 items-center justify-center rounded border ${on ? 'border-primary bg-primary text-primary-foreground' : 'border-border'}`}>
+                      {on && <CircleCheck className="h-3 w-3" />}
+                    </span>
+                    <span className="flex-1 text-foreground">{p.name}</span>
+                    <span className="text-2xs text-muted-foreground">{on ? 'Supporting' : 'Assign'}</span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        <div className="mt-4 flex justify-end">
+          <button onClick={onClose} className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-surface-1">Done</button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function StatusBadge({ status }: { status: string }) {

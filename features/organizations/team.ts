@@ -133,3 +133,89 @@ export async function removeMember(membershipId: string): Promise<ActionResult> 
     return done()
   })
 }
+
+// ── Phase 33A — Producer / Support classification ─────────────────────────────
+
+/**
+ * Set a member's type (producer | support). Owner/Admin only. When the type
+ * flips, any now-contradictory support links are cleaned up:
+ *   • becoming 'producer' → drop links where they were the support side
+ *   • becoming 'support'  → drop links where they were the producer side
+ */
+export async function setMemberType(membershipId: string, memberType: 'producer' | 'support'): Promise<ActionResult> {
+  return wrap(async () => {
+    if (memberType !== 'producer' && memberType !== 'support') return { error: 'invalid_member_type' }
+    const { ctx, target } = await loadTarget(membershipId)
+
+    const { error } = await ctx.supabase
+      .from('organization_members')
+      .update({ member_type: memberType })
+      .eq('id', membershipId)
+      .eq('organization_id', ctx.orgId)
+    if (error) return { error: error.message }
+
+    // Clean up links that no longer make sense for the new type.
+    if (memberType === 'producer') {
+      await ctx.supabase.from('producer_support_links')
+        .delete().eq('organization_id', ctx.orgId).eq('support_user_id', target.user_id)
+    } else {
+      await ctx.supabase.from('producer_support_links')
+        .delete().eq('organization_id', ctx.orgId).eq('producer_user_id', target.user_id)
+    }
+    return done()
+  })
+}
+
+/** Verify a user is an active member of the caller's org with the expected type. */
+async function memberTypeOf(
+  ctx: Awaited<ReturnType<typeof requireOrgRole>>,
+  userId: string,
+): Promise<string | null> {
+  const { data } = await ctx.supabase
+    .from('organization_members')
+    .select('member_type')
+    .eq('organization_id', ctx.orgId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  return (data as { member_type: string } | null)?.member_type ?? null
+}
+
+/** Link a support user to a producer. Owner/Admin only. Both must be in the org with the right types. */
+export async function assignSupportToProducer(supportUserId: string, producerUserId: string): Promise<ActionResult> {
+  return wrap(async () => {
+    const ctx = await requireOrgRole('admin')
+    if (supportUserId === producerUserId) return { error: 'same_user' }
+
+    const [supportType, producerType] = await Promise.all([
+      memberTypeOf(ctx, supportUserId),
+      memberTypeOf(ctx, producerUserId),
+    ])
+    if (supportType === null || producerType === null) return { error: 'not_in_org' }
+    if (supportType !== 'support') return { error: 'not_a_support_user' }
+    if (producerType !== 'producer') return { error: 'not_a_producer' }
+
+    const { error } = await ctx.supabase.from('producer_support_links').insert({
+      organization_id: ctx.orgId,
+      producer_user_id: producerUserId,
+      support_user_id: supportUserId,
+    })
+    if (error) return { error: error.code === '23505' ? 'already_linked' : error.message }
+    revalidatePath('/settings/team')
+    return { ok: true }
+  })
+}
+
+/** Remove a support→producer link by id. Owner/Admin only. */
+export async function unassignSupport(linkId: string): Promise<ActionResult> {
+  return wrap(async () => {
+    const ctx = await requireOrgRole('admin')
+    const { error } = await ctx.supabase
+      .from('producer_support_links')
+      .delete()
+      .eq('id', linkId)
+      .eq('organization_id', ctx.orgId)
+    if (error) return { error: error.message }
+    revalidatePath('/settings/team')
+    return { ok: true }
+  })
+}
