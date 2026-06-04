@@ -533,6 +533,10 @@ export interface Database {
         Args: { p_record_id: string; p_to_group_id: string; p_user_id: string };
         Returns: void;
       };
+      move_record_to_board: {
+        Args: { p_record_id: string; p_to_board_id: string; p_to_group_id: string; p_moved_by: string };
+        Returns: Json;
+      };
       invitation_preview: {
         Args: { p_token_hash: string };
         Returns: Json;

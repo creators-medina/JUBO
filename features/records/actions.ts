@@ -162,6 +162,110 @@ export async function moveRecord(recordId: string, toGroupId: string, boardId: s
   }
 }
 
+// ── Phase 32A — Cross-board movement ──────────────────────────────────────────
+
+export type MoveTargetBoard = {
+  id: string
+  name: string
+  groups: { id: string; name: string }[]
+}
+
+/** Live destination boards + groups for the move picker (org resolved server-side). */
+export async function getMoveTargets(): Promise<MoveTargetBoard[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data: m } = await supabase
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (!m) return []
+  const orgId = (m as { organization_id: string }).organization_id
+
+  const [{ data: boards }, { data: groups }] = await Promise.all([
+    supabase.from('boards').select('id, name').eq('organization_id', orgId).eq('is_archived', false).order('created_at', { ascending: true }),
+    supabase.from('board_groups').select('id, name, board_id, position').eq('is_archived', false).order('position', { ascending: true }),
+  ])
+
+  const groupsByBoard = new Map<string, { id: string; name: string }[]>()
+  for (const g of (groups as any[] ?? [])) {
+    const arr = groupsByBoard.get(g.board_id) ?? []
+    arr.push({ id: g.id, name: g.name })
+    groupsByBoard.set(g.board_id, arr)
+  }
+  return (boards as any[] ?? []).map((b) => ({ id: b.id, name: b.name, groups: groupsByBoard.get(b.id) ?? [] }))
+}
+
+const MOVE_RPC_ERRORS = new Set([
+  'record_not_found', 'forbidden', 'board_not_found', 'cross_org', 'group_not_found', 'group_board_mismatch',
+])
+
+/**
+ * Move a record (and its subitems) to another board + group. Same record, all
+ * history preserved. Validation + the board/group invariant are enforced in the
+ * SECURITY DEFINER RPC; field_values are left untouched.
+ */
+export async function moveRecordToBoard(
+  recordId: string,
+  toBoardId: string,
+  toGroupId: string,
+): Promise<{ ok: true } | { error: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'unauthorized' }
+
+  const { data: before } = await supabase
+    .from('records').select('board_id, group_id, organization_id').eq('id', recordId).single()
+
+  const { data, error } = await supabase.rpc('move_record_to_board', {
+    p_record_id: recordId,
+    p_to_board_id: toBoardId,
+    p_to_group_id: toGroupId,
+    p_moved_by: user.id,
+  })
+  if (error) return { error: error.message }
+  const res = (data ?? {}) as Record<string, unknown>
+  if (res.error) return { error: MOVE_RPC_ERRORS.has(String(res.error)) ? String(res.error) : 'move_failed' }
+
+  if (before?.board_id) revalidatePath(`/boards/${before.board_id}`)
+  revalidatePath(`/boards/${toBoardId}`)
+  revalidatePath('/dashboard')
+
+  // Fire the workflow engine exactly like a same-board move (destination group).
+  if (before?.organization_id) {
+    const { data: grp } = await supabase.from('board_groups').select('name').eq('id', toGroupId).single()
+    await dispatchWorkflowEvent({
+      type: 'record.group_changed',
+      organizationId: before.organization_id,
+      recordId,
+      fromGroupId: before.group_id ?? null,
+      toGroupId,
+      toGroupName: grp?.name ?? null,
+    })
+  }
+  return { ok: true }
+}
+
+/** Move several records to one destination board + group (loops per record). */
+export async function bulkMoveRecordsToBoard(
+  recordIds: string[],
+  toBoardId: string,
+  toGroupId: string,
+): Promise<{ moved: number; failed: number }> {
+  if (recordIds.length === 0) return { moved: 0, failed: 0 }
+  let moved = 0, failed = 0
+  for (const id of recordIds) {
+    const res = await moveRecordToBoard(id, toBoardId, toGroupId)
+    if ('ok' in res) moved++; else failed++
+  }
+  revalidatePath(`/boards/${toBoardId}`)
+  return { moved, failed }
+}
+
 // ── Phase 29 — Subitems + bulk actions ────────────────────────────────────────
 
 /** Create a subitem (child record) under a parent. Inherits board + group. */

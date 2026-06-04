@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   X, Maximize2, FileText, Activity, ListChecks, StickyNote, Database, Columns3,
-  ExternalLink, MoreHorizontal,
+  ExternalLink, MoreHorizontal, ArrowRightLeft,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { MoveToBoardDialog } from '@/features/boards/components/MoveToBoardDialog'
 import { createClient } from '@/lib/supabase/client'
 import { useWorkspaceTabs } from '../providers/WorkspaceTabsProvider'
 import { ActivityTimeline } from '../timeline/ActivityTimeline'
@@ -84,6 +85,7 @@ function WorkspaceContent({
   const { openWorkspace } = useWorkspaceTabs()
   const [data, setData] = useState<Loaded | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showMove, setShowMove] = useState(false)
 
   const load = useCallback(async () => {
     const supabase = createClient()
@@ -240,6 +242,15 @@ function WorkspaceContent({
               <span className="text-2xs text-muted-foreground mr-2">⌘⇧] next · ⌘⇧[ prev</span>
             )}
             {data?.record?.board_id && (
+              <button
+                onClick={() => setShowMove(true)}
+                className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
+                title="Move to another board"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {data?.record?.board_id && (
               <Link
                 href={`/boards/${data.record.board_id}`}
                 className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
@@ -257,6 +268,15 @@ function WorkspaceContent({
             </button>
           </div>
         </div>
+
+        {showMove && data?.record?.board_id && (
+          <MoveToBoardDialog
+            recordIds={[recordId]}
+            currentBoardId={data.record.board_id}
+            onClose={() => setShowMove(false)}
+            onMoved={() => { setShowMove(false); load(); router.refresh() }}
+          />
+        )}
 
         {/* Tabs nav */}
         <div className="flex items-center gap-0.5 px-3 border-b border-border flex-shrink-0">
