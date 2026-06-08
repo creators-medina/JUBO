@@ -64,6 +64,10 @@ export function PlanExplanationCard({ plan }: { plan: PlanSummary | null }) {
           ))}
         </div>
       )}
+
+      <Link href="/business-plan" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+        View business plan <ArrowRight className="h-3 w-3" />
+      </Link>
     </section>
   )
 }

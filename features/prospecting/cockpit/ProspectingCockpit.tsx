@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import * as Icons from 'lucide-react'
 import {
   PhoneCall, PhoneOff, Voicemail, CalendarClock, CalendarCheck, ThumbsUp,
@@ -394,6 +395,9 @@ function PaceCard({ targets }: { targets: PeriodCallTargets }) {
             <span className="font-semibold tabular-nums">{targets.monthly.toLocaleString()}</span> this month, and{' '}
             <span className="font-semibold tabular-nums">{targets.yearly.toLocaleString()}</span> this year{plan}
           </p>
+          <Link href="/business-plan" className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+            View business plan <ArrowUpRight className="h-3 w-3" />
+          </Link>
         </div>
       </div>
     </section>

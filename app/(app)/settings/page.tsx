@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ContentContainer } from '@/components/primitives/ContentContainer'
 import { PageHeader } from '@/components/primitives/PageHeader'
-import { UserCircle, Building2, Users, Target, Plug, ChevronRight } from 'lucide-react'
+import { UserCircle, Building2, Users, Target, Gauge, Plug, ChevronRight } from 'lucide-react'
 
 type SectionCard = {
   title: string
@@ -31,6 +31,13 @@ const SECTIONS: SectionCard[] = [
     description: 'Manage members, roles, and access. (Invites in 31C.)',
     href: '/settings/team',
     icon: Users,
+    status: 'live',
+  },
+  {
+    title: 'Business Plan',
+    description: 'Your income goal reverse-engineered into a daily plan.',
+    href: '/business-plan',
+    icon: Gauge,
     status: 'live',
   },
   {

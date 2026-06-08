@@ -9,6 +9,7 @@ import type { CommandItem } from '../types'
 
 export type QuickActionId =
   | 'open-today'
+  | 'open-business-plan'
   | 'open-goals'
   | 'open-boards'
   | 'open-dashboard-hub'
@@ -64,7 +65,8 @@ export type QuickActionDef = {
 export const QUICK_ACTIONS: QuickActionDef[] = [
   // Navigation
   { id: 'open-today',          title: 'Go to Today',         iconName: 'Sunrise',         group: 'Navigate',    keywords: ['today', 'cockpit', 'win the day'] },
-  { id: 'open-goals',          title: 'Go to Goals',         iconName: 'Target',          group: 'Navigate',    keywords: ['goals', 'funnel', 'pacing'] },
+  { id: 'open-business-plan',  title: 'Go to Business Plan', iconName: 'Gauge',           group: 'Navigate',    keywords: ['business plan', 'plan', 'income', 'operating system', 'reverse engineer', 'daily number'] },
+  { id: 'open-goals',          title: 'Go to Goals',         iconName: 'Target',          group: 'Navigate',    keywords: ['goals', 'funnel', 'pacing', 'assumptions', 'conversion'] },
   { id: 'open-boards',         title: 'Go to Boards',        iconName: 'Columns3',        group: 'Navigate',    keywords: ['boards', 'records'] },
   { id: 'open-dashboard-hub',  title: 'Go to Dashboards',    iconName: 'LayoutDashboard', group: 'Navigate',    keywords: ['dashboard', 'widgets'] },
   { id: 'open-forecasts',      title: 'Go to Forecasts',     iconName: 'TrendingUp',      group: 'Navigate',    keywords: ['forecasts', 'projection'] },
@@ -85,7 +87,7 @@ export const QUICK_ACTIONS: QuickActionDef[] = [
   // Setup / onboarding
   { id: 'resume-setup',         title: 'Resume Setup',          iconName: 'Sparkles',        group: 'Setup',       keywords: ['setup', 'onboarding', 'resume', 'wizard'] },
   { id: 'open-setup-checklist', title: 'Open Setup Checklist',  iconName: 'ListChecks',      group: 'Setup',       keywords: ['checklist', 'activation', 'setup', 'progress'] },
-  { id: 'open-plan-reveal',     title: 'View Business Plan',    iconName: 'Trophy',          group: 'Setup',       keywords: ['plan', 'reveal', 'business plan', 'recap', 'onboarding', 'goal', 'welcome'] },
+  { id: 'open-plan-reveal',     title: 'Replay Plan Reveal',    iconName: 'Trophy',          group: 'Setup',       keywords: ['plan', 'reveal', 'replay', 'recap', 'onboarding', 'welcome'] },
   { id: 'new-import',           title: 'New Import',            iconName: 'Upload',          group: 'Import',      keywords: ['import', 'csv', 'xlsx', 'upload', 'data'] },
   { id: 'import-clients',       title: 'Import Clients',        iconName: 'Upload',          group: 'Import',      keywords: ['import', 'clients', 'csv', 'past clients'] },
   { id: 'import-leads',         title: 'Import Leads',          iconName: 'Upload',          group: 'Import',      keywords: ['import', 'leads', 'csv'] },

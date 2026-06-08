@@ -147,6 +147,7 @@ export function CommandPalette() {
   const quickActionItems: CommandItem[] = useMemo(() => getQuickActionItems((id) => {
     switch (id) {
       case 'open-today':         return () => { router.push('/today');     close() }
+      case 'open-business-plan': return () => { router.push('/business-plan'); close() }
       case 'open-goals':         return () => { router.push('/goals');     close() }
       case 'open-boards':        return () => { router.push('/boards');    close() }
       case 'open-dashboard-hub': return () => { router.push('/dashboard'); close() }

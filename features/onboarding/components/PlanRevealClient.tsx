@@ -3,12 +3,13 @@
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Sparkles, ArrowRight, ArrowDown, Target, Users, Phone, TrendingUp,
+  Sparkles, ArrowRight, Target,
   Columns3, LayoutDashboard, Workflow as WorkflowIcon, Filter,
   CheckCircle2, Upload, Loader2, Trophy, AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { markPlanRevealed } from '../actions'
+import { BusinessPlanOverview } from '@/features/coaching/components/BusinessPlanOverview'
 import type { PlanSummary } from '@/features/coaching/components/PlanExplanationCard'
 
 interface RevealData {
@@ -31,11 +32,6 @@ interface Props {
   yearlyConversations: number
   baselineAvgCommission: number
   data: RevealData
-}
-
-function fmtCurrency(n: number): string {
-  if (!Number.isFinite(n) || n <= 0) return '$0'
-  return `$${Math.round(n).toLocaleString('en-US')}`
 }
 
 export function PlanRevealClient({
@@ -68,104 +64,25 @@ export function PlanRevealClient({
         </p>
       </section>
 
-      {/* ── Section 1 — Goal ─────────────────────────────────────────────── */}
-      {plan && (
-        <section className="mt-10 text-center">
-          <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Your goal</p>
-          <p className="mt-2 text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
-            {fmtCurrency(plan.incomeGoal)}
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            in income — that&apos;s <span className="text-foreground font-medium">{Math.ceil(plan.closingTarget)}</span> funded loans.
-          </p>
-        </section>
-      )}
-
-      {!plan && (
-        <section className="mt-10 rounded-2xl border border-dashed border-border bg-surface-1 p-8 text-center">
-          <Target className="mx-auto h-6 w-6 text-muted-foreground" />
-          <p className="mt-2 text-sm font-medium text-foreground">Set your income goal to see your plan</p>
-          <p className="mt-1 text-xs text-muted-foreground">Jubo will reverse-engineer it into a daily number to hit.</p>
-          <Button className="mt-4 gap-1.5" size="sm" onClick={() => router.push('/goals')}>
-            Open Goals <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        </section>
-      )}
-
-      {/* ── Section 2 — Reverse-engineered plan ──────────────────────────── */}
-      {plan && (
-        <section className="mt-10">
-          <p className="mb-4 text-center text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
-            To hit it, here&apos;s the plan
-          </p>
-          <div className="space-y-2.5">
-            <PlanRow
-              icon={<Target className="h-4 w-4" />}
-              label="Funded loans"
-              value={Math.ceil(plan.closingTarget)}
-              suffix="per year"
-            />
-            <Connector />
-            <PlanRow
-              icon={<TrendingUp className="h-4 w-4" />}
-              label="Leads"
-              value={planLeadsTarget}
-              suffix="needed"
-              hint={weeklyLeads > 0 ? `~${Math.ceil(weeklyLeads)}/week` : undefined}
-            />
-            <Connector />
-            <PlanRow
-              icon={<Users className="h-4 w-4" />}
-              label="Referral partners"
-              value={Math.ceil(plan.partnersNeeded)}
-              suffix="committed"
-            />
-            <Connector />
-            <PlanRow
-              icon={<Phone className="h-4 w-4" />}
-              label="Real conversations"
-              value={Math.ceil(yearlyConversations)}
-              suffix="per year"
-            />
-            <Connector />
-            <PlanRow
-              icon={<Sparkles className="h-4 w-4" />}
-              label="Talk-tos"
-              value={Math.ceil(plan.weeklyConversations)}
-              suffix="per week"
-              hint={`~${Math.ceil(plan.dailyConversations)}/day`}
-              highlight
-            />
-          </div>
-
-          {plan.notes.length > 0 && (
-            <div className="mt-6 rounded-xl border border-border bg-card p-4">
-              <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">How we got here</p>
-              <ul className="mt-2 space-y-1.5 text-xs text-foreground">
-                {plan.notes.map((n, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="mt-1 h-1 w-1 flex-shrink-0 rounded-full bg-muted-foreground" />
-                    <span>{n}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* ── Section 4 — Daily focus (shown before "what Jubo created" so the number lands first) ── */}
-      {plan && (
-        <section className="mt-10 rounded-2xl border border-primary/30 bg-primary/5 p-6 text-center">
-          <p className="text-2xs font-semibold uppercase tracking-wide text-primary">Your daily focus</p>
-          <p className="mt-2 text-4xl font-semibold tracking-tight text-foreground">
-            {Math.ceil(plan.dailyConversations)} <span className="text-base font-normal text-muted-foreground">real conversations</span>
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Aiming for ~{Math.ceil(plan.weeklyConversations)} a week. Voicemails and no-answers don&apos;t count.
-          </p>
-        </section>
-      )}
+      {/* ── Sections 1, 2, 4 — the reverse-engineered plan (shared component) ── */}
+      <div className="mt-10">
+        <BusinessPlanOverview
+          plan={plan}
+          planLeadsTarget={planLeadsTarget}
+          weeklyLeads={weeklyLeads}
+          yearlyConversations={yearlyConversations}
+          emptyState={
+            <section className="rounded-2xl border border-dashed border-border bg-surface-1 p-8 text-center">
+              <Target className="mx-auto h-6 w-6 text-muted-foreground" />
+              <p className="mt-2 text-sm font-medium text-foreground">Set your income goal to see your plan</p>
+              <p className="mt-1 text-xs text-muted-foreground">Jubo will reverse-engineer it into a daily number to hit.</p>
+              <Button className="mt-4 gap-1.5" size="sm" onClick={() => router.push('/goals')}>
+                Open Goals <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </section>
+          }
+        />
+      </div>
 
       {/* ── Needs-review banner — files we held for manual mapping ──────── */}
       {data.uploadsNeedingReview.length > 0 && (
@@ -290,43 +207,6 @@ export function PlanRevealClient({
 }
 
 // ── Sub-components ──────────────────────────────────────────────────────────
-
-function PlanRow({ icon, label, value, suffix, hint, highlight }: {
-  icon: React.ReactNode
-  label: string
-  value: number
-  suffix?: string
-  hint?: string
-  highlight?: boolean
-}) {
-  return (
-    <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${highlight ? 'border-primary/40 bg-primary/5' : 'border-border bg-card'}`}>
-      <div className="flex items-center gap-3">
-        <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${highlight ? 'bg-primary/20 text-primary' : 'bg-surface-2 text-muted-foreground'}`}>
-          {icon}
-        </div>
-        <div>
-          <p className="text-sm font-medium text-foreground">{label}</p>
-          {hint && <p className="text-2xs text-muted-foreground">{hint}</p>}
-        </div>
-      </div>
-      <div className="text-right">
-        <p className={`text-xl font-semibold ${highlight ? 'text-primary' : 'text-foreground'} tabular-nums`}>
-          {value.toLocaleString()}
-        </p>
-        {suffix && <p className="text-2xs text-muted-foreground">{suffix}</p>}
-      </div>
-    </div>
-  )
-}
-
-function Connector() {
-  return (
-    <div className="flex justify-center">
-      <ArrowDown className="h-3 w-3 text-muted-foreground/50" />
-    </div>
-  )
-}
 
 function CreatedCard({ icon, title, items, extraCount }: {
   icon: React.ReactNode
