@@ -12,15 +12,24 @@ import { Fragment } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// Restrained 34D-A palette (pink / violet / blue / teal / gold) for stages
-// without an explicit color.
-const STAGE_ACCENTS = ['#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6', '#f59e0b']
+// Restrained 34D-A palette (blue / violet / amber / green / pink / teal / gold)
+// for stage identity when a group has no explicit color. Index-based so stage
+// order maps to a stable color — generic, no board-specific assumptions.
+const STAGE_ACCENTS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ec4899', '#14b8a6', '#eab308']
+
+/** Stable identity color for a stage: its own color, else a palette fallback. */
+export function stageColor(group: { color?: string | null }, index: number): string {
+  return group.color || STAGE_ACCENTS[index % STAGE_ACCENTS.length]
+}
 
 export function formatVolume(v: number): string {
   if (!Number.isFinite(v) || v <= 0) return ''
+  if (v >= 1_000_000) {
+    const m = v / 1_000_000
+    return `$${m >= 10 ? Math.round(m) : Math.round(m * 10) / 10}M`
+  }
   const k = v / 1000
-  if (k >= 1000) return `$${Math.round(k).toLocaleString()}K`
-  return `$${(Math.round(k * 10) / 10).toLocaleString()}K`
+  return `$${k >= 100 ? Math.round(k) : Math.round(k * 10) / 10}K`
 }
 
 type StageGroup = { id: string; name: string; color?: string | null }
@@ -44,7 +53,7 @@ export function BoardStageSummary({ groups, countByGroup, valueByGroup, hasValue
     <div className="overflow-x-auto pb-1">
       <div className="flex items-stretch gap-2 min-w-max">
         {groups.map((g, i) => {
-          const accent = g.color || STAGE_ACCENTS[i % STAGE_ACCENTS.length]
+          const accent = stageColor(g, i)
           const count = countByGroup[g.id] ?? 0
           const value = valueByGroup[g.id] ?? 0
           const emphasized = g.id === emphasizedGroupId

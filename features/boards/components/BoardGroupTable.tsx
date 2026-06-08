@@ -7,8 +7,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { BoardRecordRow } from './BoardRecordRow'
 import { updateBoardGroup } from '@/features/boards/actions'
 import { EditableColumnHeader } from './EditableColumnHeader'
-import { PremiumSurface } from '@/components/primitives/PremiumSurface'
-import { formatVolume } from './BoardStageSummary'
+import { formatVolume, stageColor } from './BoardStageSummary'
 import { cn } from '@/lib/utils'
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#64748b']
@@ -24,6 +23,7 @@ interface Props {
   totalCount: number
   valueTotal?: number
   emphasized?: boolean
+  stageIndex?: number
   subitemsByParent?: Record<string, any[]>
   selectedIds?: Set<string>
   onToggleSelect?: (id: string) => void
@@ -45,6 +45,7 @@ export function BoardGroupTable({
   totalCount,
   valueTotal = 0,
   emphasized = false,
+  stageIndex = 0,
   subitemsByParent,
   selectedIds,
   onToggleSelect,
@@ -84,14 +85,25 @@ export function BoardGroupTable({
   }
 
   const avgValue = valueTotal > 0 && totalCount > 0 ? valueTotal / totalCount : 0
+  const rail = color || stageColor(group, stageIndex)
 
   return (
     <div className="mb-5" ref={setDropRef} id={`group-${group.id}`} style={{ scrollMarginTop: 12 }}>
-      {/* Group header */}
+      {/* Pipeline stage surface — header + table read as one object */}
       <div className={cn(
-        'flex items-center gap-2 mb-1 px-1 py-1 rounded-md transition-colors group',
-        isOver && 'bg-primary/10'
+        'relative rounded-xl border bg-surface-1/30 transition-colors',
+        isOver ? 'border-primary/50' : emphasized ? 'border-border ring-1 ring-primary/10' : 'border-border',
       )}>
+        {/* Stage identity rail — clipped to the surface's rounded corners */}
+        <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-xl" aria-hidden>
+          <div className="absolute inset-y-0 left-0" style={{ width: emphasized ? 4 : 3, background: rail, opacity: emphasized ? 0.95 : 0.7 }} />
+        </div>
+
+        {/* Integrated header (above the rail + table so the color popover shows) */}
+        <div className={cn(
+          'group relative z-30 flex items-center gap-2 rounded-t-xl px-4 py-2.5 pl-5 transition-colors',
+          isOver && 'bg-primary/5'
+        )}>
         <button onClick={() => setCollapsed(c => !c)} className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors">
           {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
@@ -133,14 +145,14 @@ export function BoardGroupTable({
           </div>
         ) : (
           <button onDoubleClick={() => setEditingName(true)} className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-foreground">{group.name}</span>
-            <span className="text-xs text-muted-foreground">
-              {hasActiveFilters && records.length !== totalCount ? `${records.length} / ${totalCount}` : totalCount}
+            <span className="text-sm font-semibold tracking-tight" style={{ color: rail }}>{group.name}</span>
+            <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-2xs font-medium tabular-nums text-muted-foreground">
+              {hasActiveFilters && records.length !== totalCount ? `${records.length}/${totalCount}` : totalCount}
             </span>
           </button>
         )}
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-3 pr-1">
           {valueTotal > 0 && (
             <span className="hidden sm:inline text-2xs text-muted-foreground tabular-nums">
               Volume <span className="font-medium text-foreground">{formatVolume(valueTotal)}</span>
@@ -157,17 +169,18 @@ export function BoardGroupTable({
 
       {/* Drop zone highlight when dragging over a collapsed group */}
       {isOver && collapsed && (
-        <div className="h-10 rounded-md border-2 border-dashed border-primary/50 flex items-center justify-center mb-2">
+        <div className="mx-3 mb-3 ml-5 h-10 rounded-lg border-2 border-dashed border-primary/50 flex items-center justify-center">
           <span className="text-xs text-primary/70">Drop here</span>
         </div>
       )}
 
+      {/* Embedded grid — part of the same surface, divider instead of a frame */}
       {!collapsed && (
-        <TablePanel emphasized={emphasized} isOver={isOver}>
+        <div className="relative z-10 overflow-x-auto rounded-b-xl border-t border-border/60">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b border-border bg-surface-1">
-                <th className="w-7 pl-2 pr-0 py-2">
+              <tr className="border-b border-border/70 bg-surface-1/60">
+                <th className="w-7 pl-2 pr-0 py-2.5">
                   {onToggleSelectMany && records.length > 0 && (() => {
                     const allOn = records.every((r) => selectedIds?.has(r.id))
                     const someOn = !allOn && records.some((r) => selectedIds?.has(r.id))
@@ -183,16 +196,16 @@ export function BoardGroupTable({
                   })()}
                 </th>
                 <th className="w-6 pl-1 pr-0" />
-                <th className="sticky left-0 z-10 bg-surface-1 text-left px-3 py-2 text-xs font-medium text-muted-foreground min-w-[200px]">Item</th>
-                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground w-28">Status</th>
-                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground w-24">Priority</th>
-                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground w-28">Value</th>
+                <th className="sticky left-0 z-10 bg-surface-1 text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[200px]">Item</th>
+                <th className="text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground w-28">Status</th>
+                <th className="text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground w-24">Priority</th>
+                <th className="text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground w-28">Value</th>
                 {fields.map(field => (
-                  <th key={field.id} className="text-left px-3 py-2 text-xs font-medium text-muted-foreground w-36 whitespace-nowrap">
+                  <th key={field.id} className="text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground w-36 whitespace-nowrap">
                     <EditableColumnHeader field={field} />
                   </th>
                 ))}
-                <th className="px-2 py-2 w-8 text-center">
+                <th className="px-2 py-2.5 w-8 text-center">
                   <button onClick={onAddField} className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors" title="Add field">
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -238,31 +251,9 @@ export function BoardGroupTable({
               )}
             </tbody>
           </table>
-        </TablePanel>
+        </div>
       )}
+      </div>
     </div>
-  )
-}
-
-// Framed panel for a group's table. The active stage earns the 34D-A premium
-// edge; others keep the clean bordered frame. overflow-x-auto stays on the
-// inner element (never on .premium-surface) so horizontal scroll + sticky
-// columns keep working.
-function TablePanel({ emphasized, isOver, children }: { emphasized: boolean; isOver: boolean; children: React.ReactNode }) {
-  const inner = (
-    <div className={cn(
-      'overflow-x-auto rounded-lg',
-      !emphasized && (isOver ? 'border border-primary/50 bg-primary/5' : 'border border-border'),
-    )}>
-      {children}
-    </div>
-  )
-  if (!emphasized) return inner
-  // p-px insets the table so the 1px gradient edge stays visible (content is
-  // lifted above the decoration layer in .premium-surface).
-  return (
-    <PremiumSurface className={cn('rounded-lg p-px transition-shadow', isOver && 'ring-1 ring-primary/40')}>
-      {inner}
-    </PremiumSurface>
   )
 }

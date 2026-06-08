@@ -390,7 +390,7 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
               </div>
             ) : (
               <div className="min-w-max">
-                {groups.map(group => (
+                {groups.map((group, i) => (
                   <BoardGroupTable
                     key={group.id}
                     group={group}
@@ -403,6 +403,7 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
                     totalCount={totalByGroup[group.id] ?? 0}
                     valueTotal={valueByGroup[group.id] ?? 0}
                     emphasized={group.id === emphasizedGroupId}
+                    stageIndex={i}
                     subitemsByParent={subitemsByParent}
                     selectedIds={selectedIds}
                     onToggleSelect={toggleSelect}
