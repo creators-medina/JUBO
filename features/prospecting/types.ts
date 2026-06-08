@@ -60,6 +60,31 @@ export type ProspectingMetrics = {
   bestDayCalls: number         // most calls in a single day this week
   bestDayLabel: string | null  // e.g. "Tue" — the best day this week
   avgCallsPerActiveDay: number
+  callsThisMonth: number       // calendar month-to-date (Phase 34B momentum)
+  callsThisYear: number        // calendar year-to-date (Phase 34B momentum)
+}
+
+/** Where a call target came from (mirrors target/index.ts CallTargetSource). */
+export type CallTargetSource = 'session' | 'profile' | 'goal' | 'default'
+
+/**
+ * Daily/weekly/monthly/yearly call targets for the momentum section. Period
+ * targets come from goal_targets when present, else scale off the daily target.
+ * Defined here (no server imports) so client components can import the type.
+ */
+export type PeriodCallTargets = {
+  daily: number
+  weekly: number
+  monthly: number
+  yearly: number
+  source: CallTargetSource
+  label: string
+}
+
+/** Prospecting streak — consecutive calendar days with at least one call. */
+export type ProspectingStreak = {
+  current: number       // consecutive days, counting back from today/yesterday
+  todayLogged: boolean  // whether today already has a logged call
 }
 
 export type SessionRow = {

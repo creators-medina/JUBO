@@ -16,6 +16,12 @@ function startOfWeekISO(): string {
   const d = new Date(); const day = d.getDay(); const diff = (day + 6) % 7 // Monday start
   d.setDate(d.getDate() - diff); d.setHours(0, 0, 0, 0); return d.toISOString()
 }
+function startOfMonthISO(): string {
+  const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString()
+}
+function startOfYearISO(): string {
+  const d = new Date(); return new Date(d.getFullYear(), 0, 1).toISOString()
+}
 
 type LogLite = { channel: string; outcome: string | null; occurred_at: string; follow_up_at: string | null }
 
@@ -67,6 +73,18 @@ export async function getProspectingMetrics(organizationId: string, userId: stri
   const callDays = new Set(calls(logs).map((l) => l.occurred_at.slice(0, 10)))
   const avgCallsPerActiveDay = callDays.size > 0 ? calls(logs).length / callDays.size : 0
 
+  // Month/year call counts fall outside the 14d window above, so count them
+  // directly with head-only count queries (no rows transferred).
+  const callCount = (sinceISO: string) =>
+    supabase
+      .from('communication_logs')
+      .select('*', { count: 'exact', head: true })
+      .eq('organization_id', organizationId)
+      .eq('created_by', userId)
+      .eq('channel', 'call')
+      .gte('occurred_at', sinceISO)
+  const [monthRes, yearRes] = await Promise.all([callCount(startOfMonthISO()), callCount(startOfYearISO())])
+
   return {
     callsToday,
     connectsToday,
@@ -83,5 +101,7 @@ export async function getProspectingMetrics(organizationId: string, userId: stri
     bestDayCalls,
     bestDayLabel,
     avgCallsPerActiveDay: Math.round(avgCallsPerActiveDay * 10) / 10,
+    callsThisMonth: monthRes.count ?? 0,
+    callsThisYear: yearRes.count ?? 0,
   }
 }

@@ -1,5 +1,6 @@
 import { TrendingUp, TrendingDown, Minus, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ProgressRing } from '@/components/primitives/ProgressRing'
 import type { GoalProgressData } from '../../types'
 
 interface Props { data: GoalProgressData }
@@ -45,7 +46,9 @@ export function GoalProgressWidget({ data }: Props) {
       </div>
 
       {data.display === 'radial' ? (
-        <Radial percent={progress} />
+        <div className="flex items-center justify-center py-2">
+          <ProgressRing percent={progress} size={84} stroke={6} />
+        </div>
       ) : (
         <ProgressBar percent={progress} expectedPercent={data.target > 0 ? (data.expected_at_now / data.target) * 100 : 0} />
       )}
@@ -70,23 +73,6 @@ function ProgressBar({ percent, expectedPercent }: { percent: number; expectedPe
           title={`Expected: ${Math.round(expectedPercent)}%`}
         />
       )}
-    </div>
-  )
-}
-
-function Radial({ percent }: { percent: number }) {
-  const r = 32, c = 2 * Math.PI * r
-  const dash = c * (Math.min(100, percent) / 100)
-  return (
-    <div className="flex items-center justify-center py-2">
-      <svg width="84" height="84" viewBox="-42 -42 84 84" className="-rotate-90">
-        <circle r={r} fill="none" stroke="currentColor" strokeWidth="6" className="text-surface-2" />
-        <circle
-          r={r} fill="none" stroke="currentColor" strokeWidth="6"
-          strokeDasharray={`${dash} ${c}`} strokeLinecap="round"
-          className="text-primary transition-all"
-        />
-      </svg>
     </div>
   )
 }

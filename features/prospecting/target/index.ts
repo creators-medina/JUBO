@@ -11,7 +11,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { resolveProducerUserId } from '@/features/auth/guards'
 import { DEFAULT_DAILY_CALL_GOAL } from '../types'
-import type { SessionRow } from '../types'
+import type { SessionRow, PeriodCallTargets } from '../types'
 
 export type CallTargetSource = 'session' | 'profile' | 'goal' | 'default'
 
@@ -77,6 +77,42 @@ export async function getDailyCallTarget(
   return { target: DEFAULT_DAILY_CALL_GOAL, source: 'default', label: SOURCE_LABEL.default }
 }
 
+// Working-cadence multipliers used when a goal doesn't specify period targets.
+// ~5 working days/week, ~21/month, ~250/year (≈50 weeks). Display-only.
+const WORK_DAYS_PER_WEEK = 5
+const WORK_DAYS_PER_MONTH = 21
+const WORK_DAYS_PER_YEAR = 250
+
+/**
+ * Phase 34B — daily/weekly/monthly/yearly call targets for the momentum section.
+ * Daily resolves through the existing priority chain (session > profile > goal >
+ * default). Period targets prefer the goal's stored weekly/monthly/yearly_target
+ * and otherwise scale off the daily number. UX-only; no schema changes.
+ */
+export async function getCallTargets(
+  organizationId: string,
+  userId: string,
+  session?: SessionRow | null,
+): Promise<PeriodCallTargets> {
+  const daily = await getDailyCallTarget(organizationId, userId, session)
+
+  let periods: { weekly: number | null; monthly: number | null; yearly: number | null } | null = null
+  try {
+    const supabase = await createClient()
+    const producerId = await resolveProducerUserId(organizationId, userId, supabase)
+    periods = await derivePeriodTargetsFromGoals(supabase, organizationId, producerId)
+  } catch { /* not derivable — fall back to daily multiples */ }
+
+  return {
+    daily: daily.target,
+    weekly: periods?.weekly ?? daily.target * WORK_DAYS_PER_WEEK,
+    monthly: periods?.monthly ?? daily.target * WORK_DAYS_PER_MONTH,
+    yearly: periods?.yearly ?? daily.target * WORK_DAYS_PER_YEAR,
+    source: daily.source,
+    label: daily.label,
+  }
+}
+
 type SB = Awaited<ReturnType<typeof createClient>>
 
 async function deriveCallTargetFromGoals(supabase: SB, organizationId: string, producerUserId?: string | null): Promise<number | null> {
@@ -109,6 +145,53 @@ async function deriveCallTargetFromGoals(supabase: SB, organizationId: string, p
       .maybeSingle()
     const daily = target?.daily_target != null ? Math.round(Number(target.daily_target)) : null
     if (daily && daily > 0) return daily
+  }
+  return null
+}
+
+/** Like deriveCallTargetFromGoals, but returns the stored period targets. */
+async function derivePeriodTargetsFromGoals(
+  supabase: SB,
+  organizationId: string,
+  producerUserId?: string | null,
+): Promise<{ weekly: number | null; monthly: number | null; yearly: number | null } | null> {
+  let gq = supabase
+    .from('production_goals')
+    .select('id, funnel_id')
+    .eq('organization_id', organizationId)
+    .eq('is_archived', false)
+    .not('funnel_id', 'is', null)
+  if (producerUserId) gq = gq.eq('producer_user_id', producerUserId)
+  const { data: goals } = await gq.limit(5)
+  if (!goals || goals.length === 0) return null
+
+  const round = (v: unknown): number | null => {
+    const n = v != null ? Math.round(Number(v)) : NaN
+    return Number.isFinite(n) && n > 0 ? n : null
+  }
+
+  for (const goal of goals as Array<{ id: string; funnel_id: string | null }>) {
+    if (!goal.funnel_id) continue
+    const { data: stages } = await supabase
+      .from('funnel_stages')
+      .select('id, name, slug')
+      .eq('funnel_id', goal.funnel_id)
+    const callStage = (stages as Array<{ id: string; name: string; slug: string }> | null ?? [])
+      .find((s) => CALL_STAGE_RE.test(s.slug) || CALL_STAGE_RE.test(s.name))
+    if (!callStage) continue
+
+    const { data: target } = await supabase
+      .from('goal_targets')
+      .select('weekly_target, monthly_target, yearly_target')
+      .eq('production_goal_id', goal.id)
+      .eq('funnel_stage_id', callStage.id)
+      .limit(1)
+      .maybeSingle()
+    if (!target) continue
+    const weekly = round(target.weekly_target)
+    const monthly = round(target.monthly_target)
+    const yearly = round(target.yearly_target)
+    if (weekly || monthly || yearly) return { weekly, monthly, yearly }
   }
   return null
 }

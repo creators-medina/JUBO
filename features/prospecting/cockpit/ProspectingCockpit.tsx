@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation'
 import * as Icons from 'lucide-react'
 import {
   PhoneCall, PhoneOff, Voicemail, CalendarClock, CalendarCheck, ThumbsUp,
-  Play, Square, Flame, ArrowUpRight, History,
+  Play, Square, Flame, ArrowUpRight, History, Clock, DollarSign,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ProgressRing } from '@/components/primitives/ProgressRing'
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { useToast } from '@/features/feedback/ToastProvider'
 import { quickCallOutcome } from '@/features/communications/actions'
@@ -17,7 +18,10 @@ import { track } from '@/features/analytics/client'
 import { TrackView } from '@/features/analytics/TrackView'
 import { OUTCOME_LABEL, type CommunicationOutcome } from '@/features/communications/types'
 import { startProspectingSession, endProspectingSession } from '../sessions/actions'
-import type { ScoredLead, ProspectingMetrics, SessionRow, LiveSessionStats, LeadTemperature, QueueBucketKey } from '../types'
+import type {
+  ScoredLead, ProspectingMetrics, SessionRow, LiveSessionStats, LeadTemperature,
+  QueueBucketKey, PeriodCallTargets, ProspectingStreak,
+} from '../types'
 import type { ThemeDay } from '../coaching/themeDay'
 import type { CoachLine } from '../coaching'
 
@@ -26,11 +30,11 @@ function Icon({ name, className }: { name: string; className?: string }) {
   return <C className={className} />
 }
 
-const TEMP_STYLE: Record<LeadTemperature, { label: string; cls: string; dot: string }> = {
-  hot:     { label: 'Hot', cls: 'text-red-300', dot: 'bg-red-400' },
-  warm:    { label: 'Warm', cls: 'text-amber-300', dot: 'bg-amber-400' },
-  cold:    { label: 'Cold', cls: 'text-blue-300', dot: 'bg-blue-400' },
-  dormant: { label: 'Dormant', cls: 'text-muted-foreground', dot: 'bg-surface-3' },
+const TEMP_STYLE: Record<LeadTemperature, { label: string; cls: string; dot: string; badge: string }> = {
+  hot:     { label: 'Hot', cls: 'text-red-300', dot: 'bg-red-400', badge: 'bg-red-500/10 text-red-300' },
+  warm:    { label: 'Warm', cls: 'text-amber-300', dot: 'bg-amber-400', badge: 'bg-amber-500/10 text-amber-300' },
+  cold:    { label: 'Cold', cls: 'text-blue-300', dot: 'bg-blue-400', badge: 'bg-blue-500/10 text-blue-300' },
+  dormant: { label: 'Dormant', cls: 'text-muted-foreground', dot: 'bg-surface-3', badge: 'bg-surface-2 text-muted-foreground' },
 }
 
 const BUCKETS: { key: QueueBucketKey | 'all'; label: string }[] = [
@@ -58,7 +62,7 @@ const KEY_OUTCOME: Record<string, CommunicationOutcome> = {
 }
 
 export function ProspectingCockpit({
-  organizationId, queue, metrics, session, liveStats, themeDay, coaching, callGoal, targetLabel, followUpsDue, sessions,
+  organizationId, queue, metrics, session, liveStats, themeDay, coaching, callGoal, targetLabel, targets, streak, followUpsDue, sessions,
 }: {
   organizationId: string
   queue: ScoredLead[]
@@ -69,6 +73,8 @@ export function ProspectingCockpit({
   coaching: CoachLine[]
   callGoal: number
   targetLabel: string
+  targets: PeriodCallTargets
+  streak: ProspectingStreak
   followUpsDue: number
   sessions: SessionRow[]
 }) {
@@ -143,83 +149,136 @@ export function ProspectingCockpit({
 
   const remaining = Math.max(0, callGoal - metrics.callsToday)
   const goalPct = Math.min(100, Math.round((metrics.callsToday / Math.max(1, callGoal)) * 100))
+  const goalHit = metrics.callsToday >= callGoal && callGoal > 0
+  const topCoach = coaching[0]
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <TrackView surface="prospecting" />
-      {/* Banner */}
-      <header className="border-b border-border bg-gradient-to-br from-surface-1 to-card px-6 py-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Flame className="h-5 w-5 text-primary" />
-              <h1 className="text-xl font-semibold tracking-tight text-foreground">{themeDay.label}</h1>
-            </div>
-            <p className="mt-0.5 text-sm text-muted-foreground">{themeDay.blurb}</p>
-          </div>
-          <SessionControl organizationId={organizationId} session={session} liveStats={liveStats} pending={pending} startTransition={startTransition} router={router} callGoal={callGoal} />
-        </div>
-
-        {/* Metric chips */}
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <Metric label="Calls today" value={metrics.callsToday} accent />
-          <Metric label="Connects" value={metrics.connectsToday} />
-          <Metric label="Connect rate" value={`${Math.round(metrics.connectionRate * 100)}%`} />
-          <Metric label="Appts booked" value={metrics.meetingsBookedToday} />
-          <Metric label="Follow-ups due" value={followUpsDue} />
-          <Metric label="To goal" value={remaining} sub={targetLabel} />
-        </div>
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
-          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${goalPct}%` }} />
-        </div>
-      </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Queue */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="mb-3 flex items-center gap-1.5 overflow-x-auto">
-            {BUCKETS.map((b) => {
-              const count = b.key === 'all' ? queue.filter((l) => !worked.has(l.recordId)).length : queue.filter((l) => l.bucket === b.key && !worked.has(l.recordId)).length
-              if (b.key !== 'all' && count === 0) return null
-              return (
-                <button key={b.key} onClick={() => setBucket(b.key)}
-                  className={cn('flex-shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors',
-                    bucket === b.key ? 'bg-primary text-primary-foreground' : 'bg-surface-2 text-muted-foreground hover:text-foreground')}>
-                  {b.label} <span className="tabular-nums opacity-70">{count}</span>
-                </button>
-              )
-            })}
+        {/* Main scroll column: hero → momentum → theme → queue */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="space-y-5 p-6">
+
+            {/* ── Section 1 + 5 + 6: Hero ring, streak chip, win-the-day motivation ── */}
+            <section className="rounded-2xl border border-border bg-gradient-to-br from-surface-1 via-card to-surface-1 p-6">
+              <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-center lg:gap-8">
+                <div className="flex flex-col items-center gap-3">
+                  <ProgressRing percent={goalPct} complete={goalHit} size={184} stroke={14}>
+                    <span className="text-4xl font-bold tabular-nums text-foreground">{metrics.callsToday}</span>
+                    <span className="text-xs text-muted-foreground">of {callGoal} calls</span>
+                    <span className={cn('mt-1 text-2xs font-semibold', goalHit ? 'text-emerald-400' : 'text-primary')}>
+                      {goalHit ? 'Goal hit 🎉' : `${remaining} to go`}
+                    </span>
+                  </ProgressRing>
+                  <StreakChip streak={streak} />
+                </div>
+
+                <div className="w-full flex-1">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-2xs font-semibold uppercase tracking-wider text-primary">
+                        {goalHit ? 'You won the day' : 'Win the day'}
+                      </p>
+                      <h1 className="mt-0.5 text-2xl font-bold tracking-tight text-foreground">
+                        {goalHit
+                          ? `Goal hit — ${metrics.callsToday} call${metrics.callsToday === 1 ? '' : 's'} today`
+                          : `${remaining} call${remaining === 1 ? '' : 's'} to your goal`}
+                      </h1>
+                      {topCoach && (
+                        <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Icon name={topCoach.icon} className={cn('h-4 w-4 flex-shrink-0', coachTone(topCoach.tone))} />
+                          {topCoach.text}
+                        </p>
+                      )}
+                    </div>
+                    <SessionControl organizationId={organizationId} session={session} liveStats={liveStats} pending={pending} startTransition={startTransition} router={router} callGoal={callGoal} />
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <HeroStat label="Connects" value={metrics.connectsToday} />
+                    <HeroStat label="Connect rate" value={`${Math.round(metrics.connectionRate * 100)}%`} />
+                    <HeroStat label="Appts booked" value={metrics.meetingsBookedToday} accent={metrics.meetingsBookedToday > 0} />
+                    <HeroStat label="Follow-ups due" value={followUpsDue} warn={followUpsDue > 0} />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* ── Section 2: Momentum (Today / Week / Month / Year) ── */}
+            <section>
+              <h2 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Momentum <span className="ml-1 normal-case text-muted-foreground/60">· {targetLabel}</span>
+              </h2>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <MomentumCard label="Today" completed={metrics.callsToday} goal={targets.daily} />
+                <MomentumCard label="Week" completed={metrics.callsThisWeek} goal={targets.weekly} />
+                <MomentumCard label="Month" completed={metrics.callsThisMonth} goal={targets.monthly} />
+                <MomentumCard label="Year" completed={metrics.callsThisYear} goal={targets.yearly} />
+              </div>
+            </section>
+
+            {/* ── Section 3: Theme Day banner ── */}
+            <section className="overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/15 via-primary/[0.06] to-transparent p-5">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
+                  <Flame className="h-6 w-6" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-2xs font-semibold uppercase tracking-wider text-primary">Today&apos;s focus</p>
+                  <h2 className="text-lg font-bold tracking-tight text-foreground">{themeDay.label}</h2>
+                  <p className="text-sm text-muted-foreground">{themeDay.blurb}</p>
+                </div>
+              </div>
+            </section>
+
+            {/* ── Section 4: Prospecting queue ── */}
+            <section>
+              <div className="mb-3 flex items-center gap-1.5 overflow-x-auto">
+                {BUCKETS.map((b) => {
+                  const count = b.key === 'all' ? queue.filter((l) => !worked.has(l.recordId)).length : queue.filter((l) => l.bucket === b.key && !worked.has(l.recordId)).length
+                  if (b.key !== 'all' && count === 0) return null
+                  return (
+                    <button key={b.key} onClick={() => setBucket(b.key)}
+                      className={cn('flex-shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors',
+                        bucket === b.key ? 'bg-primary text-primary-foreground' : 'bg-surface-2 text-muted-foreground hover:text-foreground')}>
+                      {b.label} <span className="tabular-nums opacity-70">{count}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {visible.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border bg-surface-1 px-6 py-16 text-center">
+                  <PhoneCall className="mx-auto h-8 w-8 text-muted-foreground" />
+                  <p className="mt-3 text-sm font-medium text-foreground">Queue clear</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Nothing needs a call in this view. Strong work.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {visible.map((lead, i) => (
+                    <LeadCard key={lead.recordId} lead={lead} selected={i === sel} pending={pending}
+                      onSelect={() => setSelectedIndex(i)}
+                      onLog={logOutcome} onSkip={() => skip(lead.recordId)}
+                      onOpen={() => openWorkspace({ recordId: lead.recordId, title: lead.title })} />
+                  ))}
+                </div>
+              )}
+
+              <KeyboardHints />
+            </section>
           </div>
-
-          {visible.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border bg-surface-1 px-6 py-16 text-center">
-              <PhoneCall className="mx-auto h-8 w-8 text-muted-foreground" />
-              <p className="mt-3 text-sm font-medium text-foreground">Queue clear</p>
-              <p className="mt-1 text-xs text-muted-foreground">Nothing needs a call in this view. Strong work.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {visible.map((lead, i) => (
-                <LeadCard key={lead.recordId} lead={lead} selected={i === sel} pending={pending}
-                  onSelect={() => setSelectedIndex(i)}
-                  onLog={logOutcome} onSkip={() => skip(lead.recordId)}
-                  onOpen={() => openWorkspace({ recordId: lead.recordId, title: lead.title })} />
-              ))}
-            </div>
-          )}
-
-          <KeyboardHints />
         </div>
 
-        {/* Side panel */}
+        {/* Side panel — motivation, week stats, session history */}
         <aside className="hidden w-72 flex-shrink-0 flex-col gap-4 overflow-y-auto border-l border-border bg-surface-1/30 p-5 lg:flex">
           <div>
-            <h2 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Coaching</h2>
+            <h2 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Win the day</h2>
             <div className="space-y-2">
               {coaching.map((l, idx) => (
                 <div key={idx} className="flex items-start gap-2">
-                  <Icon name={l.icon} className={cn('mt-0.5 h-3.5 w-3.5 flex-shrink-0',
-                    l.tone === 'good' ? 'text-emerald-400' : l.tone === 'warn' ? 'text-amber-400' : l.tone === 'urgent' ? 'text-red-400' : 'text-muted-foreground')} />
+                  <Icon name={l.icon} className={cn('mt-0.5 h-3.5 w-3.5 flex-shrink-0', coachTone(l.tone))} />
                   <span className="text-xs text-foreground">{l.text}</span>
                 </div>
               ))}
@@ -241,6 +300,55 @@ export function ProspectingCockpit({
 
           <SessionHistory sessions={sessions} />
         </aside>
+      </div>
+    </div>
+  )
+}
+
+function coachTone(tone: CoachLine['tone']): string {
+  return tone === 'good' ? 'text-emerald-400' : tone === 'warn' ? 'text-amber-400' : tone === 'urgent' ? 'text-red-400' : 'text-muted-foreground'
+}
+
+function StreakChip({ streak }: { streak: ProspectingStreak }) {
+  if (streak.current <= 0) {
+    return (
+      <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-1 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+        <span className="opacity-60">🔥</span> Start your streak today.
+      </div>
+    )
+  }
+  return (
+    <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-sm font-semibold text-amber-300">
+      <span>🔥</span> {streak.current} Day Streak
+      {!streak.todayLogged && <span className="text-2xs font-medium text-amber-300/70">· keep it alive</span>}
+    </div>
+  )
+}
+
+function HeroStat({ label, value, accent, warn }: { label: string; value: number | string; accent?: boolean; warn?: boolean }) {
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2">
+      <p className={cn('text-lg font-semibold tabular-nums', warn ? 'text-amber-400' : accent ? 'text-emerald-400' : 'text-foreground')}>{value}</p>
+      <p className="text-2xs text-muted-foreground">{label}</p>
+    </div>
+  )
+}
+
+function MomentumCard({ label, completed, goal }: { label: string; completed: number; goal: number }) {
+  const pct = goal > 0 ? Math.min(100, Math.round((completed / goal) * 100)) : 0
+  const done = goal > 0 && completed >= goal
+  return (
+    <div className="rounded-xl border border-border bg-card p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+        <span className={cn('text-2xs font-semibold tabular-nums', done ? 'text-emerald-400' : 'text-muted-foreground')}>{pct}%</span>
+      </div>
+      <p className="mt-1 text-xl font-bold tabular-nums text-foreground">
+        {completed.toLocaleString()}
+        <span className="text-xs font-normal text-muted-foreground"> / {goal.toLocaleString()}</span>
+      </p>
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+        <div className={cn('h-full rounded-full transition-all duration-700 ease-out', done ? 'bg-emerald-400' : 'bg-primary')} style={{ width: `${pct}%` }} />
       </div>
     </div>
   )
@@ -283,22 +391,46 @@ function LeadCard({ lead, selected, pending, onSelect, onLog, onSkip, onOpen }: 
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => { if (selected) ref.current?.scrollIntoView({ block: 'nearest' }) }, [selected])
 
+  // Overdue is driven by the server-side queue scoring (overdue_followups
+  // bucket = a next action past due), keeping render pure.
+  const overdue = lead.bucket === 'overdue_followups'
+
   return (
     <div ref={ref} onMouseEnter={onSelect}
-      className={cn('rounded-xl border bg-card p-3 transition-colors', selected ? 'border-primary/50 ring-1 ring-primary/20' : 'border-border')}>
+      className={cn('rounded-xl border bg-card p-3.5 transition-all',
+        selected ? 'border-primary/50 ring-1 ring-primary/20 shadow-sm' : overdue ? 'border-red-500/30' : 'border-border')}>
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className={cn('h-2 w-2 flex-shrink-0 rounded-full', t.dot)} />
+        <div className="min-w-0 flex-1">
+          {/* Name + temperature + overdue */}
+          <div className="flex flex-wrap items-center gap-2">
             <button onClick={onOpen} className="truncate text-sm font-semibold text-foreground hover:underline">{lead.title}</button>
-            <span className={cn('text-2xs font-medium', t.cls)}>{t.label}</span>
+            <span className={cn('inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-2xs font-medium', t.badge)}>
+              <span className={cn('h-1.5 w-1.5 rounded-full', t.dot)} /> {t.label}
+            </span>
+            {overdue && <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-2xs font-semibold text-red-300">Overdue</span>}
             {selected && <span className="rounded bg-primary/15 px-1.5 py-0.5 text-2xs font-medium text-primary">Next</span>}
           </div>
-          <p className="mt-0.5 truncate text-2xs text-muted-foreground">
-            {lead.reasons.join(' · ') || lead.groupName || 'In queue'}
-            {lead.loanAmount ? ` · $${lead.loanAmount.toLocaleString()}` : ''}
-          </p>
+
+          {/* Last contact + value */}
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-2xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {lastContactLabel(lead.daysSinceContact)}</span>
+            {lead.loanAmount ? (
+              <span className="inline-flex items-center gap-1"><DollarSign className="h-3 w-3" /> {lead.loanAmount.toLocaleString()}</span>
+            ) : null}
+          </div>
+
+          {/* Why this person is surfacing */}
+          {lead.reasons.length > 0 ? (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {lead.reasons.slice(0, 3).map((r, i) => (
+                <span key={i} className="rounded-md bg-surface-2 px-1.5 py-0.5 text-2xs text-foreground/80">{r}</span>
+              ))}
+            </div>
+          ) : lead.groupName ? (
+            <p className="mt-1.5 truncate text-2xs text-muted-foreground">{lead.groupName}</p>
+          ) : null}
         </div>
+
         <div className="flex flex-shrink-0 items-center gap-1">
           <button onClick={onSkip} className="rounded-md px-1.5 py-1 text-2xs text-muted-foreground hover:bg-surface-2 hover:text-foreground" title="Skip (S)">Skip</button>
           <button onClick={onOpen} className="rounded-md p-1 text-muted-foreground hover:text-foreground" title="Open workspace (O)">
@@ -376,15 +508,6 @@ function KeyboardHints() {
   )
 }
 
-function Metric({ label, value, sub, accent }: { label: string; value: number | string; sub?: string; accent?: boolean }) {
-  return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2">
-      <p className={cn('text-lg font-semibold tabular-nums', accent ? 'text-primary' : 'text-foreground')}>{value}</p>
-      <p className="text-2xs text-muted-foreground">{label}{sub ? ` · ${sub}` : ''}</p>
-    </div>
-  )
-}
-
 function Row({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="flex items-center justify-between">
@@ -392,6 +515,13 @@ function Row({ label, value }: { label: string; value: number | string }) {
       <span className="font-medium text-foreground tabular-nums">{value}</span>
     </div>
   )
+}
+
+function lastContactLabel(days: number | null): string {
+  if (days == null) return 'Never contacted'
+  if (days <= 0) return 'Last contact today'
+  if (days === 1) return 'Last contact 1 day ago'
+  return `Last contact ${days} days ago`
 }
 
 function formatDay(iso: string): string {
