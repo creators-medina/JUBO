@@ -5,6 +5,7 @@ import { getActiveSession, getLiveSessionStats, getRecentSessions } from '@/feat
 import { getProspectingMetrics } from '@/features/prospecting/metrics'
 import { getCallTargets } from '@/features/prospecting/target'
 import { getProspectingStreak } from '@/features/prospecting/streak'
+import { getContactedToday } from '@/features/prospecting/contacted'
 import { getThemeDay } from '@/features/prospecting/coaching/themeDay'
 import { buildProspectingCoaching } from '@/features/prospecting/coaching'
 import { getFollowUpsDueCount } from '@/features/communications/queries'
@@ -22,13 +23,14 @@ export default async function ProspectingPage() {
   if (!membership) redirect('/onboarding')
   const orgId = membership.organization_id
 
-  const [queue, session, metrics, followUpsDue, sessions, streak] = await Promise.all([
+  const [queue, session, metrics, followUpsDue, sessions, streak, contactedToday] = await Promise.all([
     buildCallQueue(orgId),
     getActiveSession(orgId, user.id),
     getProspectingMetrics(orgId, user.id),
     getFollowUpsDueCount(orgId),
     getRecentSessions(orgId, user.id),
     getProspectingStreak(orgId, user.id),
+    getContactedToday(orgId, user.id),
   ])
   const liveStats = session ? await getLiveSessionStats(session) : null
   const themeDay = getThemeDay()
@@ -48,6 +50,7 @@ export default async function ProspectingPage() {
       targetLabel={targets.label}
       targets={targets}
       streak={streak}
+      contactedToday={contactedToday}
       followUpsDue={followUpsDue}
       sessions={sessions}
     />

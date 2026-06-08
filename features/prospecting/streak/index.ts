@@ -49,5 +49,24 @@ export async function getProspectingStreak(organizationId: string, userId: strin
     cursor.setDate(cursor.getDate() - 1)
   }
 
-  return { current, todayLogged }
+  return { current, best: longestRun(days), todayLogged }
+}
+
+/** Longest run of consecutive days present in the set (over the lookback window). */
+function longestRun(days: Set<string>): number {
+  if (days.size === 0) return 0
+  // Sort the day keys ascending (lexical sort works for YYYY-MM-DD) and count
+  // the longest stretch where each day is exactly one calendar day after the last.
+  const sorted = [...days].sort()
+  let best = 1
+  let run = 1
+  let prev = new Date(sorted[0] + 'T00:00:00')
+  for (let i = 1; i < sorted.length; i++) {
+    const d = new Date(sorted[i] + 'T00:00:00')
+    const gapDays = Math.round((d.getTime() - prev.getTime()) / 86400000)
+    run = gapDays === 1 ? run + 1 : 1
+    if (run > best) best = run
+    prev = d
+  }
+  return best
 }

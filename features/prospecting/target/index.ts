@@ -11,7 +11,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { resolveProducerUserId } from '@/features/auth/guards'
 import { DEFAULT_DAILY_CALL_GOAL } from '../types'
-import type { SessionRow, PeriodCallTargets } from '../types'
+import type { SessionRow, PeriodCallTargets, ProductionContext } from '../types'
 
 export type CallTargetSource = 'session' | 'profile' | 'goal' | 'default'
 
@@ -97,10 +97,12 @@ export async function getCallTargets(
   const daily = await getDailyCallTarget(organizationId, userId, session)
 
   let periods: { weekly: number | null; monthly: number | null; yearly: number | null } | null = null
+  let production: ProductionContext | null = null
   try {
     const supabase = await createClient()
     const producerId = await resolveProducerUserId(organizationId, userId, supabase)
     periods = await derivePeriodTargetsFromGoals(supabase, organizationId, producerId)
+    production = await fetchProductionContext(supabase, organizationId, producerId)
   } catch { /* not derivable — fall back to daily multiples */ }
 
   return {
@@ -110,6 +112,7 @@ export async function getCallTargets(
     yearly: periods?.yearly ?? daily.target * WORK_DAYS_PER_YEAR,
     source: daily.source,
     label: daily.label,
+    production,
   }
 }
 
@@ -147,6 +150,29 @@ async function deriveCallTargetFromGoals(supabase: SB, organizationId: string, p
     if (daily && daily > 0) return daily
   }
   return null
+}
+
+/** The producer's active production goal, for the "why this matters" pace card. */
+async function fetchProductionContext(
+  supabase: SB,
+  organizationId: string,
+  producerUserId?: string | null,
+): Promise<ProductionContext | null> {
+  let q = supabase
+    .from('production_goals')
+    .select('name, timeframe, target_revenue')
+    .eq('organization_id', organizationId)
+    .eq('is_archived', false)
+  if (producerUserId) q = q.eq('producer_user_id', producerUserId)
+  const { data } = await q.order('end_date', { ascending: false }).limit(1).maybeSingle()
+  if (!data) return null
+  const row = data as { name: string | null; timeframe: string | null; target_revenue: number | null }
+  const incomeTarget = row.target_revenue != null && Number(row.target_revenue) > 0 ? Math.round(Number(row.target_revenue)) : null
+  return {
+    name: row.name ?? 'production plan',
+    incomeTarget,
+    timeframe: row.timeframe ?? 'yearly',
+  }
 }
 
 /** Like deriveCallTargetFromGoals, but returns the stored period targets. */

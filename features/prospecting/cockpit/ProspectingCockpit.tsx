@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import * as Icons from 'lucide-react'
 import {
   PhoneCall, PhoneOff, Voicemail, CalendarClock, CalendarCheck, ThumbsUp,
-  Play, Square, Flame, ArrowUpRight, History, Clock, DollarSign,
+  Play, Square, Flame, ArrowUpRight, History, Clock, DollarSign, TrendingUp, CheckCircle2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProgressRing } from '@/components/primitives/ProgressRing'
@@ -14,13 +14,14 @@ import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsPr
 import { useToast } from '@/features/feedback/ToastProvider'
 import { quickCallOutcome } from '@/features/communications/actions'
 import { PhoneActions } from '@/features/communications/components/PhoneActions'
+import { isConnect, isBookedAppointment } from '@/features/communications/outcomes'
 import { track } from '@/features/analytics/client'
 import { TrackView } from '@/features/analytics/TrackView'
 import { OUTCOME_LABEL, type CommunicationOutcome } from '@/features/communications/types'
 import { startProspectingSession, endProspectingSession } from '../sessions/actions'
 import type {
   ScoredLead, ProspectingMetrics, SessionRow, LiveSessionStats, LeadTemperature,
-  QueueBucketKey, PeriodCallTargets, ProspectingStreak,
+  QueueBucketKey, PeriodCallTargets, ProspectingStreak, ContactedTodayItem,
 } from '../types'
 import type { ThemeDay } from '../coaching/themeDay'
 import type { CoachLine } from '../coaching'
@@ -62,7 +63,7 @@ const KEY_OUTCOME: Record<string, CommunicationOutcome> = {
 }
 
 export function ProspectingCockpit({
-  organizationId, queue, metrics, session, liveStats, themeDay, coaching, callGoal, targetLabel, targets, streak, followUpsDue, sessions,
+  organizationId, queue, metrics, session, liveStats, themeDay, coaching, callGoal, targetLabel, targets, streak, contactedToday, followUpsDue, sessions,
 }: {
   organizationId: string
   queue: ScoredLead[]
@@ -75,6 +76,7 @@ export function ProspectingCockpit({
   targetLabel: string
   targets: PeriodCallTargets
   streak: ProspectingStreak
+  contactedToday: ContactedTodayItem[]
   followUpsDue: number
   sessions: SessionRow[]
 }) {
@@ -150,50 +152,46 @@ export function ProspectingCockpit({
   const remaining = Math.max(0, callGoal - metrics.callsToday)
   const goalPct = Math.min(100, Math.round((metrics.callsToday / Math.max(1, callGoal)) * 100))
   const goalHit = metrics.callsToday >= callGoal && callGoal > 0
-  const topCoach = coaching[0]
+  const comp = completionState(goalPct, goalHit)
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <TrackView surface="prospecting" />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Main scroll column: hero → momentum → theme → queue */}
+        {/* Main scroll column */}
         <div className="flex-1 overflow-y-auto">
           <div className="space-y-5 p-6">
 
-            {/* ── Section 1 + 5 + 6: Hero ring, streak chip, win-the-day motivation ── */}
-            <section className="rounded-2xl border border-border bg-gradient-to-br from-surface-1 via-card to-surface-1 p-6">
+            {/* ── Hero: what to do next + progress + streak + completion message ── */}
+            <section className={cn('rounded-2xl border bg-gradient-to-br from-surface-1 via-card to-surface-1 p-6 transition-all',
+              goalHit ? 'border-emerald-500/40 ring-1 ring-emerald-500/15' : 'border-border')}>
               <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-center lg:gap-8">
                 <div className="flex flex-col items-center gap-3">
-                  <ProgressRing percent={goalPct} complete={goalHit} size={184} stroke={14}>
-                    <span className="text-4xl font-bold tabular-nums text-foreground">{metrics.callsToday}</span>
-                    <span className="text-xs text-muted-foreground">of {callGoal} calls</span>
-                    <span className={cn('mt-1 text-2xs font-semibold', goalHit ? 'text-emerald-400' : 'text-primary')}>
-                      {goalHit ? 'Goal hit 🎉' : `${remaining} to go`}
-                    </span>
+                  <ProgressRing percent={goalPct} complete={goalHit} size={172} stroke={13}>
+                    <span className="text-3xl font-bold tabular-nums text-foreground">{metrics.callsToday}</span>
+                    <span className="text-2xs text-muted-foreground">of {callGoal} done</span>
                   </ProgressRing>
                   <StreakChip streak={streak} />
                 </div>
 
-                <div className="w-full flex-1">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-2xs font-semibold uppercase tracking-wider text-primary">
-                        {goalHit ? 'You won the day' : 'Win the day'}
-                      </p>
-                      <h1 className="mt-0.5 text-2xl font-bold tracking-tight text-foreground">
-                        {goalHit
-                          ? `Goal hit — ${metrics.callsToday} call${metrics.callsToday === 1 ? '' : 's'} today`
-                          : `${remaining} call${remaining === 1 ? '' : 's'} to your goal`}
-                      </h1>
-                      {topCoach && (
-                        <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                          <Icon name={topCoach.icon} className={cn('h-4 w-4 flex-shrink-0', coachTone(topCoach.tone))} />
-                          {topCoach.text}
-                        </p>
-                      )}
-                    </div>
+                <div className="w-full flex-1 text-center lg:text-left">
+                  <p className={cn('text-2xs font-semibold uppercase tracking-wider', comp.tone)}>{comp.stage}</p>
+                  {goalHit ? (
+                    <h1 className="mt-1 flex items-center justify-center gap-2 text-4xl font-bold tracking-tight text-emerald-300 lg:justify-start">
+                      You won today <span aria-hidden>🎉</span>
+                    </h1>
+                  ) : (
+                    <h1 className="mt-1 flex flex-wrap items-baseline justify-center gap-x-2 lg:justify-start">
+                      <span className="text-5xl font-bold tabular-nums text-foreground sm:text-6xl">{remaining}</span>
+                      <span className="text-lg font-medium text-muted-foreground">{remaining === 1 ? 'call' : 'calls'} left to win today</span>
+                    </h1>
+                  )}
+                  <p className="mt-1.5 text-sm text-muted-foreground">{comp.message}</p>
+
+                  <div className="mt-4 flex flex-col items-center gap-2 sm:flex-row sm:flex-wrap lg:justify-start">
                     <SessionControl organizationId={organizationId} session={session} liveStats={liveStats} pending={pending} startTransition={startTransition} router={router} callGoal={callGoal} />
+                    {!session && <span className="text-2xs text-muted-foreground">Start a session to track today&apos;s momentum.</span>}
                   </div>
 
                   <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -206,7 +204,7 @@ export function ProspectingCockpit({
               </div>
             </section>
 
-            {/* ── Section 2: Momentum (Today / Week / Month / Year) ── */}
+            {/* ── Momentum: Today / Week / Month / Year ── */}
             <section>
               <h2 className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Momentum <span className="ml-1 normal-case text-muted-foreground/60">· {targetLabel}</span>
@@ -219,7 +217,10 @@ export function ProspectingCockpit({
               </div>
             </section>
 
-            {/* ── Section 3: Theme Day banner ── */}
+            {/* ── Why this matters: goal/pace tie-in ── */}
+            <PaceCard targets={targets} />
+
+            {/* ── Theme Day banner ── */}
             <section className="overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/15 via-primary/[0.06] to-transparent p-5">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
@@ -228,12 +229,15 @@ export function ProspectingCockpit({
                 <div className="min-w-0">
                   <p className="text-2xs font-semibold uppercase tracking-wider text-primary">Today&apos;s focus</p>
                   <h2 className="text-lg font-bold tracking-tight text-foreground">{themeDay.label}</h2>
-                  <p className="text-sm text-muted-foreground">{themeDay.blurb}</p>
+                  <p className="text-sm text-muted-foreground">{themeDay.coaching}</p>
                 </div>
               </div>
             </section>
 
-            {/* ── Section 4: Prospecting queue ── */}
+            {/* ── Contacted today ── */}
+            <ContactedToday items={contactedToday} onOpen={openWorkspace} />
+
+            {/* ── Prospecting queue ── */}
             <section>
               <div className="mb-3 flex items-center gap-1.5 overflow-x-auto">
                 {BUCKETS.map((b) => {
@@ -252,8 +256,8 @@ export function ProspectingCockpit({
               {visible.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border bg-surface-1 px-6 py-16 text-center">
                   <PhoneCall className="mx-auto h-8 w-8 text-muted-foreground" />
-                  <p className="mt-3 text-sm font-medium text-foreground">Queue clear</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Nothing needs a call in this view. Strong work.</p>
+                  <p className="mt-3 text-sm font-medium text-foreground">You&apos;re clear for now</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Add leads or import a call list to keep the momentum going.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -305,6 +309,16 @@ export function ProspectingCockpit({
   )
 }
 
+// ── Completion-state messaging (Priority 2) ──
+function completionState(pct: number, goalHit: boolean): { stage: string; message: string; tone: string } {
+  if (goalHit) return { stage: 'Complete', message: 'You won today. Every call after this is a bonus.', tone: 'text-emerald-400' }
+  if (pct <= 0) return { stage: 'Ready', message: 'Start with one call.', tone: 'text-primary' }
+  if (pct < 25) return { stage: 'Warming up', message: 'Good start. Build momentum.', tone: 'text-primary' }
+  if (pct < 50) return { stage: 'Building', message: "You're moving. Keep stacking wins.", tone: 'text-primary' }
+  if (pct < 75) return { stage: 'Halfway', message: 'Halfway there — hold the pace.', tone: 'text-amber-400' }
+  return { stage: 'Almost there', message: 'Finish strong.', tone: 'text-amber-400' }
+}
+
 function coachTone(tone: CoachLine['tone']): string {
   return tone === 'good' ? 'text-emerald-400' : tone === 'warn' ? 'text-amber-400' : tone === 'urgent' ? 'text-red-400' : 'text-muted-foreground'
 }
@@ -313,14 +327,18 @@ function StreakChip({ streak }: { streak: ProspectingStreak }) {
   if (streak.current <= 0) {
     return (
       <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-1 px-3 py-1.5 text-xs font-medium text-muted-foreground">
-        <span className="opacity-60">🔥</span> Start your streak today.
+        <span className="opacity-60">🔥</span> Start your streak with one logged call.
       </div>
     )
   }
+  const milestone = streak.current >= 30 ? 'on fire' : streak.current >= 7 ? 'keep it alive' : 'momentum building'
   return (
-    <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-sm font-semibold text-amber-300">
-      <span>🔥</span> {streak.current} Day Streak
-      {!streak.todayLogged && <span className="text-2xs font-medium text-amber-300/70">· keep it alive</span>}
+    <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-amber-300">
+      <span className="text-sm font-semibold"><span aria-hidden>🔥</span> {streak.current}-day streak</span>
+      <span className="text-2xs font-medium text-amber-300/70">· {milestone}</span>
+      {streak.best > 1 && streak.best > streak.current && (
+        <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-2xs font-medium">Best {streak.best}</span>
+      )}
     </div>
   )
 }
@@ -352,6 +370,84 @@ function MomentumCard({ label, completed, goal }: { label: string; completed: nu
       </div>
     </div>
   )
+}
+
+// ── Goal/pace tie-in (Priority 6) ──
+function PaceCard({ targets }: { targets: PeriodCallTargets }) {
+  const prod = targets.production
+  const plan = prod
+    ? prod.incomeTarget != null
+      ? ` — keeping you on pace for your ${prod.name} ($${prod.incomeTarget.toLocaleString()} plan).`
+      : ` — keeping you on pace for your ${prod.name}.`
+    : '.'
+  return (
+    <section className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+          <TrendingUp className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Why this matters</p>
+          <p className="mt-0.5 text-sm text-foreground">
+            Today&apos;s <span className="font-semibold tabular-nums">{targets.daily}</span> calls build toward{' '}
+            <span className="font-semibold tabular-nums">{targets.weekly.toLocaleString()}</span> this week,{' '}
+            <span className="font-semibold tabular-nums">{targets.monthly.toLocaleString()}</span> this month, and{' '}
+            <span className="font-semibold tabular-nums">{targets.yearly.toLocaleString()}</span> this year{plan}
+          </p>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ── Contacted today (Priority 3) ──
+function ContactedToday({ items, onOpen }: { items: ContactedTodayItem[]; onOpen: (t: { recordId: string; title: string }) => void }) {
+  const MAX = 6
+  return (
+    <section>
+      <h2 className="mb-2 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <CheckCircle2 className="h-3.5 w-3.5" /> Contacted today
+        {items.length > 0 && <span className="tabular-nums text-muted-foreground/60">· {items.length}</span>}
+      </h2>
+      {items.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border bg-surface-1 px-6 py-8 text-center">
+          <p className="text-sm font-medium text-foreground">No calls logged yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">Make your first call to start today&apos;s progress.</p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border bg-card divide-y divide-border">
+          {items.slice(0, MAX).map((it, i) => {
+            const b = outcomeBadge(it.channel, it.outcome)
+            return (
+              <div key={`${it.recordId}-${i}`} className="flex items-center justify-between gap-3 px-3 py-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-emerald-400/70" />
+                  <button onClick={() => onOpen({ recordId: it.recordId, title: it.title })} className="truncate text-sm text-foreground hover:underline">{it.title}</button>
+                </div>
+                <div className="flex flex-shrink-0 items-center gap-2">
+                  <span className={cn('rounded-full px-1.5 py-0.5 text-2xs font-medium', b.cls)}>{b.label}</span>
+                  <span className="text-2xs tabular-nums text-muted-foreground">{formatTime(it.occurredAt)}</span>
+                </div>
+              </div>
+            )
+          })}
+          {items.length > MAX && (
+            <p className="px-3 py-2 text-2xs text-muted-foreground">+{items.length - MAX} more contacted today</p>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function outcomeBadge(channel: string, outcome: string | null): { label: string; cls: string } {
+  const label = outcome ? (OUTCOME_LABEL[outcome as CommunicationOutcome] ?? outcome) : channel
+  if (isBookedAppointment(channel, outcome)) return { label, cls: 'bg-violet-500/10 text-violet-300' }
+  if (isConnect(outcome)) return { label, cls: 'bg-emerald-500/10 text-emerald-300' }
+  if (outcome === 'no_answer' || outcome === 'voicemail' || outcome === 'left_message' || outcome === 'follow_up_needed') {
+    return { label, cls: 'bg-amber-500/10 text-amber-300' }
+  }
+  return { label, cls: 'bg-surface-2 text-muted-foreground' }
 }
 
 function SessionControl({ organizationId, session, liveStats, pending, startTransition, router, callGoal }: {
@@ -465,7 +561,14 @@ function OutcomeButton({ icon: I, label, hint, tone, disabled, onClick }: { icon
 }
 
 function SessionHistory({ sessions }: { sessions: SessionRow[] }) {
-  if (sessions.length === 0) return null
+  if (sessions.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-border bg-surface-1 p-3 text-center">
+        <p className="text-xs font-medium text-foreground">No sessions yet</p>
+        <p className="mt-0.5 text-2xs text-muted-foreground">Start a session to track today&apos;s momentum.</p>
+      </div>
+    )
+  }
   return (
     <div className="rounded-lg border border-border bg-surface-1 p-3">
       <h2 className="mb-2 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -524,6 +627,9 @@ function lastContactLabel(days: number | null): string {
   return `Last contact ${days} days ago`
 }
 
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+}
 function formatDay(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
 }

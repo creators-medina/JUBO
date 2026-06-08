@@ -67,6 +67,13 @@ export type ProspectingMetrics = {
 /** Where a call target came from (mirrors target/index.ts CallTargetSource). */
 export type CallTargetSource = 'session' | 'profile' | 'goal' | 'default'
 
+/** Production-goal context for the "why this matters" pace tie-in (display-only). */
+export type ProductionContext = {
+  name: string
+  incomeTarget: number | null   // target_revenue, if set
+  timeframe: string             // e.g. "yearly"
+}
+
 /**
  * Daily/weekly/monthly/yearly call targets for the momentum section. Period
  * targets come from goal_targets when present, else scale off the daily target.
@@ -79,12 +86,23 @@ export type PeriodCallTargets = {
   yearly: number
   source: CallTargetSource
   label: string
+  production: ProductionContext | null
 }
 
 /** Prospecting streak — consecutive calendar days with at least one call. */
 export type ProspectingStreak = {
   current: number       // consecutive days, counting back from today/yesterday
+  best: number          // longest run within the lookback window
   todayLogged: boolean  // whether today already has a logged call
+}
+
+/** A call/contact logged today (for the "Contacted Today" list). */
+export type ContactedTodayItem = {
+  recordId: string
+  title: string
+  channel: string
+  outcome: string | null
+  occurredAt: string
 }
 
 export type SessionRow = {
