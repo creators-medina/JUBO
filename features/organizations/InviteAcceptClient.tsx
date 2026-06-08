@@ -4,7 +4,6 @@ import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Command, Check, AlertCircle, LogIn, UserPlus } from 'lucide-react'
-import { useToast } from '@/features/feedback/ToastProvider'
 import { acceptInvitation } from './invites'
 import type { InvitationPreview } from './queries'
 
@@ -32,9 +31,9 @@ export function InviteAcceptClient({
   currentEmail: string | null
 }) {
   const router = useRouter()
-  const toast = useToast()
   const [pending, startTransition] = useTransition()
   const [done, setDone] = useState(false)
+  const [acceptError, setAcceptError] = useState<string | null>(null)
 
   // Persist the token so the user can return here after signing up / logging in.
   useEffect(() => {
@@ -51,15 +50,21 @@ export function InviteAcceptClient({
 
   const accept = () => {
     if (!token) return
+    setAcceptError(null)
     startTransition(async () => {
-      const res = await acceptInvitation(token)
+      let res
+      try {
+        res = await acceptInvitation(token)
+      } catch {
+        setAcceptError('Something went wrong accepting the invitation. Please try again.')
+        return
+      }
       if ('error' in res) {
-        toast.error(ACCEPT_ERRORS[res.error] ?? 'Could not accept the invitation.')
+        setAcceptError(ACCEPT_ERRORS[res.error] ?? 'Could not accept the invitation.')
         return
       }
       try { sessionStorage.removeItem(STORAGE_KEY) } catch {}
       setDone(true)
-      toast.success(res.alreadyMember ? `You're already in ${res.organizationName}` : `Welcome to ${res.organizationName}!`)
       router.push('/today')
       router.refresh()
     })
@@ -100,13 +105,18 @@ export function InviteAcceptClient({
                 <span className="font-medium">{currentEmail}</span>. Sign in with the invited email to accept.
               </div>
             ) : isLoggedIn ? (
-              <button
-                onClick={accept}
-                disabled={pending}
-                className="mt-5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-              >
-                {pending ? 'Joining…' : <><Check className="h-3.5 w-3.5" /> Join {preview.organizationName}</>}
-              </button>
+              <>
+                <button
+                  onClick={accept}
+                  disabled={pending}
+                  className="mt-5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {pending ? 'Joining…' : <><Check className="h-3.5 w-3.5" /> Join {preview.organizationName}</>}
+                </button>
+                {acceptError && (
+                  <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">{acceptError}</p>
+                )}
+              </>
             ) : (
               <div className="mt-5 space-y-2">
                 <p className="text-2xs text-muted-foreground">Sign in or create your account to join.</p>

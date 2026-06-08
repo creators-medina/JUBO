@@ -10,8 +10,15 @@ export default async function InviteAcceptPage({
   searchParams: Promise<{ token?: string }>
 }) {
   const { token } = await searchParams
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+
+  // Auth is optional here — previewing an invite must work logged-out. Any
+  // failure resolving the session must not crash the public page.
+  let user = null
+  try {
+    const supabase = await createClient()
+    const res = await supabase.auth.getUser()
+    user = res.data.user
+  } catch { /* treat as logged-out */ }
 
   const preview = token ? await getInvitationPreview(token) : { found: false }
 

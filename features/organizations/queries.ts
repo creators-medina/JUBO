@@ -12,17 +12,24 @@ export type InvitationPreview = {
 
 /** Resolve an invite token to display details. Works for logged-out users (DEFINER RPC). */
 export async function getInvitationPreview(token: string): Promise<InvitationPreview> {
-  const supabase = await createClient()
-  const { data } = await supabase.rpc('invitation_preview', { p_token_hash: hashToken(token) })
-  const r = (data ?? { found: false }) as Record<string, unknown>
-  if (!r.found) return { found: false }
-  return {
-    found: true,
-    email: r.email as string,
-    role: r.role as string,
-    status: r.status as string,
-    expired: !!r.expired,
-    organizationName: r.organization_name as string,
+  // Never throw — the public invite page renders this for logged-out users and
+  // must degrade to a friendly "invalid link" state on any failure.
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase.rpc('invitation_preview', { p_token_hash: hashToken(token) })
+    if (error) return { found: false }
+    const r = (data ?? { found: false }) as Record<string, unknown>
+    if (!r.found) return { found: false }
+    return {
+      found: true,
+      email: r.email as string,
+      role: r.role as string,
+      status: r.status as string,
+      expired: !!r.expired,
+      organizationName: r.organization_name as string,
+    }
+  } catch {
+    return { found: false }
   }
 }
 
