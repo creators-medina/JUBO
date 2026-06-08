@@ -7,6 +7,8 @@ import { useDroppable } from '@dnd-kit/core'
 import { BoardRecordRow } from './BoardRecordRow'
 import { updateBoardGroup } from '@/features/boards/actions'
 import { EditableColumnHeader } from './EditableColumnHeader'
+import { PremiumSurface } from '@/components/primitives/PremiumSurface'
+import { formatVolume } from './BoardStageSummary'
 import { cn } from '@/lib/utils'
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#64748b']
@@ -20,6 +22,8 @@ interface Props {
   boardId: string
   hasActiveFilters: boolean
   totalCount: number
+  valueTotal?: number
+  emphasized?: boolean
   subitemsByParent?: Record<string, any[]>
   selectedIds?: Set<string>
   onToggleSelect?: (id: string) => void
@@ -39,6 +43,8 @@ export function BoardGroupTable({
   boardId,
   hasActiveFilters,
   totalCount,
+  valueTotal = 0,
+  emphasized = false,
   subitemsByParent,
   selectedIds,
   onToggleSelect,
@@ -77,8 +83,10 @@ export function BoardGroupTable({
     router.refresh()
   }
 
+  const avgValue = valueTotal > 0 && totalCount > 0 ? valueTotal / totalCount : 0
+
   return (
-    <div className="mb-5" ref={setDropRef}>
+    <div className="mb-5" ref={setDropRef} id={`group-${group.id}`} style={{ scrollMarginTop: 12 }}>
       {/* Group header */}
       <div className={cn(
         'flex items-center gap-2 mb-1 px-1 py-1 rounded-md transition-colors group',
@@ -132,10 +140,18 @@ export function BoardGroupTable({
           </button>
         )}
 
-        <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={onAddRecord} className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors" title="Add record">
-            <Plus className="w-3.5 h-3.5" />
-          </button>
+        <div className="ml-auto flex items-center gap-3">
+          {valueTotal > 0 && (
+            <span className="hidden sm:inline text-2xs text-muted-foreground tabular-nums">
+              Volume <span className="font-medium text-foreground">{formatVolume(valueTotal)}</span>
+              {avgValue > 0 && <> · Avg <span className="font-medium text-foreground">{formatVolume(avgValue)}</span></>}
+            </span>
+          )}
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={onAddRecord} className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors" title="Add record">
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -147,10 +163,7 @@ export function BoardGroupTable({
       )}
 
       {!collapsed && (
-        <div className={cn(
-          'overflow-x-auto rounded-lg border transition-colors',
-          isOver ? 'border-primary/50 bg-primary/5' : 'border-border'
-        )}>
+        <TablePanel emphasized={emphasized} isOver={isOver}>
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-1">
@@ -225,8 +238,31 @@ export function BoardGroupTable({
               )}
             </tbody>
           </table>
-        </div>
+        </TablePanel>
       )}
     </div>
+  )
+}
+
+// Framed panel for a group's table. The active stage earns the 34D-A premium
+// edge; others keep the clean bordered frame. overflow-x-auto stays on the
+// inner element (never on .premium-surface) so horizontal scroll + sticky
+// columns keep working.
+function TablePanel({ emphasized, isOver, children }: { emphasized: boolean; isOver: boolean; children: React.ReactNode }) {
+  const inner = (
+    <div className={cn(
+      'overflow-x-auto rounded-lg',
+      !emphasized && (isOver ? 'border border-primary/50 bg-primary/5' : 'border border-border'),
+    )}>
+      {children}
+    </div>
+  )
+  if (!emphasized) return inner
+  // p-px insets the table so the 1px gradient edge stays visible (content is
+  // lifted above the decoration layer in .premium-surface).
+  return (
+    <PremiumSurface className={cn('rounded-lg p-px transition-shadow', isOver && 'ring-1 ring-primary/40')}>
+      {inner}
+    </PremiumSurface>
   )
 }

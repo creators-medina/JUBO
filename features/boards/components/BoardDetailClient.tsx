@@ -13,6 +13,7 @@ import { CreateFieldModal } from '@/features/fields/components/CreateFieldModal'
 import { CreateRecordModal } from '@/features/records/components/CreateRecordModal'
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { BoardGroupTable } from './BoardGroupTable'
+import { BoardStageSummary } from './BoardStageSummary'
 import { BoardSettingsModal } from './BoardSettingsModal'
 import { BulkActionBar } from './BulkActionBar'
 import { DragOverlayRow } from './DragOverlayRow'
@@ -224,6 +225,29 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
     }, {}),
   [topLevelRecords, groups])
 
+  // Per-stage pipeline volume — sum of existing record `value` (no new schema/math).
+  const valueByGroup = useMemo(() =>
+    groups.reduce<Record<string, number>>((acc, g) => {
+      acc[g.id] = topLevelRecords
+        .filter((r: any) => r.group_id === g.id)
+        .reduce((sum: number, r: any) => sum + (Number(r.value) || 0), 0)
+      return acc
+    }, {}),
+  [topLevelRecords, groups])
+
+  const hasAnyValue = useMemo(() => Object.values(valueByGroup).some((v) => v > 0), [valueByGroup])
+
+  // The "active" stage to emphasize: most pipeline volume, else most records.
+  const emphasizedGroupId = useMemo(() => {
+    let best: string | null = null
+    let bestScore = 0
+    for (const g of groups) {
+      const score = hasAnyValue ? (valueByGroup[g.id] ?? 0) : (totalByGroup[g.id] ?? 0)
+      if (score > bestScore) { bestScore = score; best = g.id }
+    }
+    return best
+  }, [groups, valueByGroup, totalByGroup, hasAnyValue])
+
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col h-full min-h-0">
@@ -343,43 +367,58 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
         </div>
 
         {/* Board content */}
-        <div className="flex-1 overflow-y-auto overflow-x-auto px-4 py-4">
-          {groups.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <EmptyState icon={Columns3} title="No groups yet" description="Add your first group to start organizing records in this board.">
-                <Button size="sm" onClick={() => setShowCreateGroup(true)}>
-                  <Plus className="w-3.5 h-3.5 mr-1.5" />Add first group
-                </Button>
-              </EmptyState>
-            </div>
-          ) : (
-            <div className="min-w-max">
-              {groups.map(group => (
-                <BoardGroupTable
-                  key={group.id}
-                  group={group}
-                  records={filteredByGroup[group.id] ?? []}
-                  fields={fields}
-                  fieldValuesIndex={fieldValuesIndex}
-                  groups={groups}
-                  boardId={board.id}
-                  hasActiveFilters={hasActiveFilters}
-                  totalCount={totalByGroup[group.id] ?? 0}
-                  subitemsByParent={subitemsByParent}
-                  selectedIds={selectedIds}
-                  onToggleSelect={toggleSelect}
-                  onToggleSelectMany={toggleSelectMany}
-                  onAddRecord={() => setShowCreateRecord(group.id)}
-                  onAddField={() => setShowCreateField(true)}
-                  onSelectRecord={id => {
-                    const r = localRecords.find((x: any) => x.id === id)
-                    openWorkspace({ recordId: id, title: r?.title ?? 'Record' })
-                  }}
-                  onOptimisticMove={handleOptimisticMove}
-                />
-              ))}
+        <div className="flex flex-1 min-h-0 flex-col">
+          {groups.length > 1 && (
+            <div className="flex-shrink-0 px-4 pt-4">
+              <BoardStageSummary
+                groups={groups}
+                countByGroup={totalByGroup}
+                valueByGroup={valueByGroup}
+                hasValues={hasAnyValue}
+                emphasizedGroupId={emphasizedGroupId}
+              />
             </div>
           )}
+          <div className="flex-1 overflow-y-auto overflow-x-auto px-4 py-4">
+            {groups.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <EmptyState icon={Columns3} title="No groups yet" description="Add your first group to start organizing records in this board.">
+                  <Button size="sm" onClick={() => setShowCreateGroup(true)}>
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />Add first group
+                  </Button>
+                </EmptyState>
+              </div>
+            ) : (
+              <div className="min-w-max">
+                {groups.map(group => (
+                  <BoardGroupTable
+                    key={group.id}
+                    group={group}
+                    records={filteredByGroup[group.id] ?? []}
+                    fields={fields}
+                    fieldValuesIndex={fieldValuesIndex}
+                    groups={groups}
+                    boardId={board.id}
+                    hasActiveFilters={hasActiveFilters}
+                    totalCount={totalByGroup[group.id] ?? 0}
+                    valueTotal={valueByGroup[group.id] ?? 0}
+                    emphasized={group.id === emphasizedGroupId}
+                    subitemsByParent={subitemsByParent}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleSelect}
+                    onToggleSelectMany={toggleSelectMany}
+                    onAddRecord={() => setShowCreateRecord(group.id)}
+                    onAddField={() => setShowCreateField(true)}
+                    onSelectRecord={id => {
+                      const r = localRecords.find((x: any) => x.id === id)
+                      openWorkspace({ recordId: id, title: r?.title ?? 'Record' })
+                    }}
+                    onOptimisticMove={handleOptimisticMove}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Modals */}
