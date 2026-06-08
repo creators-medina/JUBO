@@ -59,6 +59,7 @@ export default async function BusinessPlanPage() {
         machineTitle="The machine — what your income requires"
         notesTitle="Why this works"
         notesPosition="after-focus"
+        framedHero
         emptyState={
           <section className="rounded-2xl border border-dashed border-border bg-surface-1 p-10 text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 text-primary">

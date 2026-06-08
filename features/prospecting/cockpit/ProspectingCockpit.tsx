@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProgressRing } from '@/components/primitives/ProgressRing'
+import { PremiumSurface } from '@/components/primitives/PremiumSurface'
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { useToast } from '@/features/feedback/ToastProvider'
 import { quickCallOutcome } from '@/features/communications/actions'
@@ -165,8 +166,8 @@ export function ProspectingCockpit({
           <div className="space-y-5 p-6">
 
             {/* ── Hero: what to do next + progress + streak + completion message ── */}
-            <section className={cn('rounded-2xl border bg-gradient-to-br from-surface-1 via-card to-surface-1 p-6 transition-all',
-              goalHit ? 'border-emerald-500/40 ring-1 ring-emerald-500/15' : 'border-border')}>
+            <PremiumSurface sweep tone={goalHit ? 'achievement' : 'default'}
+              className="rounded-2xl bg-gradient-to-br from-surface-1 via-card to-surface-1 p-6">
               <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-center lg:gap-8">
                 <div className="flex flex-col items-center gap-3">
                   <ProgressRing percent={goalPct} complete={goalHit} size={172} stroke={13}>
@@ -203,7 +204,7 @@ export function ProspectingCockpit({
                   </div>
                 </div>
               </div>
-            </section>
+            </PremiumSurface>
 
             {/* ── Momentum: Today / Week / Month / Year ── */}
             <section>
@@ -222,7 +223,7 @@ export function ProspectingCockpit({
             <PaceCard targets={targets} />
 
             {/* ── Theme Day banner ── */}
-            <section className="overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-r from-primary/15 via-primary/[0.06] to-transparent p-5">
+            <PremiumSurface sweep className="rounded-2xl bg-gradient-to-r from-primary/15 via-primary/[0.06] to-transparent p-5">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
                   <Flame className="h-6 w-6" />
@@ -233,7 +234,7 @@ export function ProspectingCockpit({
                   <p className="text-sm text-muted-foreground">{themeDay.coaching}</p>
                 </div>
               </div>
-            </section>
+            </PremiumSurface>
 
             {/* ── Contacted today ── */}
             <ContactedToday items={contactedToday} onOpen={openWorkspace} />
@@ -356,8 +357,8 @@ function HeroStat({ label, value, accent, warn }: { label: string; value: number
 function MomentumCard({ label, completed, goal }: { label: string; completed: number; goal: number }) {
   const pct = goal > 0 ? Math.min(100, Math.round((completed / goal) * 100)) : 0
   const done = goal > 0 && completed >= goal
-  return (
-    <div className="rounded-xl border border-border bg-card p-3">
+  const inner = (
+    <>
       <div className="flex items-center justify-between">
         <span className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
         <span className={cn('text-2xs font-semibold tabular-nums', done ? 'text-emerald-400' : 'text-muted-foreground')}>{pct}%</span>
@@ -369,7 +370,13 @@ function MomentumCard({ label, completed, goal }: { label: string; completed: nu
       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
         <div className={cn('h-full rounded-full transition-all duration-700 ease-out', done ? 'bg-emerald-400' : 'bg-primary')} style={{ width: `${pct}%` }} />
       </div>
-    </div>
+    </>
+  )
+  // Goal-achievement state earns the premium achievement frame.
+  return done ? (
+    <PremiumSurface tone="achievement" className="rounded-xl bg-card p-3">{inner}</PremiumSurface>
+  ) : (
+    <div className="rounded-xl border border-border bg-card p-3">{inner}</div>
   )
 }
 
@@ -382,7 +389,7 @@ function PaceCard({ targets }: { targets: PeriodCallTargets }) {
       : ` — keeping you on pace for your ${prod.name}.`
     : '.'
   return (
-    <section className="rounded-xl border border-border bg-card p-4">
+    <PremiumSurface className="rounded-xl bg-card p-4">
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
           <TrendingUp className="h-5 w-5" />
@@ -400,7 +407,7 @@ function PaceCard({ targets }: { targets: PeriodCallTargets }) {
           </Link>
         </div>
       </div>
-    </section>
+    </PremiumSurface>
   )
 }
 

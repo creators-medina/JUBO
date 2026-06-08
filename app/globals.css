@@ -166,3 +166,87 @@
   font-size: var(--font-size-2xs);
   line-height: var(--line-height-2xs);
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Premium surface system (Phase 34D-A)
+   A framed surface with a subtle multi-color edge (pink/violet/blue/teal/gold)
+   and an occasional, slow light sweep. CSS-only. Decorations live on pseudo-
+   elements below the content (children are lifted to z-1), so text stays crisp
+   and contrast is unaffected. Applied to <10% of the UI — heroes & key cards.
+   ─────────────────────────────────────────────────────────────────────────── */
+.premium-surface {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+/* Keep real content above the decorative layers without changing layout. */
+.premium-surface > * {
+  position: relative;
+  z-index: 1;
+}
+/* Multi-color edge: a 1px gradient ring drawn only on the border via mask. */
+.premium-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    oklch(0.74 0.17 350 / 0.34),  /* pink */
+    oklch(0.66 0.19 290 / 0.30),  /* violet */
+    oklch(0.66 0.16 250 / 0.26),  /* blue */
+    oklch(0.74 0.11 195 / 0.24),  /* teal */
+    oklch(0.82 0.13 85 / 0.30)    /* gold */
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  z-index: 0;
+}
+/* Occasional light sweep — a narrow highlight that crosses once, then rests.
+   ~26s cycle, visible for ~3s. Transform + opacity only (compositor-friendly). */
+.premium-surface--sweep::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    oklch(1 0 0 / 0.07) 50%,
+    transparent 100%
+  );
+  transform: translateX(-170%);
+  animation: premium-sweep 26s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+@keyframes premium-sweep {
+  0%   { transform: translateX(-170%); opacity: 0; }
+  4%   { opacity: 1; }
+  13%  { transform: translateX(330%); opacity: 1; }
+  16%  { opacity: 0; }
+  100% { transform: translateX(330%); opacity: 0; }
+}
+/* Achievement state — a warmer emerald→gold edge + a soft static halo. */
+.premium-surface--achievement::before {
+  background: linear-gradient(
+    135deg,
+    oklch(0.80 0.15 150 / 0.45),  /* emerald */
+    oklch(0.82 0.13 85 / 0.42)    /* gold */
+  );
+}
+.premium-surface--achievement {
+  box-shadow: 0 0 42px -18px oklch(0.80 0.15 150 / 0.40);
+}
+/* Respect reduced motion — the frame stays, the sweep does not. */
+@media (prefers-reduced-motion: reduce) {
+  .premium-surface--sweep::after {
+    animation: none;
+    opacity: 0;
+  }
+}

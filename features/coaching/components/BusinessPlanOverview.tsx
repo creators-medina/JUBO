@@ -11,6 +11,7 @@ import {
   Sparkles, ArrowDown, Target, Users, Phone, TrendingUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { PremiumSurface } from '@/components/primitives/PremiumSurface'
 import type { PlanSummary } from './PlanExplanationCard'
 import type { Forecast } from '../types'
 
@@ -29,6 +30,7 @@ export function BusinessPlanOverview({
   machineTitle = "To hit it, here's the plan",
   notesTitle = 'How we got here',
   notesPosition = 'after-machine',
+  framedHero = false,
   emptyState = null,
 }: {
   plan: PlanSummary | null
@@ -42,10 +44,24 @@ export function BusinessPlanOverview({
   notesTitle?: string
   /** Where the "how we got here / why this works" notes render. */
   notesPosition?: 'after-machine' | 'after-focus'
+  /** Wrap the income hero in a premium framed surface (Business Plan page). */
+  framedHero?: boolean
   /** Rendered in place of the plan when there is no plan yet. */
   emptyState?: React.ReactNode
 }) {
   if (!plan) return <>{emptyState}</>
+
+  const incomeInner = (
+    <>
+      <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{goalLabel}</p>
+      <p className="mt-2 text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
+        {fmtCurrency(plan.incomeGoal)}
+      </p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        in income — that&apos;s <span className="text-foreground font-medium">{Math.ceil(plan.closingTarget)}</span> funded loans.
+      </p>
+    </>
+  )
 
   const notesBlock = plan.notes.length > 0 ? (
     <div className="mt-6 rounded-xl border border-border bg-card p-4">
@@ -64,15 +80,13 @@ export function BusinessPlanOverview({
   return (
     <>
       {/* ① Income goal */}
-      <section className="text-center">
-        <p className="text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{goalLabel}</p>
-        <p className="mt-2 text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
-          {fmtCurrency(plan.incomeGoal)}
-        </p>
-        <p className="mt-2 text-sm text-muted-foreground">
-          in income — that&apos;s <span className="text-foreground font-medium">{Math.ceil(plan.closingTarget)}</span> funded loans.
-        </p>
-      </section>
+      {framedHero ? (
+        <PremiumSurface sweep className="rounded-2xl bg-gradient-to-br from-surface-1 via-card to-surface-1 px-6 py-8 text-center">
+          {incomeInner}
+        </PremiumSurface>
+      ) : (
+        <section className="text-center">{incomeInner}</section>
+      )}
 
       {/* ② The machine — reverse-engineered chain */}
       <section className="mt-10">
