@@ -20,9 +20,10 @@
 import * as XLSX from 'xlsx'
 
 export type MondaySubitem = { name: string; owner: string; status: string; date: string }
-export type MondayParent = { title: string; values: Record<string, string>; subitems: MondaySubitem[] }
+export type MondayParent = { title: string; group: string | null; values: Record<string, string>; subitems: MondaySubitem[] }
 export type MondayParseResult = {
   boardName: string
+  groups: string[]          // Monday groups in file order (e.g. [Past Clients, New Past Clients])
   parentHeaders: string[]   // cleaned, excludes Name (title) + Subitems column
   subitemHeaders: string[]  // e.g. [Name, Owner, Status, Date]
   parents: MondayParent[]
@@ -34,6 +35,18 @@ export type MondayParseResult = {
 const norm = (v: unknown) => `${v ?? ''}`.trim().toLowerCase()
 const isBlankRow = (r: unknown[]) => !r || r.every((c) => c == null || `${c}`.trim() === '')
 const DATE_HEADER_RE = /date|birthday|closed|dob|anniversary/i
+
+const isHeaderRow = (r: unknown[]) => norm(r?.[0]) === 'name' && norm(r?.[1]) === 'subitems'
+const isSubitemHeaderRow = (r: unknown[]) => norm(r?.[0]) === 'subitems' && norm(r?.[1]) === 'name'
+/** A row with only the first column filled — a board-title or group marker. */
+const isOnlyCol0 = (r: unknown[]) => {
+  const f = (r ?? []).map((c) => `${c ?? ''}`.trim())
+  return f[0] !== '' && f.slice(1).every((x) => x === '')
+}
+const nextNonBlankIdx = (aoa: unknown[][], from: number) => {
+  for (let j = from; j < aoa.length; j++) if (!isBlankRow(aoa[j] ?? [])) return j
+  return -1
+}
 
 /** Clean a Monday header into a friendly field name (EMAIL → Email). */
 function cleanHeader(h: unknown): string {
@@ -70,52 +83,72 @@ export function detectMondayAoa(aoa: unknown[][]): boolean {
 export function parseMondayAoa(aoa: unknown[][], sheetName: string): MondayParseResult | null {
   const warnings: string[] = []
 
-  // Locate the parent header row.
-  let headerIdx = -1
-  for (let i = 0; i < Math.min(aoa.length, 8); i++) {
-    if (norm(aoa[i]?.[0]) === 'name' && norm(aoa[i]?.[1]) === 'subitems') { headerIdx = i; break }
-  }
-  if (headerIdx < 0) return null
+  // Locate every column-header row. Monday repeats the header once per group.
+  const headerIdxs: number[] = []
+  for (let i = 0; i < aoa.length; i++) if (isHeaderRow(aoa[i] ?? [])) headerIdxs.push(i)
+  if (headerIdxs.length === 0) return null
+  const firstHeaderIdx = headerIdxs[0]
 
-  // Board name = first non-empty col0 in the metadata rows above the header.
-  let boardName = sheetName
-  for (let i = 0; i < headerIdx; i++) {
-    const v = `${aoa[i]?.[0] ?? ''}`.trim()
-    if (v) { boardName = v; break }
+  // Parent data columns come from the header (refreshed if a repeated header
+  // ever differs). col0 = Name/title, col1 = Subitems/ignored, col2+ = fields.
+  let parentCols: { index: number; header: string }[] = []
+  const setParentCols = (row: unknown[]) => {
+    parentCols = []
+    for (let c = 2; c < row.length; c++) {
+      const h = `${row[c] ?? ''}`.trim()
+      if (h) parentCols.push({ index: c, header: cleanHeader(h) })
+    }
   }
-
-  // Parent data columns = indices >= 2 with a non-empty header (col0 = Name/title, col1 = Subitems/ignored).
-  const headerRow = aoa[headerIdx] ?? []
-  const parentCols: { index: number; header: string }[] = []
-  for (let c = 2; c < headerRow.length; c++) {
-    const h = `${headerRow[c] ?? ''}`.trim()
-    if (h) parentCols.push({ index: c, header: cleanHeader(h) })
-  }
+  setParentCols(aoa[firstHeaderIdx] ?? [])
   const parentHeaders = parentCols.map((c) => c.header)
   let subitemHeaders = ['Name', 'Owner', 'Status', 'Date']
 
   const parents: MondayParent[] = []
   let current: MondayParent | null = null
+  let currentGroup: string | null = null
+  const groups: string[] = []
+  const seenGroups = new Set<string>()
+  const ensureGroup = (name: string) => { if (!seenGroups.has(name)) { seenGroups.add(name); groups.push(name) } }
+  let boardName = sheetName
   let orphanSubitems = 0
 
-  for (let i = headerIdx + 1; i < aoa.length; i++) {
+  for (let i = 0; i < aoa.length; i++) {
     const row = aoa[i] ?? []
     if (isBlankRow(row)) continue
 
-    // Subitem block header → capture layout, never a record.
-    if (norm(row[0]) === 'subitems' && norm(row[1]) === 'name') {
-      subitemHeaders = [
-        cleanHeader(row[1]) || 'Name',
-        cleanHeader(row[2]) || 'Owner',
-        cleanHeader(row[3]) || 'Status',
-        cleanHeader(row[4]) || 'Date',
-      ]
+    // Column-header row (first or a repeated per-group one) — never a record.
+    if (isHeaderRow(row)) { setParentCols(row); continue }
+    // Subitem block header — capture layout, never a record.
+    if (isSubitemHeaderRow(row)) {
+      subitemHeaders = [cleanHeader(row[1]) || 'Name', cleanHeader(row[2]) || 'Owner', cleanHeader(row[3]) || 'Status', cleanHeader(row[4]) || 'Date']
+      continue
+    }
+
+    // A row with only col0 filled is a board-title or a GROUP marker. It's a
+    // group iff the next non-blank row is a column header (Monday repeats the
+    // header under each group); otherwise it's board-title metadata, or — below
+    // the headers — a lone-name parent record.
+    if (isOnlyCol0(row)) {
+      const label = `${row[0] ?? ''}`.trim()
+      const nb = nextNonBlankIdx(aoa, i + 1)
+      if (nb >= 0 && isHeaderRow(aoa[nb] ?? [])) {
+        currentGroup = label
+        ensureGroup(label)
+        continue
+      }
+      if (i < firstHeaderIdx) {
+        if (boardName === sheetName) boardName = label // topmost metadata = board title
+        continue
+      }
+      // lone-name parent (rare): a record with only a name.
+      current = { title: label, group: currentGroup, values: {}, subitems: [] }
+      parents.push(current)
       continue
     }
 
     const col0 = `${row[0] ?? ''}`.trim()
     if (col0 === '') {
-      // Subitem data row (name in col1) → attach to most recent parent.
+      // col0 blank → subitem data row (name in col1) or a group summary row (col1 also blank → skip).
       const name = `${row[1] ?? ''}`.trim()
       if (!name) continue
       if (!current) { orphanSubitems++; continue }
@@ -139,7 +172,7 @@ export function parseMondayAoa(aoa: unknown[][], sheetName: string): MondayParse
         values[pc.header] = cell == null ? '' : `${cell}`.trim()
       }
     }
-    current = { title: col0, values, subitems: [] }
+    current = { title: col0, group: currentGroup, values, subitems: [] }
     parents.push(current)
   }
 
@@ -148,7 +181,7 @@ export function parseMondayAoa(aoa: unknown[][], sheetName: string): MondayParse
   }
 
   const subitemCount = parents.reduce((sum, p) => sum + p.subitems.length, 0)
-  return { boardName, parentHeaders, subitemHeaders, parents, parentCount: parents.length, subitemCount, warnings }
+  return { boardName, groups, parentHeaders, subitemHeaders, parents, parentCount: parents.length, subitemCount, warnings }
 }
 
 /**

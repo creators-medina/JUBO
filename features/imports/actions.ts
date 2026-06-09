@@ -405,16 +405,18 @@ export async function executeMondayImport(input: {
     { columnIndex: base + 2, name: 'Subitem Date', fieldType: 'date' as FieldType },
   ] : []
 
-  // 2. Provision the board (slug-deduped) + fields + default group.
+  // 2. Provision the board (slug-deduped) + fields + Monday groups (in order).
   const provision = await provisionBoardFromImport({
     organizationId,
     name: parsed.boardName || 'Imported board',
     boardType: 'crm',
     fields: [...parentSpecs, ...subitemSpecs],
-    groups: [],
+    groups: parsed.groups,
   })
   const boardId = provision.boardId
-  const groupId = provision.defaultGroupId
+  const defaultGroupId = provision.defaultGroupId
+  const groupByName = new Map(provision.groups.map((g) => [g.name, g.id]))
+  const groupIdFor = (name: string | null) => (name ? groupByName.get(name) : undefined) ?? defaultGroupId
   const byCol = new Map(provision.fields.map((f) => [f.columnIndex, f]))
   const parentFieldByHeader = new Map(parentSpecs.map((s) => [s.name, byCol.get(s.columnIndex)!]))
   const ownerField = hasSubitems ? byCol.get(base) : undefined
@@ -424,12 +426,13 @@ export async function executeMondayImport(input: {
   let importId = ''
   try {
     importId = await createImportRun({
-      organizationId, boardId, groupId,
+      organizationId, boardId, groupId: defaultGroupId,
       sourceType: 'monday', templateKey: null,
       fileName: `${parsed.boardName} (Monday export)`,
       rowCount: parsed.parentCount + parsed.subitemCount,
       mapping: {
         mode: 'monday', boardName: parsed.boardName,
+        groups: parsed.groups,
         parentHeaders: parsed.parentHeaders, subitemHeaders: parsed.subitemHeaders,
         parentCount: parsed.parentCount, subitemCount: parsed.subitemCount,
         warnings: parsed.warnings,
@@ -440,8 +443,9 @@ export async function executeMondayImport(input: {
   let failed = 0
 
   // 3. Parent records (bulk insert preserves order — same pattern as executeImportChunk).
+  //    Each parent lands in its Monday group (fallback: default group).
   const parentInserts = parsed.parents.map((p) => ({
-    organization_id: organizationId, board_id: boardId, group_id: groupId,
+    organization_id: organizationId, board_id: boardId, group_id: groupIdFor(p.group),
     title: p.title.trim() || 'Untitled', record_type: 'contact' as RecordType,
     owner_user_id: user.id, created_by: user.id,
   }))
@@ -468,14 +472,14 @@ export async function executeMondayImport(input: {
   // 5. Subitems → child records (parent_record_id) + their field values.
   let subitemsImported = 0
   if (hasSubitems) {
-    const flat: { parentId: string; s: typeof parsed.parents[number]['subitems'][number] }[] = []
+    const flat: { parentId: string; groupId: string; s: typeof parsed.parents[number]['subitems'][number] }[] = []
     parsed.parents.forEach((p, i) => {
       const parentId = (createdParents[i] as { id: string }).id
-      for (const s of p.subitems) flat.push({ parentId, s })
+      for (const s of p.subitems) flat.push({ parentId, groupId: groupIdFor(p.group), s })
     })
     if (flat.length > 0) {
-      const subInserts = flat.map(({ parentId, s }) => ({
-        organization_id: organizationId, board_id: boardId, group_id: groupId,
+      const subInserts = flat.map(({ parentId, groupId: gid, s }) => ({
+        organization_id: organizationId, board_id: boardId, group_id: gid,
         parent_record_id: parentId, title: s.name.trim() || 'Subitem',
         record_type: 'contact' as RecordType, owner_user_id: user.id, created_by: user.id,
       }))

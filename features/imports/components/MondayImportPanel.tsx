@@ -95,7 +95,25 @@ export function MondayImportPanel({
       <div className="mt-4 flex flex-wrap gap-3">
         <Stat label="parent items" value={monday.parentCount} tone="green" />
         <Stat label="subitems" value={monday.subitemCount} tone={hasSubitems ? 'green' : undefined} />
+        <Stat label="groups" value={monday.groups.length} tone={monday.groups.length > 0 ? 'green' : undefined} />
       </div>
+
+      {monday.groups.length > 0 && (
+        <div className="mt-4 rounded-xl border border-border bg-card p-4">
+          <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Groups</p>
+          <ul className="mt-2 space-y-1">
+            {monday.groups.map((g) => {
+              const count = monday.parents.filter((p) => p.group === g).length
+              return (
+                <li key={g} className="flex items-center justify-between text-xs">
+                  <span className="text-foreground">{g}</span>
+                  <span className="text-muted-foreground">{count} item{count === 1 ? '' : 's'}</span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border border-border bg-card p-4">
