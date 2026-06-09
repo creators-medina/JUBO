@@ -9,6 +9,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { parseFile } from '../parsers'
+import { tryParseMondayFile, type MondayParseResult } from '../parsers/mondayXlsx'
+import { MondayImportPanel } from './MondayImportPanel'
 import { autoMapColumns } from '../mapping/autoMap'
 import { importTemplateByKey } from '../templates/importTemplates'
 import {
@@ -55,6 +57,7 @@ export function ImportWizard({
   const template = templateKey ? importTemplateByKey(templateKey) : undefined
 
   const [step, setStep] = useState<Step>('upload')
+  const [monday, setMonday] = useState<MondayParseResult | null>(null)
   const [parsed, setParsed] = useState<ParsedFile | null>(null)
   const [sheetIndex, setSheetIndex] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -160,6 +163,10 @@ export function ImportWizard({
   const handleFile = useCallback(async (file: File) => {
     setError(null); setBusy(true)
     try {
+      // Monday.com exports have a parent/subitem structure that must NOT be
+      // flattened through the generic column mapper — detect + branch first.
+      const md = await tryParseMondayFile(file)
+      if (md) { setMonday(md); return }
       const result = await parseFile(file)
       setParsed(result); setSheetIndex(0)
       setStep('board')
@@ -417,6 +424,11 @@ export function ImportWizard({
 
   // ── Render ──────────────────────────────────────────────────────────────
   const stepIdx = STEPS.findIndex((s) => s.key === (step === 'run' ? 'preview' : step))
+
+  // Monday.com export → dedicated parent/subitem flow (generic wizard untouched).
+  if (monday) {
+    return <MondayImportPanel monday={monday} organizationId={organizationId} onCancel={() => setMonday(null)} />
+  }
 
   return (
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-6 py-8">

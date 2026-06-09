@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { coerceValue } from './validation/typeInference'
+import { statusOptionsFromValues } from '@/features/fields/status'
+import type { MondayParseResult } from './parsers/mondayXlsx'
 import type { BoardType, FieldType, RecordType } from '@/types/database'
 import type {
   AnalyzeResult, RowMatch, DedupeKey, ExecutionRow, ExecuteChunkResult, ImportSourceType,
@@ -363,4 +365,153 @@ export async function provisionBoardFromImport(input: {
 
   revalidatePath('/boards')
   return { boardId, fields: createdFieldsByIndex, groups, defaultGroupId }
+}
+
+// ── Monday.com export import (parents + subitems) ─────────────────────────────
+
+function mondayFieldType(header: string): FieldType {
+  const h = header.toLowerCase()
+  if (/email/.test(h)) return 'email'
+  if (/phone|mobile|cell/.test(h)) return 'phone'
+  if (/date|birthday|closed|dob|anniversary/.test(h)) return 'date'
+  if (/\b(rate|amount|price|volume|score|count|number|qty|balance|fico)\b/.test(h)) return 'number'
+  if (/notes|description|comment/.test(h)) return 'textarea'
+  return 'text'
+}
+
+/**
+ * Import a parsed Monday.com export: provisions a board from the parent headers
+ * (+ subitem fields), creates one record per parent, and attaches each subitem
+ * as a child record (records.parent_record_id). Never creates a "Subitems"
+ * record. Reuses provisionBoardFromImport + coerceValue.
+ */
+export async function executeMondayImport(input: {
+  organizationId: string
+  parsed: MondayParseResult
+}): Promise<{ boardId: string; parentsImported: number; subitemsImported: number; failed: number }> {
+  const { supabase, user } = await requireUser()
+  const { organizationId, parsed } = input
+  const hasSubitems = parsed.subitemCount > 0
+
+  // 1. Field plan: parent fields (by header) + subitem fields (Owner/Status/Date).
+  const parentSpecs = parsed.parentHeaders.map((h, i) => ({
+    columnIndex: i, name: h, fieldType: mondayFieldType(h),
+  }))
+  const base = parsed.parentHeaders.length
+  const subitemStatuses = parsed.parents.flatMap((p) => p.subitems.map((s) => s.status)).filter(Boolean)
+  const subitemSpecs = hasSubitems ? [
+    { columnIndex: base, name: 'Owner', fieldType: 'text' as FieldType },
+    { columnIndex: base + 1, name: 'Status', fieldType: 'select' as FieldType, config: { options: statusOptionsFromValues(subitemStatuses) } },
+    { columnIndex: base + 2, name: 'Subitem Date', fieldType: 'date' as FieldType },
+  ] : []
+
+  // 2. Provision the board (slug-deduped) + fields + default group.
+  const provision = await provisionBoardFromImport({
+    organizationId,
+    name: parsed.boardName || 'Imported board',
+    boardType: 'crm',
+    fields: [...parentSpecs, ...subitemSpecs],
+    groups: [],
+  })
+  const boardId = provision.boardId
+  const groupId = provision.defaultGroupId
+  const byCol = new Map(provision.fields.map((f) => [f.columnIndex, f]))
+  const parentFieldByHeader = new Map(parentSpecs.map((s) => [s.name, byCol.get(s.columnIndex)!]))
+  const ownerField = hasSubitems ? byCol.get(base) : undefined
+  const statusField = hasSubitems ? byCol.get(base + 1) : undefined
+  const dateField = hasSubitems ? byCol.get(base + 2) : undefined
+
+  let importId = ''
+  try {
+    importId = await createImportRun({
+      organizationId, boardId, groupId,
+      sourceType: 'monday', templateKey: null,
+      fileName: `${parsed.boardName} (Monday export)`,
+      rowCount: parsed.parentCount + parsed.subitemCount,
+      mapping: {
+        mode: 'monday', boardName: parsed.boardName,
+        parentHeaders: parsed.parentHeaders, subitemHeaders: parsed.subitemHeaders,
+        parentCount: parsed.parentCount, subitemCount: parsed.subitemCount,
+        warnings: parsed.warnings,
+      },
+    })
+  } catch { /* audit run is best-effort */ }
+
+  let failed = 0
+
+  // 3. Parent records (bulk insert preserves order — same pattern as executeImportChunk).
+  const parentInserts = parsed.parents.map((p) => ({
+    organization_id: organizationId, board_id: boardId, group_id: groupId,
+    title: p.title.trim() || 'Untitled', record_type: 'contact' as RecordType,
+    owner_user_id: user.id, created_by: user.id,
+  }))
+  const { data: createdParents, error: parentErr } = await supabase
+    .from('records').insert(parentInserts).select('id')
+  if (parentErr || !createdParents) throw new Error(parentErr?.message ?? 'Could not create parent records')
+
+  // 4. Parent field values.
+  const parentFv: Record<string, unknown>[] = []
+  parsed.parents.forEach((p, i) => {
+    const rid = (createdParents[i] as { id: string }).id
+    for (const [header, raw] of Object.entries(p.values)) {
+      const f = parentFieldByHeader.get(header)
+      if (!f || !raw) continue
+      const patch = coerceValue(raw, f.field_type)
+      if (patch) parentFv.push({ field_id: f.id, record_id: rid, ...patch })
+    }
+  })
+  if (parentFv.length > 0) {
+    const { error } = await supabase.from('field_values').insert(parentFv)
+    if (error) failed += 1
+  }
+
+  // 5. Subitems → child records (parent_record_id) + their field values.
+  let subitemsImported = 0
+  if (hasSubitems) {
+    const flat: { parentId: string; s: typeof parsed.parents[number]['subitems'][number] }[] = []
+    parsed.parents.forEach((p, i) => {
+      const parentId = (createdParents[i] as { id: string }).id
+      for (const s of p.subitems) flat.push({ parentId, s })
+    })
+    if (flat.length > 0) {
+      const subInserts = flat.map(({ parentId, s }) => ({
+        organization_id: organizationId, board_id: boardId, group_id: groupId,
+        parent_record_id: parentId, title: s.name.trim() || 'Subitem',
+        record_type: 'contact' as RecordType, owner_user_id: user.id, created_by: user.id,
+      }))
+      const { data: createdSubs, error: subErr } = await supabase
+        .from('records').insert(subInserts).select('id')
+      if (subErr || !createdSubs) throw new Error(subErr?.message ?? 'Could not create subitems')
+      subitemsImported = createdSubs.length
+
+      const subFv: Record<string, unknown>[] = []
+      createdSubs.forEach((row, i) => {
+        const rid = (row as { id: string }).id
+        const s = flat[i].s
+        const push = (f: { id: string; field_type: FieldType } | undefined, raw: string) => {
+          if (!f || !raw) return
+          const patch = coerceValue(raw, f.field_type)
+          if (patch) subFv.push({ field_id: f.id, record_id: rid, ...patch })
+        }
+        push(ownerField, s.owner)
+        push(statusField, s.status)
+        push(dateField, s.date)
+      })
+      if (subFv.length > 0) {
+        const { error } = await supabase.from('field_values').insert(subFv)
+        if (error) failed += 1
+      }
+    }
+  }
+
+  if (importId) {
+    try {
+      await finalizeImport(importId, organizationId, {
+        imported: createdParents.length + subitemsImported, updated: 0, skipped: 0, failed, duplicates: 0,
+      })
+    } catch { /* best-effort */ }
+  }
+
+  revalidatePath('/boards')
+  return { boardId, parentsImported: createdParents.length, subitemsImported, failed }
 }
