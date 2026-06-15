@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { defaultStatusOptions } from '@/features/fields/status'
+import { ensureDefaultStatusField } from '@/features/fields/defaultStatus'
 import type { BoardType } from '@/types/database'
 
 export async function createBoard(data: {
@@ -28,19 +28,9 @@ export async function createBoard(data: {
   // Seed a default group so records have a home.
   await supabase.from('board_groups').insert({ board_id: board.id, name: 'New', position: 0 })
 
-  // New CRM boards get a real Monday-style Status field instead of relying on
-  // the (now-hidden) internal records.status column. (Phase 34A.1)
-  if (data.board_type === 'crm') {
-    await supabase.from('fields').insert({
-      organization_id: data.organization_id,
-      board_id: board.id,
-      name: 'Status',
-      slug: 'status',
-      field_type: 'status',
-      config: { options: defaultStatusOptions() },
-      position: 0,
-    })
-  }
+  // Every board gets exactly one default workflow Status field (Phase 34B.2a),
+  // rendered first after Item — replacing the hidden internal records.status.
+  await ensureDefaultStatusField(supabase, board.id, data.organization_id)
 
   revalidatePath('/boards')
 }

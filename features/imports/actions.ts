@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { coerceValue } from './validation/typeInference'
 import { statusOptionsFromValues } from '@/features/fields/status'
+import { ensureDefaultStatusField } from '@/features/fields/defaultStatus'
 import type { MondayParseResult } from './parsers/mondayXlsx'
 import type { BoardType, FieldType, RecordType } from '@/types/database'
 import type {
@@ -281,6 +282,10 @@ export async function provisionBoardFromImport(input: {
   fields: { columnIndex: number; name: string; fieldType: FieldType; config?: Record<string, unknown> }[]
   /** Group names in order. Empty → a single default group named "New". */
   groups: string[]
+  /** How to establish the default workflow status field (Phase 34B.2a):
+   *  'promote' (default) — mark a created status field default, else create one;
+   *  'create' — always create a fresh default (Monday: don't promote subitem status). */
+  defaultStatusMode?: 'promote' | 'create'
 }): Promise<{
   boardId: string
   fields: { columnIndex: number; id: string; field_type: FieldType }[]
@@ -363,6 +368,11 @@ export async function provisionBoardFromImport(input: {
     })
   }
 
+  // Default workflow Status field (Phase 34B.2a): promote a created status
+  // column, or create one. Monday passes 'create' so the subitem status field
+  // is never promoted to the board default.
+  await ensureDefaultStatusField(supabase, boardId, input.organizationId, { forceCreate: input.defaultStatusMode === 'create' })
+
   revalidatePath('/boards')
   return { boardId, fields: createdFieldsByIndex, groups, defaultGroupId }
 }
@@ -401,7 +411,9 @@ export async function executeMondayImport(input: {
   const subitemStatuses = parsed.parents.flatMap((p) => p.subitems.map((s) => s.status)).filter(Boolean)
   const subitemSpecs = hasSubitems ? [
     { columnIndex: base, name: 'Owner', fieldType: 'text' as FieldType },
-    { columnIndex: base + 1, name: 'Status', fieldType: 'status' as FieldType, config: { options: statusOptionsFromValues(subitemStatuses) } },
+    // Named "Subitem Status" so it isn't promoted to the board's default
+    // workflow status (Phase 34B.2a) and doesn't collide with the 'status' slug.
+    { columnIndex: base + 1, name: 'Subitem Status', fieldType: 'status' as FieldType, config: { options: statusOptionsFromValues(subitemStatuses) } },
     { columnIndex: base + 2, name: 'Subitem Date', fieldType: 'date' as FieldType },
   ] : []
 
@@ -412,6 +424,8 @@ export async function executeMondayImport(input: {
     boardType: 'crm',
     fields: [...parentSpecs, ...subitemSpecs],
     groups: parsed.groups,
+    defaultStatusMode: 'create', // don't promote the subitem status field
+
   })
   const boardId = provision.boardId
   const defaultGroupId = provision.defaultGroupId

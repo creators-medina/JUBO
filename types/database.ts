@@ -258,6 +258,7 @@ export interface Database {
           config: Json;
           is_required: boolean;
           position: number;
+          is_default_status: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -272,6 +273,7 @@ export interface Database {
           config?: Json;
           is_required?: boolean;
           position?: number;
+          is_default_status?: boolean;
         };
         Update: Partial<Omit<Database["public"]["Tables"]["fields"]["Insert"], "id" | "organization_id">>;
       };

@@ -9,7 +9,7 @@ import { setWorkflowEnabled } from '../actions'
 import { getMoveTargets, type MoveTargetBoard } from '@/features/records/actions'
 import type { WorkflowRow } from '../types'
 
-type FieldLite = { id: string; name: string; slug: string; field_type: string; config?: unknown }
+type FieldLite = { id: string; name: string; slug: string; field_type: string; config?: unknown; is_default_status?: boolean }
 type GroupLite = { id: string; name: string }
 
 /**
@@ -58,6 +58,11 @@ export function AutomationsModal({
     setLoading(true); setError(null)
     refresh()
     getMoveTargets().then(setTargets).catch(() => setTargets([]))
+    // Default the status dropdown to the board's default workflow status field.
+    if (!fieldId) {
+      const def = statusFields.find((f) => f.is_default_status) ?? statusFields[0]
+      if (def) setFieldId(def.id)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, board.id])
 

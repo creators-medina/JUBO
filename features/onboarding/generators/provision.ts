@@ -22,6 +22,7 @@ import {
   computeEnabledWorkflows,
 } from '../templates'
 import { computePersonalization } from './personalization'
+import { ensureDefaultStatusField } from '@/features/fields/defaultStatus'
 import { mapStarterFunnelStagesToGroups } from './funnelMapping'
 import {
   createFunnel,
@@ -127,6 +128,9 @@ export async function provisionWorkspace(
       if (fErr) throw new Error(`Fields for "${tpl.name}": ${fErr.message}`)
       result.fields += fieldRows.length
     }
+
+    // Every provisioned board gets a default workflow Status field (Phase 34B.2a).
+    await ensureDefaultStatusField(supabase, board.id, organizationId)
   }
 
   // ── 2. Goal: funnel + stages + assumptions + production goal ──────────────

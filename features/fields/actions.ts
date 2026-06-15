@@ -162,6 +162,9 @@ export async function getBoardFields(boardId: string) {
     .from('fields')
     .select('*')
     .eq('board_id', boardId)
+    // Default workflow Status renders first after Item (Phase 34B.2a), then the
+    // rest by position. Deterministic regardless of numeric position drift.
+    .order('is_default_status', { ascending: false })
     .order('position', { ascending: true })
   return data ?? []
 }
