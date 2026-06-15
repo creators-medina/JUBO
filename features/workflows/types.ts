@@ -11,6 +11,7 @@ import type { TaskPriority } from '@/types/database'
 export type WorkflowTriggerType =
   | 'record.created'
   | 'record.updated'
+  | 'record.field_changed'
   | 'record.group_changed'
   | 'no_activity_detected'
   | 'next_action_overdue'
@@ -33,6 +34,14 @@ export type WorkflowEvent = {
   toGroupName?: string | null
   // record.updated: which field slugs changed materially (for payload/audit)
   changedFields?: string[]
+  // record.field_changed context (Phase 34A — status/select cell changes)
+  boardId?: string | null
+  fieldId?: string
+  fieldSlug?: string
+  fieldType?: string
+  fromValue?: string | null
+  toValue?: string | null
+  changedBy?: string | null
   // communication.logged context
   commChannel?: string
   commDirection?: string

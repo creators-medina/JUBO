@@ -30,9 +30,9 @@ export function FieldValueCell({ field, fieldValue }: Props) {
     return <span>{new Date(fieldValue.value_date).toLocaleDateString()}</span>
   }
 
-  if (ft === 'select' && fieldValue.value_text) {
+  if ((ft === 'select' || ft === 'status') && fieldValue.value_text) {
     const opts = parseOptions(field.config)
-    const colored = isColoredStatus(opts)
+    const colored = isColoredStatus(opts) || ft === 'status'
     const opt = opts.find((o) => o.label === fieldValue.value_text)
     if (colored && opt?.color) {
       return (

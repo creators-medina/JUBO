@@ -116,6 +116,15 @@ export async function upsertFieldValue(
   }
 ) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Load field meta + prior value first — needed for change detection so the
+  // status-change event fires only when the value actually changes.
+  const [{ data: field }, { data: prior }] = await Promise.all([
+    supabase.from('fields').select('slug, field_type, organization_id').eq('id', fieldId).maybeSingle(),
+    supabase.from('field_values').select('value_text').eq('field_id', fieldId).eq('record_id', recordId).maybeSingle(),
+  ])
+
   const { error } = await supabase
     .from('field_values')
     .upsert(
@@ -124,6 +133,29 @@ export async function upsertFieldValue(
     )
   if (error) throw new Error(error.message)
   revalidatePath(`/boards/${boardId}`)
+
+  // Phase 34A — emit a workflow-ready event for status/select changes. Fires
+  // only on a real value change; consumed by Phase 34B automations (none yet).
+  const ft = (field as { field_type?: string } | null)?.field_type
+  if ((ft === 'status' || ft === 'select') && Object.prototype.hasOwnProperty.call(value, 'value_text')) {
+    const fromValue = (prior as { value_text?: string | null } | null)?.value_text ?? null
+    const toValue = (value.value_text ?? null) as string | null
+    const orgId = (field as { organization_id?: string } | null)?.organization_id
+    if (fromValue !== toValue && orgId) {
+      await dispatchWorkflowEvent({
+        type: 'record.field_changed',
+        organizationId: orgId,
+        recordId,
+        boardId,
+        fieldId,
+        fieldSlug: (field as { slug?: string } | null)?.slug,
+        fieldType: ft,
+        fromValue,
+        toValue,
+        changedBy: user?.id ?? null,
+      })
+    }
+  }
 }
 
 export async function moveRecord(recordId: string, toGroupId: string, boardId: string) {

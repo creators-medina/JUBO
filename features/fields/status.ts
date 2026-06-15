@@ -4,11 +4,21 @@
 // renderers and cell editors stay simple.
 // ─────────────────────────────────────────────────────────────────────────
 
-export type RawOption = string | { label: string; color?: string; value?: string }
+export type RawOption = string | { id?: string; label: string; color?: string; value?: string }
 
 export type StatusOption = {
+  /** Stable id so the label editor can target an option across rename/recolor. */
+  id?: string
   label: string
   color?: string
+}
+
+/** Generate a stable option id (works in browser + node). */
+export function newOptionId(): string {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  } catch { /* fall through */ }
+  return `opt_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
 }
 
 /** Monday-flavored palette — calm dark-theme hues. Cycled when auto-creating
@@ -38,7 +48,8 @@ export function parseOptions(config: unknown): StatusOption[] {
       const label = `${(o as { label?: string }).label ?? ''}`.trim()
       if (!label) continue
       const color = (o as { color?: string }).color
-      out.push({ label, color: typeof color === 'string' ? color : undefined })
+      const id = (o as { id?: string }).id
+      out.push({ id: typeof id === 'string' ? id : undefined, label, color: typeof color === 'string' ? color : undefined })
     }
   }
   return out
@@ -64,7 +75,21 @@ export function statusOptionsFromValues(values: string[]): StatusOption[] {
     const label = `${v}`.trim()
     if (!label || seen.has(label.toLowerCase())) continue
     seen.add(label.toLowerCase())
-    out.push({ label, color: STATUS_PALETTE[out.length % STATUS_PALETTE.length] })
+    out.push({ id: newOptionId(), label, color: STATUS_PALETTE[out.length % STATUS_PALETTE.length] })
   }
   return out
 }
+
+/** Seed labels for a brand-new Status field (Monday-style defaults, editable). */
+export function defaultStatusOptions(): StatusOption[] {
+  return [
+    { id: newOptionId(), label: 'Not Started', color: '#64748b' },   // gray
+    { id: newOptionId(), label: 'Working On It', color: '#f59e0b' }, // amber
+    { id: newOptionId(), label: 'Stuck', color: '#ef4444' },         // red
+    { id: newOptionId(), label: 'Done', color: '#10b981' },          // green
+    { id: newOptionId(), label: 'Pending', color: '#f97316' },       // orange
+  ]
+}
+
+/** Color for an empty/unset status cell — Monday's neutral gray block. */
+export const STATUS_EMPTY_COLOR = '#3a4252'

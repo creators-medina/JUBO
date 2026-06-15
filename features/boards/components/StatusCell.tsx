@@ -1,11 +1,15 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
-import { Loader2, Check, Plus } from 'lucide-react'
+import { Loader2, Check, Plus, Pencil, X, Trash2 } from 'lucide-react'
 import { upsertFieldValue } from '@/features/records/actions'
-import { updateFieldOptions } from '@/features/fields/actions'
-import { parseOptions, isColoredStatus, nextStatusColor, STATUS_PALETTE, type StatusOption } from '@/features/fields/status'
+import { updateFieldOptions, renameStatusOption } from '@/features/fields/actions'
+import {
+  parseOptions, isColoredStatus, nextStatusColor, newOptionId, STATUS_PALETTE, STATUS_EMPTY_COLOR,
+  type StatusOption,
+} from '@/features/fields/status'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -16,40 +20,41 @@ interface Props {
 }
 
 /**
- * Status/select cell. Renders the current value as a colored pill (status) or
- * plain pill (select). Clicking opens a portal-rendered picker with all options
- * and an inline "Add option" affordance — so a user can populate options without
- * a separate config modal. Adding writes back into fields.config.options.
+ * Monday-style status/select cell. Empty status cells render a neutral gray
+ * block; selected values render a colored label. Clicking opens a picker; an
+ * "Edit labels" mode supports rename (cascades stored values), recolor, add,
+ * and delete. Writes go through fields.config.options + the rename RPC.
  */
 export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
+  const router = useRouter()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<'pick' | 'edit'>('pick')
   const [pos, setPos] = useState<{ top: number; left: number; minWidth: number } | null>(null)
   const [saving, setSaving] = useState(false)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
 
+  const isStatus = field.field_type === 'status'
   const options = parseOptions(field.config)
-  const colored = isColoredStatus(options)
+  const colored = isColoredStatus(options) || isStatus
   const currentLabel = fieldValue?.value_text ?? ''
   const currentOpt = options.find((o) => o.label === currentLabel)
 
-  // Position the popover beneath the trigger, anchored to viewport.
   useEffect(() => {
     if (!open || !triggerRef.current) return
     const r = triggerRef.current.getBoundingClientRect()
-    setPos({ top: r.bottom + 4, left: r.left, minWidth: Math.max(180, r.width) })
+    setPos({ top: r.bottom + 4, left: r.left, minWidth: Math.max(200, r.width) })
   }, [open])
 
-  // Outside-click + Escape to close.
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
       if (!(e.target as Element).closest('[data-status-popover]') && !triggerRef.current?.contains(e.target as Node)) {
-        setOpen(false); setAdding(false); setDraft('')
+        close()
       }
     }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); setAdding(false); setDraft('') } }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
     return () => {
@@ -58,17 +63,18 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
     }
   }, [open])
 
+  const close = () => { setOpen(false); setMode('pick'); setAdding(false); setDraft('') }
+
   const pick = async (label: string) => {
-    setOpen(false); setAdding(false); setDraft('')
+    close()
     if (label === currentLabel) return
     setSaving(true)
-    try {
-      await upsertFieldValue(field.id, recordId, boardId, { value_text: label || null })
-    } finally { setSaving(false) }
+    try { await upsertFieldValue(field.id, recordId, boardId, { value_text: label || null }) }
+    finally { setSaving(false) }
   }
 
   const clear = async () => {
-    setOpen(false)
+    close()
     setSaving(true)
     try { await upsertFieldValue(field.id, recordId, boardId, { value_text: null }) }
     finally { setSaving(false) }
@@ -77,19 +83,55 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
   const addOption = async () => {
     const label = draft.trim()
     if (!label) return
-    if (options.some((o) => o.label.toLowerCase() === label.toLowerCase())) {
-      // already exists — just pick it
-      await pick(options.find((o) => o.label.toLowerCase() === label.toLowerCase())!.label)
-      return
-    }
-    const next: StatusOption[] = [...options, { label, color: nextStatusColor(options) }]
+    const existing = options.find((o) => o.label.toLowerCase() === label.toLowerCase())
+    if (existing) { await pick(existing.label); return }
+    const next: StatusOption[] = [...options, { id: newOptionId(), label, color: nextStatusColor(options) }]
     setSaving(true)
     try {
       await updateFieldOptions(field.id, next)
-      await upsertFieldValue(field.id, recordId, boardId, { value_text: label })
-    } finally {
-      setSaving(false); setOpen(false); setAdding(false); setDraft('')
-    }
+      if (mode === 'pick') await upsertFieldValue(field.id, recordId, boardId, { value_text: label })
+      setAdding(false); setDraft('')
+      if (mode === 'pick') close()
+      router.refresh()
+    } finally { setSaving(false) }
+  }
+
+  // Ensure every option has a stable id before editing (backfill legacy options).
+  const withIds = (opts: StatusOption[]) => opts.map((o) => (o.id ? o : { ...o, id: newOptionId() }))
+
+  const persist = async (next: StatusOption[]) => {
+    setSaving(true)
+    try { await updateFieldOptions(field.id, next); router.refresh() }
+    finally { setSaving(false) }
+  }
+
+  const recolor = async (id: string) => {
+    const opts = withIds(options)
+    const next = opts.map((o) => {
+      if (o.id !== id) return o
+      const idx = STATUS_PALETTE.indexOf((o.color ?? '') as typeof STATUS_PALETTE[number])
+      const color = STATUS_PALETTE[(idx + 1 + STATUS_PALETTE.length) % STATUS_PALETTE.length]
+      return { ...o, color }
+    })
+    await persist(next)
+  }
+
+  const removeOption = async (id: string) => {
+    // Deleting a label leaves existing record values intact (they render plain).
+    await persist(withIds(options).filter((o) => o.id !== id))
+  }
+
+  const rename = async (id: string, label: string) => {
+    const trimmed = label.trim()
+    const target = options.find((o) => o.id === id)
+    if (!trimmed || !target || target.label === trimmed) return
+    setSaving(true)
+    try {
+      // Backfill ids first if this option had none (legacy), so rename targets by id.
+      if (!target.id) { await updateFieldOptions(field.id, withIds(options)) }
+      await renameStatusOption(field.id, id, trimmed)
+      router.refresh()
+    } finally { setSaving(false) }
   }
 
   return (
@@ -98,17 +140,23 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
         ref={triggerRef}
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }}
         disabled={saving}
-        className={cn(
-          'inline-flex items-center gap-1 max-w-full rounded-md transition-opacity',
-          saving && 'opacity-60',
-        )}
+        className={cn('inline-flex items-center gap-1 max-w-full rounded-md transition-opacity', saving && 'opacity-60')}
       >
         {currentLabel ? (
           <span
-            className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-medium text-white truncate"
-            style={{ backgroundColor: currentOpt?.color ?? (colored ? '#64748b' : 'transparent'), border: !colored ? '1px solid var(--border)' : undefined, color: colored ? '#fff' : 'var(--foreground)' }}
+            className="inline-flex items-center px-2 py-0.5 rounded text-2xs font-medium truncate"
+            style={{
+              backgroundColor: currentOpt?.color ?? (colored ? STATUS_EMPTY_COLOR : 'transparent'),
+              border: !colored ? '1px solid var(--border)' : undefined,
+              color: colored ? '#fff' : 'var(--foreground)',
+            }}
           >
             {currentLabel}
+          </span>
+        ) : isStatus ? (
+          // Monday-style empty: a neutral gray block.
+          <span className="inline-flex items-center px-3 py-0.5 rounded text-2xs font-medium text-white/70" style={{ backgroundColor: STATUS_EMPTY_COLOR }}>
+            —
           </span>
         ) : (
           <span className="text-2xs text-muted-foreground">—</span>
@@ -122,52 +170,85 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
           style={{ position: 'fixed', top: pos.top, left: pos.left, minWidth: pos.minWidth }}
           className="z-50 rounded-lg border border-border bg-card shadow-xl"
         >
-          <div className="max-h-60 overflow-y-auto py-1">
-            {options.length === 0 && !adding && (
-              <p className="px-3 py-2 text-2xs text-muted-foreground">No options yet — add one below.</p>
-            )}
-            {options.map((o) => (
-              <button
-                key={o.label}
-                onClick={() => pick(o.label)}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-surface-1"
-              >
-                <span
-                  className="inline-block h-2.5 w-2.5 rounded-sm border border-border"
-                  style={{ backgroundColor: o.color ?? 'transparent' }}
-                />
-                <span className="flex-1 truncate text-xs text-foreground">{o.label}</span>
-                {o.label === currentLabel && <Check className="h-3.5 w-3.5 text-primary" />}
-              </button>
-            ))}
-            {currentLabel && (
-              <button onClick={clear} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-surface-1 hover:text-foreground">
-                Clear value
-              </button>
-            )}
-          </div>
-          <div className="border-t border-border p-2">
-            {adding ? (
-              <div className="flex items-center gap-1.5">
-                <input
-                  autoFocus
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); addOption() }
-                    if (e.key === 'Escape') { setAdding(false); setDraft('') }
-                  }}
-                  placeholder="New option…"
-                  className="flex-1 rounded border border-border bg-surface-1 px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none"
-                />
-                <button onClick={addOption} disabled={!draft.trim()} className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50">Add</button>
+          {mode === 'pick' ? (
+            <>
+              <div className="max-h-60 overflow-y-auto py-1">
+                {options.length === 0 && !adding && (
+                  <p className="px-3 py-2 text-2xs text-muted-foreground">No labels yet — add one below.</p>
+                )}
+                {options.map((o) => (
+                  <button key={o.id ?? o.label} onClick={() => pick(o.label)} className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-surface-1">
+                    <span className="inline-block h-2.5 w-2.5 rounded-sm border border-border" style={{ backgroundColor: o.color ?? 'transparent' }} />
+                    <span className="flex-1 truncate text-xs text-foreground">{o.label}</span>
+                    {o.label === currentLabel && <Check className="h-3.5 w-3.5 text-primary" />}
+                  </button>
+                ))}
+                {currentLabel && (
+                  <button onClick={clear} className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-surface-1 hover:text-foreground">
+                    Clear value
+                  </button>
+                )}
               </div>
-            ) : (
-              <button onClick={() => setAdding(true)} className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-surface-1 hover:text-foreground">
-                <Plus className="h-3 w-3" /> Add option
-              </button>
-            )}
-          </div>
+              <div className="flex items-center gap-1 border-t border-border p-2">
+                {adding ? (
+                  <div className="flex flex-1 items-center gap-1.5">
+                    <input
+                      autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOption() } if (e.key === 'Escape') { setAdding(false); setDraft('') } }}
+                      placeholder="New label…" className="flex-1 rounded border border-border bg-surface-1 px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none"
+                    />
+                    <button onClick={addOption} disabled={!draft.trim()} className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50">Add</button>
+                  </div>
+                ) : (
+                  <>
+                    <button onClick={() => setAdding(true)} className="flex flex-1 items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-surface-1 hover:text-foreground">
+                      <Plus className="h-3 w-3" /> Add label
+                    </button>
+                    <button onClick={() => setMode('edit')} className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-surface-1 hover:text-foreground">
+                      <Pencil className="h-3 w-3" /> Edit
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                <span className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Edit labels</span>
+                <button onClick={() => setMode('pick')} className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
+              </div>
+              <div className="max-h-64 overflow-y-auto py-1">
+                {withIds(options).map((o) => (
+                  <div key={o.id} className="flex items-center gap-2 px-2 py-1">
+                    <button onClick={() => recolor(o.id!)} title="Recolor" className="h-4 w-4 flex-shrink-0 rounded-sm border border-border" style={{ backgroundColor: o.color ?? 'transparent' }} />
+                    <input
+                      defaultValue={o.label}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); rename(o.id!, (e.target as HTMLInputElement).value) } }}
+                      onBlur={(e) => rename(o.id!, e.target.value)}
+                      className="flex-1 rounded border border-transparent bg-transparent px-1.5 py-0.5 text-xs text-foreground hover:border-border focus:border-primary focus:bg-surface-1 focus:outline-none"
+                    />
+                    <button onClick={() => removeOption(o.id!)} title="Delete label" className="text-muted-foreground hover:text-red-300"><Trash2 className="h-3.5 w-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-border p-2">
+                {adding ? (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOption() } if (e.key === 'Escape') { setAdding(false); setDraft('') } }}
+                      placeholder="New label…" className="flex-1 rounded border border-border bg-surface-1 px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none"
+                    />
+                    <button onClick={addOption} disabled={!draft.trim()} className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50">Add</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setAdding(true)} className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-surface-1 hover:text-foreground">
+                    <Plus className="h-3 w-3" /> Add label
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>,
         document.body,
       )}

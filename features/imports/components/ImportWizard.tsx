@@ -135,7 +135,7 @@ export function ImportWizard({
             columnIndex: m.columnIndex,
             header: m.header,
             name: m.header.trim() ? humanize(m.header) : '',
-            fieldType: 'select' as const,
+            fieldType: 'status' as const,
             confidence: 0.9,
             include: true,
             config: { options: statusOptionsFromValues(grp!.values) },

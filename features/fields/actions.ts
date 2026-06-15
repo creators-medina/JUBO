@@ -2,7 +2,18 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { defaultStatusOptions, parseOptions } from '@/features/fields/status'
 import type { FieldType } from '@/types/database'
+
+/** A new status field with no options gets the Monday-style default labels. */
+function seedStatusConfig(fieldType: FieldType, config?: Record<string, unknown>): Record<string, unknown> {
+  const c = config ?? {}
+  if (fieldType === 'status') {
+    const opts = Array.isArray((c as { options?: unknown }).options) ? (c as { options?: unknown[] }).options! : []
+    if (opts.length === 0) return { ...c, options: defaultStatusOptions() }
+  }
+  return c
+}
 
 export async function createField(data: {
   organization_id: string
@@ -17,7 +28,7 @@ export async function createField(data: {
   const supabase = await createClient()
   const { error } = await supabase.from('fields').insert({
     ...data,
-    config: data.config ?? {},
+    config: seedStatusConfig(data.field_type, data.config),
   })
   if (error) throw new Error(error.message)
   revalidatePath(`/boards/${data.board_id}`)
@@ -56,7 +67,7 @@ export async function createImportField(input: {
 
   const { data: created, error } = await supabase
     .from('fields')
-    .insert({ organization_id: board.organization_id, board_id: input.boardId, name, slug, field_type: input.fieldType, config: {}, position })
+    .insert({ organization_id: board.organization_id, board_id: input.boardId, name, slug, field_type: input.fieldType, config: seedStatusConfig(input.fieldType), position })
     .select('id, name, slug, field_type, position')
     .single()
   if (error || !created) throw new Error(error?.message ?? 'Could not create field')
@@ -67,7 +78,7 @@ export async function createImportField(input: {
 /** Replace the options config for a select/status field. Used by StatusCell's
  *  inline "Add option" affordance and by the importer when promoting a status
  *  column to a colored select. Slug + name untouched. */
-export async function updateFieldOptions(fieldId: string, options: { label: string; color?: string }[]): Promise<void> {
+export async function updateFieldOptions(fieldId: string, options: { id?: string; label: string; color?: string }[]): Promise<void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
@@ -78,6 +89,42 @@ export async function updateFieldOptions(fieldId: string, options: { label: stri
 
   const nextConfig = { ...(field.config as Record<string, unknown> | null ?? {}), options }
   const { error } = await supabase.from('fields').update({ config: nextConfig }).eq('id', fieldId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath(`/boards/${field.board_id}`)
+}
+
+/**
+ * Rename one status/select option by id. Updates the config label AND cascades
+ * field_values.value_text for THIS field (old label → new label) atomically via
+ * the rename_status_option RPC. Other fields are never touched. No-op if the
+ * label is unchanged or the option/field is missing.
+ */
+export async function renameStatusOption(fieldId: string, optionId: string, newLabel: string): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const label = newLabel.trim()
+  if (!label) throw new Error('Label is required')
+
+  const { data: field } = await supabase
+    .from('fields').select('id, board_id, config').eq('id', fieldId).maybeSingle()
+  if (!field) throw new Error('Field not found or access denied')
+
+  const options = parseOptions(field.config)
+  const target = options.find((o) => o.id === optionId)
+  if (!target) throw new Error('Option not found')
+  const oldLabel = target.label
+  if (oldLabel === label) return
+
+  const nextOptions = options.map((o) => (o.id === optionId ? { ...o, label } : o))
+  const { error } = await supabase.rpc('rename_status_option', {
+    p_field_id: fieldId,
+    p_options: nextOptions,
+    p_old_label: oldLabel,
+    p_new_label: label,
+  })
   if (error) throw new Error(error.message)
 
   revalidatePath(`/boards/${field.board_id}`)

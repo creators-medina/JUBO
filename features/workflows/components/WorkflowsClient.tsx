@@ -14,6 +14,7 @@ import type { WorkflowRow, WorkflowExecutionRow, WorkflowTriggerType } from '../
 const TRIGGER_META: Record<WorkflowTriggerType, { label: string; icon: React.ElementType; color: string }> = {
   'record.created':        { label: 'Record created',     icon: Plus,          color: 'text-blue-400' },
   'record.updated':        { label: 'Record updated',     icon: RefreshCw,     color: 'text-cyan-400' },
+  'record.field_changed':  { label: 'Status changes',     icon: RefreshCw,     color: 'text-teal-400' },
   'record.group_changed':  { label: 'Stage changes',      icon: ArrowRightLeft, color: 'text-violet-400' },
   'no_activity_detected':  { label: 'No activity',        icon: AlertTriangle, color: 'text-amber-400' },
   'next_action_overdue':   { label: 'Next action overdue', icon: Clock,        color: 'text-red-400' },

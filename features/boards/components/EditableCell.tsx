@@ -66,7 +66,7 @@ export function EditableCell({ field, fieldValue, recordId, boardId }: Props) {
     )
   }
 
-  if (ft === 'select') {
+  if (ft === 'select' || ft === 'status') {
     return <StatusCell field={field} fieldValue={fieldValue} recordId={recordId} boardId={boardId} />
   }
 

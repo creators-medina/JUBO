@@ -401,7 +401,7 @@ export async function executeMondayImport(input: {
   const subitemStatuses = parsed.parents.flatMap((p) => p.subitems.map((s) => s.status)).filter(Boolean)
   const subitemSpecs = hasSubitems ? [
     { columnIndex: base, name: 'Owner', fieldType: 'text' as FieldType },
-    { columnIndex: base + 1, name: 'Status', fieldType: 'select' as FieldType, config: { options: statusOptionsFromValues(subitemStatuses) } },
+    { columnIndex: base + 1, name: 'Status', fieldType: 'status' as FieldType, config: { options: statusOptionsFromValues(subitemStatuses) } },
     { columnIndex: base + 2, name: 'Subitem Date', fieldType: 'date' as FieldType },
   ] : []
 
