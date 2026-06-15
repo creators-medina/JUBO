@@ -126,7 +126,8 @@ async function runStatusToGroup(
   depth: number,
 ): Promise<void> {
   const trigger = (cfg.trigger ?? {}) as { fieldId?: string; fieldType?: string; toValue?: string }
-  const action = (cfg.action ?? {}) as { type?: string; groupId?: string }
+  const condition = (cfg.condition ?? {}) as { sourceGroupId?: string | null }
+  const action = (cfg.action ?? {}) as { type?: string; boardId?: string | null; groupId?: string }
 
   // Defensive match (34A already guarantees a real change + status/select type).
   const matches =
@@ -137,38 +138,62 @@ async function runStatusToGroup(
     event.fromValue !== event.toValue
   if (!matches) { await logExecution(supabase, event, wf, [], 'skipped'); return }
 
-  const toGroupId = action.groupId
-  if (action.type !== 'move_to_group' || !toGroupId) {
+  // Source-group condition (Phase 34B.1) — record.group_id is the PRE-move group
+  // (the snapshot is loaded before any move). Absent condition → runs board-wide.
+  if (condition.sourceGroupId && record.group_id !== condition.sourceGroupId) {
     await logExecution(supabase, event, wf, [], 'skipped'); return
   }
-  // Already there → nothing to do.
-  if (record.group_id === toGroupId) { await logExecution(supabase, event, wf, [], 'skipped'); return }
 
-  // Validate the destination group belongs to THIS record's board (same-board move).
+  const toGroupId = action.groupId
+  if (!toGroupId) { await logExecution(supabase, event, wf, [], 'skipped'); return }
+
+  // Resolve the destination group + its board; default destination board = current.
   const { data: grp } = await supabase
-    .from('board_groups').select('id, name, board_id').eq('id', toGroupId).maybeSingle()
-  if (!grp || grp.board_id !== record.board_id) {
-    await logExecution(supabase, event, wf, [{ kind: 'move_to_group', detail: 'group not on this board', skipped: true }], 'skipped')
+    .from('board_groups').select('id, name, board_id, is_archived').eq('id', toGroupId).maybeSingle()
+  const destBoardId = action.boardId ?? record.board_id
+  if (!grp || grp.is_archived || grp.board_id !== destBoardId) {
+    await logExecution(supabase, event, wf, [{ kind: 'move', detail: 'destination group not on destination board', skipped: true }], 'skipped')
     return
+  }
+  // Already there → nothing to do.
+  if (record.group_id === toGroupId && record.board_id === destBoardId) {
+    await logExecution(supabase, event, wf, [], 'skipped'); return
   }
 
   const fromGroupId = record.group_id
-  const { error } = await supabase.rpc('move_record', {
-    p_record_id: record.id,
-    p_to_group_id: toGroupId,
-    p_moved_by: userId,
-    p_movement_type: 'stage_change',
-  })
-  if (error) {
-    await logExecution(supabase, event, wf, [{ kind: 'move_to_group', detail: error.message, skipped: false }], 'failed')
-    return
+  const crossBoard = destBoardId !== record.board_id
+
+  if (crossBoard) {
+    // Phase 32A safe cross-board move (validates org + board/group invariant, cascades subitems).
+    const { data, error } = await supabase.rpc('move_record_to_board', {
+      p_record_id: record.id,
+      p_to_board_id: destBoardId,
+      p_to_group_id: toGroupId,
+      p_moved_by: userId,
+    })
+    const res = (data ?? {}) as Record<string, unknown>
+    if (error || res.error) {
+      await logExecution(supabase, event, wf, [{ kind: 'move_to_board_group', detail: String(error?.message ?? res.error), skipped: false }], 'failed')
+      return
+    }
+  } else {
+    const { error } = await supabase.rpc('move_record', {
+      p_record_id: record.id,
+      p_to_group_id: toGroupId,
+      p_moved_by: userId,
+      p_movement_type: 'stage_change',
+    })
+    if (error) {
+      await logExecution(supabase, event, wf, [{ kind: 'move_to_group', detail: error.message, skipped: false }], 'failed')
+      return
+    }
   }
 
-  await logExecution(supabase, event, wf, [{ kind: 'move_to_group', detail: `→ ${grp.name}`, skipped: false }], 'success')
+  await logExecution(supabase, event, wf, [{ kind: crossBoard ? 'move_to_board_group' : 'move_to_group', detail: `→ ${grp.name}`, skipped: false }], 'success')
 
   // Let downstream group-based workflows react — depth-guarded against loops.
   await dispatchWorkflowEvent(
-    { type: 'record.group_changed', organizationId: event.organizationId, recordId: record.id, boardId: record.board_id, fromGroupId, toGroupId, toGroupName: grp.name },
+    { type: 'record.group_changed', organizationId: event.organizationId, recordId: record.id, boardId: destBoardId, fromGroupId, toGroupId, toGroupName: grp.name },
     { client: supabase, userId, depth: depth + 1 },
   )
 }

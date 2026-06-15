@@ -36,6 +36,9 @@ export type WorkflowEvent = {
   changedFields?: string[]
   // record.field_changed context (Phase 34A — status/select cell changes)
   boardId?: string | null
+  // The record's current group at event time (pre-move). The engine also reads
+  // this from the loaded record snapshot; included here for explicit consumers.
+  groupId?: string | null
   fieldId?: string
   fieldSlug?: string
   fieldType?: string

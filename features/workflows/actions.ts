@@ -35,19 +35,28 @@ export async function setWorkflowEnabled(workflowId: string, enabled: boolean): 
  */
 export async function createStatusAutomation(input: {
   organizationId: string
+  /** Source board — the workflow is scoped here and matches events on this board. */
   boardId: string
   fieldId: string
   fieldSlug: string
   toValue: string
+  /** Optional: only fire when the record is currently in this group. */
+  sourceGroupId?: string | null
+  /** Destination — defaults to the source board when omitted. */
+  destBoardId?: string
+  /** Destination group (on the destination board). */
   groupId: string
   title: string
 }): Promise<string> {
   const supabase = await createClient()
   const templateId = `custom:status_to_group:${crypto.randomUUID()}`
+  const destBoardId = input.destBoardId ?? input.boardId
+  const crossBoard = destBoardId !== input.boardId
   const config = {
     kind: 'status_to_group',
     trigger: { type: 'record.field_changed', fieldId: input.fieldId, fieldSlug: input.fieldSlug, fieldType: 'status', toValue: input.toValue },
-    action: { type: 'move_to_group', groupId: input.groupId },
+    condition: input.sourceGroupId ? { sourceGroupId: input.sourceGroupId } : {},
+    action: { type: crossBoard ? 'move_to_board_group' : 'move_to_group', boardId: destBoardId, groupId: input.groupId },
   }
   const { data, error } = await supabase.rpc('create_custom_workflow', {
     p_organization_id: input.organizationId,

@@ -6,16 +6,18 @@ import { Zap, X, Plus, Trash2, Loader2 } from 'lucide-react'
 import { parseOptions } from '@/features/fields/status'
 import { createStatusAutomation, deleteWorkflow, listBoardAutomations } from '../actions'
 import { setWorkflowEnabled } from '../actions'
+import { getMoveTargets, type MoveTargetBoard } from '@/features/records/actions'
 import type { WorkflowRow } from '../types'
 
 type FieldLite = { id: string; name: string; slug: string; field_type: string; config?: unknown }
 type GroupLite = { id: string; name: string }
 
 /**
- * Minimal board-level "Status → move to group" automation manager (Phase 34B).
- * Lists existing automations and creates new ones from live status fields,
- * labels, and groups. Structured so Phase 34C can replace it with the full
- * Automation Center.
+ * Board-level status automation manager (Phase 34B / 34B.1):
+ *   "When [status] changes to [label] while in [source group] → move to
+ *    [destination board] / [destination group]".
+ * Reads live status fields/labels, the board's groups, and all move-target
+ * boards. Structured so Phase 34C can replace it with the full Automation Center.
  */
 export function AutomationsModal({
   open, onClose, board, organizationId, fields, groups,
@@ -32,16 +34,22 @@ export function AutomationsModal({
   const [loading, setLoading] = useState(true)
   const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
+  const [targets, setTargets] = useState<MoveTargetBoard[]>([])
 
-  // Only status fields can drive these automations (Phase 34B scope).
+  // Only status fields can drive these automations.
   const statusFields = fields.filter((f) => f.field_type === 'status')
 
   const [fieldId, setFieldId] = useState('')
   const [toValue, setToValue] = useState('')
-  const [groupId, setGroupId] = useState('')
+  const [sourceGroupId, setSourceGroupId] = useState('')   // '' = any group (board-wide)
+  const [destBoardId, setDestBoardId] = useState(board.id)  // default to current board
+  const [destGroupId, setDestGroupId] = useState('')
 
   const selectedField = statusFields.find((f) => f.id === fieldId) ?? null
   const labels = selectedField ? parseOptions(selectedField.config) : []
+  const destBoard = targets.find((b) => b.id === destBoardId) ?? null
+  // Current board's groups always come from the prop; other boards from move targets.
+  const destGroups: GroupLite[] = destBoardId === board.id ? groups : (destBoard?.groups ?? [])
 
   const refresh = () => { listBoardAutomations(board.id).then((rows) => { setItems(rows); setLoading(false) }).catch(() => setLoading(false)) }
 
@@ -49,25 +57,45 @@ export function AutomationsModal({
     if (!open) return
     setLoading(true); setError(null)
     refresh()
+    getMoveTargets().then(setTargets).catch(() => setTargets([]))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, board.id])
 
   useEffect(() => { setToValue('') }, [fieldId])
+  // Reset destination group when the destination board changes.
+  useEffect(() => { setDestGroupId('') }, [destBoardId])
+  // Linear-progression nicety: when a source group is picked on the same board,
+  // preselect the NEXT group as the destination if one exists and none chosen.
+  useEffect(() => {
+    if (!sourceGroupId || destBoardId !== board.id || destGroupId) return
+    const idx = groups.findIndex((g) => g.id === sourceGroupId)
+    const next = idx >= 0 ? groups[idx + 1] : undefined
+    if (next) setDestGroupId(next.id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceGroupId, destBoardId])
 
   if (!open) return null
 
   const create = () => {
-    if (!selectedField || !toValue || !groupId) return
-    const groupName = groups.find((g) => g.id === groupId)?.name ?? 'group'
-    const title = `When ${selectedField.name} = ${toValue} → move to ${groupName}`
+    if (!selectedField || !toValue || !destGroupId) return
+    const sourceName = sourceGroupId ? (groups.find((g) => g.id === sourceGroupId)?.name ?? 'group') : null
+    const destGroupName = destGroups.find((g) => g.id === destGroupId)?.name ?? 'group'
+    const destBoardName = targets.find((b) => b.id === destBoardId)?.name ?? board.name
+    const crossBoard = destBoardId !== board.id
+    const title =
+      `When ${selectedField.name} = ${toValue}` +
+      (sourceName ? ` in ${sourceName}` : '') +
+      ` → move to ${crossBoard ? `${destBoardName} / ` : ''}${destGroupName}`
     setError(null)
     startTransition(async () => {
       try {
         await createStatusAutomation({
           organizationId, boardId: board.id,
-          fieldId: selectedField.id, fieldSlug: selectedField.slug, toValue, groupId, title,
+          fieldId: selectedField.id, fieldSlug: selectedField.slug, toValue,
+          sourceGroupId: sourceGroupId || null,
+          destBoardId, groupId: destGroupId, title,
         })
-        setFieldId(''); setToValue(''); setGroupId('')
+        setFieldId(''); setToValue(''); setSourceGroupId(''); setDestBoardId(board.id); setDestGroupId('')
         refresh(); router.refresh()
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Could not create automation.')
@@ -144,16 +172,28 @@ export function AutomationsModal({
                 </select>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>then move item to</span>
-                <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={sel}>
-                  <option value="">group…</option>
+                <span>while item is in</span>
+                <select value={sourceGroupId} onChange={(e) => setSourceGroupId(e.target.value)} className={sel}>
+                  <option value="">any group</option>
                   {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>then move item to</span>
+                <select value={destBoardId} onChange={(e) => setDestBoardId(e.target.value)} className={sel}>
+                  {/* current board first; getMoveTargets includes it too */}
+                  {targets.length === 0 && <option value={board.id}>{board.name}</option>}
+                  {targets.map((b) => <option key={b.id} value={b.id}>{b.name}{b.id === board.id ? ' (this board)' : ''}</option>)}
+                </select>
+                <select value={destGroupId} onChange={(e) => setDestGroupId(e.target.value)} className={sel}>
+                  <option value="">group…</option>
+                  {destGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
               </div>
               <div className="flex justify-end">
                 <button
                   onClick={create}
-                  disabled={pending || !fieldId || !toValue || !groupId}
+                  disabled={pending || !fieldId || !toValue || !destGroupId}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 >
                   {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Add automation
