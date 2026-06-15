@@ -13,6 +13,7 @@ const FIELD_TYPES: { value: FieldType; label: string }[] = [
   { value: 'number', label: 'Number' },
   { value: 'currency', label: 'Currency' },
   { value: 'boolean', label: 'Checkbox' },
+  { value: 'checklist', label: 'Checklist item' },
   { value: 'status', label: 'Status' },
   { value: 'select', label: 'Select' },
   { value: 'multiselect', label: 'Multi-select' },

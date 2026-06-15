@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { upsertFieldValue } from '@/features/records/actions'
 import { StatusCell } from './StatusCell'
+import { ChecklistCell } from './ChecklistCell'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -45,6 +46,11 @@ export function EditableCell({ field, fieldValue, recordId, boardId }: Props) {
     } finally {
       setSaving(false)
     }
+  }
+
+  // Checklist field — single-click checkbox (Phase 35E.1).
+  if (ft === 'checklist') {
+    return <ChecklistCell field={field} fieldValue={fieldValue} recordId={recordId} boardId={boardId} />
   }
 
   // Non-editable inline: boolean and select use immediate onChange

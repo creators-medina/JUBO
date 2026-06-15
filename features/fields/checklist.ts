@@ -1,17 +1,17 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Checklist engine (Phase 35E).
+// Checklist engine (Phase 35E.1).
 //
-// A group's checklist = the fields that are REQUIRED for that group AND visible
-// in it (a field hidden in a group never counts). Completion is computed purely
-// from field_values — there is no separate checklist table or completion state.
+// A checklist item is a real field of field_type='checklist' (a checkbox stored
+// in value_boolean). A group's checklist = the checklist fields VISIBLE in that
+// group (reusing the Phase 35B visibility engine). Completion = checked / total.
+// One field value powers both the board grid checkbox and the record's
+// Checklist tab — one source of truth, two views.
 //
-// Pure helpers shared by server + client. Boards with no requirement rows have
-// no checklists (requiredCount 0) → identical to pre-35E behavior.
+// field_requirements (Phase 35E) is preserved for future validation use but no
+// longer drives the checklist; the requirement helpers below remain exported.
 // ─────────────────────────────────────────────────────────────────────────
 
 import { isFieldVisibleInGroup, type VisibilityIndex } from './visibility'
-
-export type RequirementRow = { field_id: string; group_id: string; is_required?: boolean }
 
 export type FieldValueLike = {
   value_text?: string | null
@@ -23,51 +23,76 @@ export type FieldValueLike = {
 
 export type ChecklistFieldLike = { id: string; name?: string; field_type: string }
 
-export type ChecklistItem = { fieldId: string; name: string; fieldType: string; complete: boolean }
+export type ChecklistItem = { fieldId: string; name: string; complete: boolean }
 
 export type ChecklistProgress = {
   items: ChecklistItem[]
-  requiredCount: number
+  totalCount: number
   completedCount: number
-  /** 0–100, rounded. 0 when nothing is required. */
+  /** 0–100, rounded. 0 when the group has no checklist fields. */
   percentage: number
-  /** True when the group has at least one required+visible field. */
+  /** True when the group has at least one (visible) checklist field. */
   hasChecklist: boolean
-  /** True when there is a checklist and every item is complete. */
+  /** True when there is a checklist and every item is checked. */
   isComplete: boolean
 }
 
-/** Per the Phase 35E completion rules: a value "exists" by field type. Null = incomplete. */
-export function isValueComplete(fieldType: string, fv?: FieldValueLike | null): boolean {
-  if (!fv) return false
-  const hasText = typeof fv.value_text === 'string' && fv.value_text.trim() !== ''
-  const hasNumber = fv.value_number !== null && fv.value_number !== undefined
-  const hasDate = (typeof fv.value_date === 'string' && fv.value_date.trim() !== '') || hasText
-  const jsonLen = Array.isArray(fv.value_json) ? fv.value_json.length : 0
+/** A checklist item is "done" when its boolean value is checked. */
+export function isChecklistChecked(fv?: FieldValueLike | null): boolean {
+  return fv?.value_boolean === true
+}
 
-  switch (fieldType) {
-    case 'boolean':
-      return fv.value_boolean === true
-    case 'number':
-    case 'currency':
-    case 'rating':
-      return hasNumber
-    case 'date':
-    case 'datetime':
-      return hasDate
-    case 'multiselect':
-    case 'tags':
-      return jsonLen > 0 || hasText
-    case 'status':
-    case 'select':
-      return hasText
-    default:
-      // text, textarea, email, phone, url, formula, relation, user…
-      return hasText
+/** Whether a field is a checklist field. */
+export function isChecklistFieldType(fieldType: string): boolean {
+  return fieldType === 'checklist'
+}
+
+/** The checklist fields visible in a group, in input order. */
+export function groupChecklistFields<T extends ChecklistFieldLike>(
+  fields: T[],
+  groupId: string | null,
+  visibilityIndex: VisibilityIndex,
+): T[] {
+  if (!groupId) return []
+  return fields.filter(
+    (f) => isChecklistFieldType(f.field_type) && isFieldVisibleInGroup(f.id, groupId, visibilityIndex),
+  )
+}
+
+/** Compute a record's checklist completion for its group from its field values. */
+export function computeGroupChecklist(
+  fields: ChecklistFieldLike[],
+  groupId: string | null,
+  visibilityIndex: VisibilityIndex,
+  valuesByFieldId: Map<string, FieldValueLike> | Record<string, FieldValueLike>,
+): ChecklistProgress {
+  const getVal = (id: string): FieldValueLike | undefined =>
+    valuesByFieldId instanceof Map ? valuesByFieldId.get(id) : valuesByFieldId[id]
+
+  const items: ChecklistItem[] = groupChecklistFields(fields, groupId, visibilityIndex).map((f) => ({
+    fieldId: f.id,
+    name: f.name ?? '',
+    complete: isChecklistChecked(getVal(f.id)),
+  }))
+
+  const totalCount = items.length
+  const completedCount = items.filter((i) => i.complete).length
+  const percentage = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100)
+  return {
+    items,
+    totalCount,
+    completedCount,
+    percentage,
+    hasChecklist: totalCount > 0,
+    isComplete: totalCount > 0 && completedCount === totalCount,
   }
 }
 
-/** Build a groupId → Set<fieldId> lookup of required fields. */
+// ── Preserved requirement helpers (Phase 35E — no longer drive the checklist) ──
+
+export type RequirementRow = { field_id: string; group_id: string; is_required?: boolean }
+
+/** Build a groupId → Set<fieldId> lookup of required fields (for future validation). */
 export function buildRequirementIndex(rows: RequirementRow[] | null | undefined): Map<string, Set<string>> {
   const byGroup = new Map<string, Set<string>>()
   for (const r of rows ?? []) {
@@ -78,53 +103,4 @@ export function buildRequirementIndex(rows: RequirementRow[] | null | undefined)
     byGroup.set(r.group_id, set)
   }
   return byGroup
-}
-
-/** Ids of fields that are required AND visible in a group (the actual checklist). */
-export function checklistFieldIds<T extends { id: string }>(
-  fields: T[],
-  groupId: string | null,
-  requirementIndex: Map<string, Set<string>>,
-  visibilityIndex: VisibilityIndex,
-): string[] {
-  if (!groupId) return []
-  const required = requirementIndex.get(groupId)
-  if (!required || required.size === 0) return []
-  return fields
-    .filter((f) => required.has(f.id) && isFieldVisibleInGroup(f.id, groupId, visibilityIndex))
-    .map((f) => f.id)
-}
-
-/** Compute completion for a record's group from its field values. */
-export function computeChecklistProgress(
-  fields: ChecklistFieldLike[],
-  groupId: string | null,
-  requirementIndex: Map<string, Set<string>>,
-  visibilityIndex: VisibilityIndex,
-  valuesByFieldId: Map<string, FieldValueLike> | Record<string, FieldValueLike>,
-): ChecklistProgress {
-  const getVal = (id: string): FieldValueLike | undefined =>
-    valuesByFieldId instanceof Map ? valuesByFieldId.get(id) : valuesByFieldId[id]
-
-  const ids = new Set(checklistFieldIds(fields, groupId, requirementIndex, visibilityIndex))
-  const items: ChecklistItem[] = fields
-    .filter((f) => ids.has(f.id))
-    .map((f) => ({
-      fieldId: f.id,
-      name: f.name ?? '',
-      fieldType: f.field_type,
-      complete: isValueComplete(f.field_type, getVal(f.id)),
-    }))
-
-  const requiredCount = items.length
-  const completedCount = items.filter((i) => i.complete).length
-  const percentage = requiredCount === 0 ? 0 : Math.round((completedCount / requiredCount) * 100)
-  return {
-    items,
-    requiredCount,
-    completedCount,
-    percentage,
-    hasChecklist: requiredCount > 0,
-    isComplete: requiredCount > 0 && completedCount === requiredCount,
-  }
 }

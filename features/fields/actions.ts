@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { defaultStatusOptions, parseOptions } from '@/features/fields/status'
 import { buildVisibilityIndex, commonFieldIds, type FieldVisibilityRow } from '@/features/fields/visibility'
-import { buildRequirementIndex, checklistFieldIds, type RequirementRow } from '@/features/fields/checklist'
+import { groupChecklistFields, type RequirementRow } from '@/features/fields/checklist'
 import type { FieldType } from '@/types/database'
 
 /** A new status field with no options gets the Monday-style default labels. */
@@ -247,9 +247,12 @@ export async function setFieldGroupVisibility(input: {
   revalidatePath(`/boards/${input.boardId}`)
 }
 
-// ── Phase 35E — Checklist (group requirements) ──────────────────────────────
+// ── Phase 35E — field requirements (preserved; future validation only) ──────
+//
+// These no longer drive the checklist (Phase 35E.1 moved that to checklist
+// fields), but the table/data and these helpers are kept for later validation.
 
-/** All requirement rows for a board's fields (used by the board-view summary). */
+/** All requirement rows for a board's fields. */
 export async function getBoardFieldRequirements(boardId: string): Promise<RequirementRow[]> {
   const supabase = await createClient()
   const { data: fields } = await supabase.from('fields').select('id').eq('board_id', boardId)
@@ -298,24 +301,31 @@ export async function setFieldRequirement(input: {
   revalidatePath(`/boards/${input.boardId}`)
 }
 
+// ── Phase 35E.1 — Checklist fields ──────────────────────────────────────────
+
 /**
- * Resolve the checklist for a record's group: the field ids that are required
- * AND visible in that group, in board order. The workspace Checklist tab reads
- * this once and computes per-field completion from the record's live values.
+ * Resolve the checklist for a record's group: the checklist fields
+ * (field_type='checklist') VISIBLE in that group, in board order. The workspace
+ * Checklist tab reads this once and renders interactive checkboxes whose values
+ * are the same field_values rows the board grid toggles.
  */
-export async function getGroupChecklist(boardId: string, groupId: string | null): Promise<{ requiredFieldIds: string[] }> {
-  if (!groupId) return { requiredFieldIds: [] }
+export async function getGroupChecklistFields(
+  boardId: string,
+  groupId: string | null,
+): Promise<{ fields: { id: string; name: string }[] }> {
+  if (!groupId) return { fields: [] }
   const supabase = await createClient()
   const fields = await getBoardFields(boardId)
   const fieldIds = fields.map((f: { id: string }) => f.id)
-  if (fieldIds.length === 0) return { requiredFieldIds: [] }
+  if (fieldIds.length === 0) return { fields: [] }
 
-  const [{ data: reqRows }, { data: visRows }] = await Promise.all([
-    supabase.from('field_requirements').select('field_id, group_id, is_required').in('field_id', fieldIds),
-    supabase.from('field_group_visibility').select('field_id, group_id').in('field_id', fieldIds),
-  ])
-
-  const requirementIndex = buildRequirementIndex((reqRows ?? []) as RequirementRow[])
+  const { data: visRows } = await supabase
+    .from('field_group_visibility').select('field_id, group_id').in('field_id', fieldIds)
   const visibilityIndex = buildVisibilityIndex((visRows ?? []) as FieldVisibilityRow[])
-  return { requiredFieldIds: checklistFieldIds(fields, groupId, requirementIndex, visibilityIndex) }
+  const checklist = groupChecklistFields(
+    fields as { id: string; name: string; field_type: string }[],
+    groupId,
+    visibilityIndex,
+  )
+  return { fields: checklist.map((f) => ({ id: f.id, name: f.name })) }
 }

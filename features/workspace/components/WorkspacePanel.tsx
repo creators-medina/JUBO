@@ -331,10 +331,11 @@ function WorkspaceContent({
                 )}
                 {activeSubTab === 'checklist' && (
                   <ChecklistView
+                    recordId={recordId}
                     boardId={data.record.board_id}
                     groupId={data.record.group_id ?? null}
-                    fields={data.fields}
                     fieldValues={data.fieldValues}
+                    onChanged={load}
                   />
                 )}
                 {activeSubTab === 'activity' && (

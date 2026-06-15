@@ -17,7 +17,6 @@ interface Props {
   records: any[]
   fields: any[]
   commonFieldIds?: Set<string>
-  requiredFieldIds?: Set<string>
   checklistSummary?: { hasChecklist: boolean; avgPercentage: number }
   fieldValuesIndex: Record<string, Record<string, any>>
   groups: any[]
@@ -42,7 +41,6 @@ export function BoardGroupTable({
   records,
   fields,
   commonFieldIds,
-  requiredFieldIds,
   checklistSummary,
   fieldValuesIndex,
   groups,
@@ -218,7 +216,6 @@ export function BoardGroupTable({
                       boardId={boardId}
                       groupId={group.id}
                       isCommon={commonFieldIds ? commonFieldIds.has(field.id) : true}
-                      isRequired={requiredFieldIds ? requiredFieldIds.has(field.id) : false}
                     />
                   </th>
                 ))}
