@@ -16,6 +16,7 @@ interface Props {
   group: any
   records: any[]
   fields: any[]
+  commonFieldIds?: Set<string>
   fieldValuesIndex: Record<string, Record<string, any>>
   groups: any[]
   boardId: string
@@ -38,6 +39,7 @@ export function BoardGroupTable({
   group,
   records,
   fields,
+  commonFieldIds,
   fieldValuesIndex,
   groups,
   boardId,
@@ -202,7 +204,12 @@ export function BoardGroupTable({
                     user-created fields show. (Phase 34A.1) */}
                 {fields.map(field => (
                   <th key={field.id} className="text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground w-36 whitespace-nowrap">
-                    <EditableColumnHeader field={field} />
+                    <EditableColumnHeader
+                      field={field}
+                      boardId={boardId}
+                      groupId={group.id}
+                      isCommon={commonFieldIds ? commonFieldIds.has(field.id) : true}
+                    />
                   </th>
                 ))}
                 <th className="px-2 py-2.5 w-8 text-center">

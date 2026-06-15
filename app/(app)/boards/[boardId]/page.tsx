@@ -1,7 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getBoard, getBoardGroups } from '@/features/boards/queries'
-import { getBoardFields } from '@/features/fields/actions'
+import { getGroupVisibleFields } from '@/features/fields/actions'
 import { getRecordsByBoard } from '@/features/records/queries'
 import { BoardDetailClient } from '@/features/boards/components/BoardDetailClient'
 
@@ -24,14 +24,16 @@ export default async function BoardDetailPage({
 
   if (!membership) redirect('/onboarding')
 
-  const [board, groups, fields, records] = await Promise.all([
+  const [board, groups, fieldData, records] = await Promise.all([
     getBoard(boardId),
     getBoardGroups(boardId),
-    getBoardFields(boardId),
+    getGroupVisibleFields(boardId),
     getRecordsByBoard(boardId),
   ])
 
   if (!board) notFound()
+
+  const { fields, visibility } = fieldData
 
   // Fetch all field values for all records on this board in one query
   const recordIds = records.map((r: any) => r.id)
@@ -45,6 +47,7 @@ export default async function BoardDetailPage({
         board={board}
         groups={groups}
         fields={fields}
+        fieldVisibility={visibility}
         records={records}
         fieldValues={fieldValues ?? []}
         organizationId={membership.organization_id}

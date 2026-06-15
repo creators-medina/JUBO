@@ -11,6 +11,7 @@ export async function searchBoards(ctx: SearchContext): Promise<CommandItem[]> {
     .from('boards')
     .select('id, name, description, board_type, color, icon, slug')
     .eq('organization_id', ctx.organizationId)
+    .eq('is_archived', false)
     .order('updated_at', { ascending: false })
     .limit(LIMIT)
   if (ctx.query.trim()) q = q.ilike('name', `%${ctx.query.trim()}%`)

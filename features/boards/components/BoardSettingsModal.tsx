@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { updateBoard } from '@/features/boards/actions'
+import { updateBoard, archiveBoard } from '@/features/boards/actions'
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#64748b', '#0ea5e9', '#f97316']
 
@@ -21,6 +21,22 @@ export function BoardSettingsModal({ open, onClose, board }: Props) {
   const [description, setDescription] = useState(board.description ?? '')
   const [color, setColor] = useState(board.color ?? '')
   const [error, setError] = useState<string | null>(null)
+  const [confirmArchive, setConfirmArchive] = useState(false)
+  const [isArchiving, startArchive] = useTransition()
+
+  const handleArchive = () => {
+    setError(null)
+    startArchive(async () => {
+      try {
+        await archiveBoard(board.id)
+        onClose()
+        router.push('/boards')
+        router.refresh()
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Could not archive board')
+      }
+    })
+  }
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,10 +99,18 @@ export function BoardSettingsModal({ open, onClose, board }: Props) {
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
           <div className="flex justify-between items-center pt-1">
-            <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive text-xs" disabled>
-              Archive board
-            </Button>
-            <div className="flex gap-2">
+            {confirmArchive ? null : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive text-xs"
+                onClick={() => setConfirmArchive(true)}
+              >
+                Archive board
+              </Button>
+            )}
+            <div className="flex gap-2 ml-auto">
               <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
               <Button type="submit" size="sm" disabled={isPending}>
                 {isPending ? 'Saving…' : 'Save'}
@@ -94,6 +118,28 @@ export function BoardSettingsModal({ open, onClose, board }: Props) {
             </div>
           </div>
         </form>
+
+        {confirmArchive && (
+          <div className="mt-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 space-y-2.5">
+            <p className="text-xs text-foreground">
+              Archive this board? Records and data will be preserved, but the board will be hidden.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmArchive(false)} disabled={isArchiving}>
+                Keep board
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={handleArchive}
+                disabled={isArchiving}
+              >
+                {isArchiving ? 'Archiving…' : 'Archive board'}
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

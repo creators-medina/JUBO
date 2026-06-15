@@ -20,6 +20,7 @@ import { BulkActionBar } from './BulkActionBar'
 import { DragOverlayRow } from './DragOverlayRow'
 import { useBoardRealtime } from '@/hooks/useBoardRealtime'
 import { moveRecord } from '@/features/records/actions'
+import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, type FieldVisibilityRow } from '@/features/fields/visibility'
 import { createSavedView } from '../actions'
 import { updateSavedViewAttention } from '@/features/daily-actions/attention/actions'
 import { cn } from '@/lib/utils'
@@ -29,6 +30,7 @@ interface Props {
   board: any
   groups: any[]
   fields: any[]
+  fieldVisibility?: FieldVisibilityRow[]
   records: any[]
   fieldValues: any[]
   organizationId: string
@@ -51,9 +53,19 @@ const STATUS_OPTIONS: { value: RecordStatus | ''; label: string }[] = [
   { value: 'on_hold', label: 'On Hold' },
 ]
 
-export function BoardDetailClient({ board, groups, fields, records: serverRecords, fieldValues, organizationId }: Props) {
+export function BoardDetailClient({ board, groups, fields, fieldVisibility, records: serverRecords, fieldValues, organizationId }: Props) {
   const router = useRouter()
   const isMutating = useRef(false)
+
+  // Phase 35B — per-group column resolution. No visibility rows ⇒ every field
+  // is common ⇒ identical to pre-35B behavior.
+  const visibilityIndex = useMemo(() => buildVisibilityIndex(fieldVisibility), [fieldVisibility])
+  const commonIds = useMemo(() => new Set(commonFieldIds(fields, visibilityIndex)), [fields, visibilityIndex])
+  const fieldsByGroup = useMemo(() => {
+    const out: Record<string, any[]> = {}
+    for (const g of groups) out[g.id] = resolveVisibleFields(fields, g.id, visibilityIndex)
+    return out
+  }, [fields, groups, visibilityIndex])
 
   // Local record state for optimistic updates
   const [localRecords, setLocalRecords] = useState(serverRecords)
@@ -400,7 +412,8 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
                     key={group.id}
                     group={group}
                     records={filteredByGroup[group.id] ?? []}
-                    fields={fields}
+                    fields={fieldsByGroup[group.id] ?? fields}
+                    commonFieldIds={commonIds}
                     fieldValuesIndex={fieldValuesIndex}
                     groups={groups}
                     boardId={board.id}

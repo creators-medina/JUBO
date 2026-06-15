@@ -60,6 +60,24 @@ export async function updateBoard(boardId: string, updates: {
   revalidatePath(`/boards/${boardId}`)
 }
 
+/**
+ * Phase 35B — archive a board (soft delete). Sets is_archived = true so it
+ * disappears from the sidebar, board lists, move destinations, and search,
+ * while records / fields / groups / values are all preserved. RLS scopes the
+ * update to the caller's org. Reversible by clearing the flag.
+ */
+export async function archiveBoard(boardId: string): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { error } = await supabase.from('boards').update({ is_archived: true }).eq('id', boardId)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/boards')
+  revalidatePath(`/boards/${boardId}`)
+}
+
 export async function updateBoardGroup(groupId: string, boardId: string, updates: {
   name?: string
   color?: string

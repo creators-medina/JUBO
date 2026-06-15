@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { defaultStatusOptions, parseOptions } from '@/features/fields/status'
+import { buildVisibilityIndex, commonFieldIds, type FieldVisibilityRow } from '@/features/fields/visibility'
 import type { FieldType } from '@/types/database'
 
 /** A new status field with no options gets the Monday-style default labels. */
@@ -167,4 +168,80 @@ export async function getBoardFields(boardId: string) {
     .order('is_default_status', { ascending: false })
     .order('position', { ascending: true })
   return data ?? []
+}
+
+/**
+ * Phase 35B — board fields + their group-visibility layer.
+ *
+ * Returns the full ordered field list, the raw visibility rows, the set of
+ * common (board-wide) field ids, and a groupId → fieldIds map of restricted
+ * fields. The board renderer resolves the per-group column set from this with
+ * the pure helpers in features/fields/visibility.ts. A board with no rows
+ * resolves every field as common → identical to pre-35B behavior.
+ */
+export async function getGroupVisibleFields(boardId: string): Promise<{
+  fields: any[]
+  visibility: FieldVisibilityRow[]
+  commonFieldIds: string[]
+  visibilityMap: Record<string, string[]>
+}> {
+  const supabase = await createClient()
+  const fields = await getBoardFields(boardId)
+  const fieldIds = fields.map((f: { id: string }) => f.id)
+
+  let rows: FieldVisibilityRow[] = []
+  if (fieldIds.length > 0) {
+    const { data } = await supabase
+      .from('field_group_visibility')
+      .select('field_id, group_id')
+      .in('field_id', fieldIds)
+    rows = (data ?? []) as FieldVisibilityRow[]
+  }
+
+  const index = buildVisibilityIndex(rows)
+  const visibilityMap: Record<string, string[]> = {}
+  for (const r of rows) (visibilityMap[r.group_id] ??= []).push(r.field_id)
+
+  return { fields, visibility: rows, commonFieldIds: commonFieldIds(fields, index), visibilityMap }
+}
+
+/**
+ * Set a field's group visibility (Phase 35B).
+ *   - mode 'all'  → common: delete every visibility row for the field.
+ *   - mode 'only' → visible only in `groupId`: delete other rows, ensure this one.
+ * Field definitions and field_values are never touched — this is presentational.
+ */
+export async function setFieldGroupVisibility(input: {
+  fieldId: string
+  boardId: string
+  mode: 'all' | 'only'
+  groupId?: string
+}): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data: field } = await supabase
+    .from('fields').select('id, organization_id, board_id').eq('id', input.fieldId).maybeSingle()
+  if (!field) throw new Error('Field not found or access denied')
+
+  if (input.mode === 'all') {
+    const { error } = await supabase.from('field_group_visibility').delete().eq('field_id', input.fieldId)
+    if (error) throw new Error(error.message)
+  } else {
+    if (!input.groupId) throw new Error('A group is required')
+    // Restrict to exactly this group: clear other rows, then upsert this one.
+    const { error: delErr } = await supabase
+      .from('field_group_visibility').delete().eq('field_id', input.fieldId).neq('group_id', input.groupId)
+    if (delErr) throw new Error(delErr.message)
+    const { error: upErr } = await supabase
+      .from('field_group_visibility')
+      .upsert(
+        { organization_id: (field as { organization_id: string }).organization_id, field_id: input.fieldId, group_id: input.groupId },
+        { onConflict: 'field_id,group_id' },
+      )
+    if (upErr) throw new Error(upErr.message)
+  }
+
+  revalidatePath(`/boards/${input.boardId}`)
 }
