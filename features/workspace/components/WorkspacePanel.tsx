@@ -229,8 +229,8 @@ function WorkspaceContent({
                 {data && (<>
                   {' · '}
                   <span>{groupName}</span>
-                  {' · '}
-                  <span className="capitalize">{data.record.status}</span>
+                  {/* Internal records.status hidden (Phase 34A.1) — it's a
+                      system field (archive/filtering), not user-facing status. */}
                 </>)}
               </p>
               {data && <WorkspaceHeaderMeta data={data} />}
@@ -395,7 +395,8 @@ function OverviewView({ data }: { data: Loaded }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Status"   value={r.status}   capitalize />
+        {/* Internal records.status removed (Phase 34A.1) — surfaced only via the
+            user-facing Status field on the board. Priority/Group/Value remain. */}
         <Stat label="Priority" value={r.priority} capitalize />
         <Stat label="Group"    value={groupName} />
         <Stat label="Value"    value={r.value != null ? '$' + Number(r.value).toLocaleString() : '—'} />

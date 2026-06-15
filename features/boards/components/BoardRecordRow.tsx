@@ -18,14 +18,6 @@ const PRIORITY_COLORS: Record<string, string> = {
   none: '',
 }
 
-const STATUS_BADGE: Record<string, string> = {
-  active: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-  won: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
-  lost: 'bg-red-500/15 text-red-400 border-red-500/30',
-  on_hold: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  archived: 'bg-surface-3 text-muted-foreground border-border',
-}
-
 interface Props {
   record: any
   fields: any[]
@@ -149,22 +141,9 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
         </div>
       </td>
 
-      {/* Status */}
-      <td className="px-3 py-2 w-28" onClick={onClick}>
-        <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-2xs font-medium border capitalize', STATUS_BADGE[record.status] ?? STATUS_BADGE.active)}>
-          {record.status?.replace('_', ' ')}
-        </span>
-      </td>
-
-      {/* Priority */}
-      <td className="px-3 py-2 w-24" onClick={onClick}>
-        <span className="text-xs text-muted-foreground capitalize">{record.priority}</span>
-      </td>
-
-      {/* Value */}
-      <td className="px-3 py-2 w-28 tabular-nums text-xs text-muted-foreground" onClick={onClick}>
-        {record.value != null ? `$${Number(record.value).toLocaleString()}` : '—'}
-      </td>
+      {/* Internal records.status/priority/value are not board columns anymore
+          (Phase 34A.1) — they stay system-only for archive/filtering. The
+          priority dot beside the title remains as a subtle indicator. */}
 
       {/* Dynamic field columns — inline editable */}
       {fields.map(field => (
@@ -214,7 +193,7 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
             <span className="truncate">{sub.title}</span>
           </div>
         </td>
-        <td colSpan={3 + dynamicColCount + 1} />
+        <td colSpan={dynamicColCount + 1} />
       </tr>
     ))}
 
@@ -245,7 +224,7 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
             )}
           </div>
         </td>
-        <td colSpan={3 + dynamicColCount + 1} />
+        <td colSpan={dynamicColCount + 1} />
       </tr>
     )}
     </Fragment>

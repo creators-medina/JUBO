@@ -197,9 +197,9 @@ export function BoardGroupTable({
                 </th>
                 <th className="w-6 pl-1 pr-0" />
                 <th className="sticky left-0 z-10 bg-surface-1 text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground min-w-[200px]">Item</th>
-                <th className="text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground w-28">Status</th>
-                <th className="text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground w-24">Priority</th>
-                <th className="text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground w-28">Value</th>
+                {/* Internal records.status/priority/value are system-level (archive,
+                    filtering) and no longer rendered as board columns — only
+                    user-created fields show. (Phase 34A.1) */}
                 {fields.map(field => (
                   <th key={field.id} className="text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground w-36 whitespace-nowrap">
                     <EditableColumnHeader field={field} />
