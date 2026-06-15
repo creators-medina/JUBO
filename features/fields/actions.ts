@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { defaultStatusOptions, parseOptions } from '@/features/fields/status'
 import { buildVisibilityIndex, commonFieldIds, type FieldVisibilityRow } from '@/features/fields/visibility'
+import { buildRequirementIndex, checklistFieldIds, type RequirementRow } from '@/features/fields/checklist'
 import type { FieldType } from '@/types/database'
 
 /** A new status field with no options gets the Monday-style default labels. */
@@ -244,4 +245,77 @@ export async function setFieldGroupVisibility(input: {
   }
 
   revalidatePath(`/boards/${input.boardId}`)
+}
+
+// ── Phase 35E — Checklist (group requirements) ──────────────────────────────
+
+/** All requirement rows for a board's fields (used by the board-view summary). */
+export async function getBoardFieldRequirements(boardId: string): Promise<RequirementRow[]> {
+  const supabase = await createClient()
+  const { data: fields } = await supabase.from('fields').select('id').eq('board_id', boardId)
+  const fieldIds = (fields ?? []).map((f: { id: string }) => f.id)
+  if (fieldIds.length === 0) return []
+  const { data } = await supabase
+    .from('field_requirements')
+    .select('field_id, group_id, is_required')
+    .in('field_id', fieldIds)
+  return (data ?? []) as RequirementRow[]
+}
+
+/**
+ * Mark / unmark a field as required for a group (Phase 35E).
+ * Marking upserts a row; unmarking deletes it (absence = not required). Field
+ * definitions and field_values are never touched — completion is computed on read.
+ */
+export async function setFieldRequirement(input: {
+  fieldId: string
+  boardId: string
+  groupId: string
+  required: boolean
+}): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data: field } = await supabase
+    .from('fields').select('id, organization_id').eq('id', input.fieldId).maybeSingle()
+  if (!field) throw new Error('Field not found or access denied')
+
+  if (input.required) {
+    const { error } = await supabase
+      .from('field_requirements')
+      .upsert(
+        { organization_id: (field as { organization_id: string }).organization_id, field_id: input.fieldId, group_id: input.groupId, is_required: true },
+        { onConflict: 'field_id,group_id' },
+      )
+    if (error) throw new Error(error.message)
+  } else {
+    const { error } = await supabase
+      .from('field_requirements').delete().eq('field_id', input.fieldId).eq('group_id', input.groupId)
+    if (error) throw new Error(error.message)
+  }
+
+  revalidatePath(`/boards/${input.boardId}`)
+}
+
+/**
+ * Resolve the checklist for a record's group: the field ids that are required
+ * AND visible in that group, in board order. The workspace Checklist tab reads
+ * this once and computes per-field completion from the record's live values.
+ */
+export async function getGroupChecklist(boardId: string, groupId: string | null): Promise<{ requiredFieldIds: string[] }> {
+  if (!groupId) return { requiredFieldIds: [] }
+  const supabase = await createClient()
+  const fields = await getBoardFields(boardId)
+  const fieldIds = fields.map((f: { id: string }) => f.id)
+  if (fieldIds.length === 0) return { requiredFieldIds: [] }
+
+  const [{ data: reqRows }, { data: visRows }] = await Promise.all([
+    supabase.from('field_requirements').select('field_id, group_id, is_required').in('field_id', fieldIds),
+    supabase.from('field_group_visibility').select('field_id, group_id').in('field_id', fieldIds),
+  ])
+
+  const requirementIndex = buildRequirementIndex((reqRows ?? []) as RequirementRow[])
+  const visibilityIndex = buildVisibilityIndex((visRows ?? []) as FieldVisibilityRow[])
+  return { requiredFieldIds: checklistFieldIds(fields, groupId, requirementIndex, visibilityIndex) }
 }

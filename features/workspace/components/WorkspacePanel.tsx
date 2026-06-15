@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   X, Maximize2, FileText, Activity, ListChecks, StickyNote, Database, Columns3,
-  ExternalLink, MoreHorizontal, ArrowRightLeft,
+  ExternalLink, MoreHorizontal, ArrowRightLeft, CheckSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MoveToBoardDialog } from '@/features/boards/components/MoveToBoardDialog'
 import { createClient } from '@/lib/supabase/client'
 import { useWorkspaceTabs } from '../providers/WorkspaceTabsProvider'
 import { ActivityTimeline } from '../timeline/ActivityTimeline'
+import { ChecklistView } from '../checklist/ChecklistView'
 import { NoteList } from '../notes/NoteList'
 import { NextActionCard } from './NextActionCard'
 import { WorkspaceTasks } from './WorkspaceTasks'
@@ -24,12 +25,13 @@ import type { WorkspaceTabKey, NoteRow, TimelineItem } from '../types'
 import { WORKSPACE_TABS, WORKSPACE_TAB_LABELS } from '../types'
 
 const TAB_ICONS: Record<WorkspaceTabKey, React.ElementType> = {
-  overview: FileText,
-  activity: Activity,
-  tasks:    ListChecks,
-  notes:    StickyNote,
-  data:     Database,
-  pipeline: Columns3,
+  overview:  FileText,
+  checklist: CheckSquare,
+  activity:  Activity,
+  tasks:     ListChecks,
+  notes:     StickyNote,
+  data:      Database,
+  pipeline:  Columns3,
 }
 
 type Loaded = {
@@ -326,6 +328,14 @@ function WorkspaceContent({
                   hasMortgageTemplate(data)
                     ? <MortgageWorkspace data={data} onChanged={load} />
                     : <OverviewView data={data} />
+                )}
+                {activeSubTab === 'checklist' && (
+                  <ChecklistView
+                    boardId={data.record.board_id}
+                    groupId={data.record.group_id ?? null}
+                    fields={data.fields}
+                    fieldValues={data.fieldValues}
+                  />
                 )}
                 {activeSubTab === 'activity' && (
                   <ActivityTimeline items={timeline} emptyHint="No activity on this record yet." />

@@ -13,6 +13,7 @@ export type WorkflowTriggerType =
   | 'record.updated'
   | 'record.field_changed'
   | 'record.group_changed'
+  | 'record.checklist_completed'
   | 'no_activity_detected'
   | 'next_action_overdue'
   | 'communication.logged'
@@ -54,6 +55,11 @@ export type WorkflowEvent = {
   participantPhone?: string | null
   threadId?: string | null
   unreadCount?: number
+  // record.checklist_completed context (Phase 35E) — fired when a record's
+  // group checklist reaches 100%. No automations consume it yet.
+  checklistGroupId?: string | null
+  checklistRequiredCount?: number
+  checklistCompletedCount?: number
 }
 
 // Minimal record shape the engine reads (kept small + generic).

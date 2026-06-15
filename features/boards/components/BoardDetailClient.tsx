@@ -21,6 +21,7 @@ import { DragOverlayRow } from './DragOverlayRow'
 import { useBoardRealtime } from '@/hooks/useBoardRealtime'
 import { moveRecord } from '@/features/records/actions'
 import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, type FieldVisibilityRow } from '@/features/fields/visibility'
+import { buildRequirementIndex, checklistFieldIds, computeChecklistProgress, type RequirementRow } from '@/features/fields/checklist'
 import { createSavedView } from '../actions'
 import { updateSavedViewAttention } from '@/features/daily-actions/attention/actions'
 import { cn } from '@/lib/utils'
@@ -31,6 +32,7 @@ interface Props {
   groups: any[]
   fields: any[]
   fieldVisibility?: FieldVisibilityRow[]
+  fieldRequirements?: RequirementRow[]
   records: any[]
   fieldValues: any[]
   organizationId: string
@@ -53,7 +55,7 @@ const STATUS_OPTIONS: { value: RecordStatus | ''; label: string }[] = [
   { value: 'on_hold', label: 'On Hold' },
 ]
 
-export function BoardDetailClient({ board, groups, fields, fieldVisibility, records: serverRecords, fieldValues, organizationId }: Props) {
+export function BoardDetailClient({ board, groups, fields, fieldVisibility, fieldRequirements, records: serverRecords, fieldValues, organizationId }: Props) {
   const router = useRouter()
   const isMutating = useRef(false)
 
@@ -66,6 +68,15 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     for (const g of groups) out[g.id] = resolveVisibleFields(fields, g.id, visibilityIndex)
     return out
   }, [fields, groups, visibilityIndex])
+
+  // Phase 35E — per-group checklist (required+visible field ids) for the column
+  // menu state. No requirement rows ⇒ empty sets ⇒ no checklists.
+  const requirementIndex = useMemo(() => buildRequirementIndex(fieldRequirements), [fieldRequirements])
+  const requiredIdsByGroup = useMemo(() => {
+    const out: Record<string, Set<string>> = {}
+    for (const g of groups) out[g.id] = new Set(checklistFieldIds(fields, g.id, requirementIndex, visibilityIndex))
+    return out
+  }, [fields, groups, requirementIndex, visibilityIndex])
 
   // Local record state for optimistic updates
   const [localRecords, setLocalRecords] = useState(serverRecords)
@@ -212,6 +223,23 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     }
     return index
   }, [fieldValues])
+
+  // Phase 35E — per-group checklist summary (avg completion across its records).
+  // Groups with no required+visible fields report hasChecklist:false.
+  const checklistByGroup = useMemo(() => {
+    const out: Record<string, { hasChecklist: boolean; avgPercentage: number }> = {}
+    for (const g of groups) {
+      const recs = topLevelRecords.filter((r: any) => r.group_id === g.id)
+      let hasChecklist = false
+      let sum = 0
+      for (const r of recs) {
+        const p = computeChecklistProgress(fields, g.id, requirementIndex, visibilityIndex, fieldValuesIndex[r.id] ?? {})
+        if (p.hasChecklist) { hasChecklist = true; sum += p.percentage }
+      }
+      out[g.id] = { hasChecklist, avgPercentage: hasChecklist && recs.length > 0 ? Math.round(sum / recs.length) : 0 }
+    }
+    return out
+  }, [groups, topLevelRecords, fields, requirementIndex, visibilityIndex, fieldValuesIndex])
 
   // Filtered records (top-level only — subitems are nested under their parent)
   const filteredRecords = useMemo(() => {
@@ -414,6 +442,8 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                     records={filteredByGroup[group.id] ?? []}
                     fields={fieldsByGroup[group.id] ?? fields}
                     commonFieldIds={commonIds}
+                    requiredFieldIds={requiredIdsByGroup[group.id]}
+                    checklistSummary={checklistByGroup[group.id]}
                     fieldValuesIndex={fieldValuesIndex}
                     groups={groups}
                     boardId={board.id}

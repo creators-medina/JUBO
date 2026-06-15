@@ -3,6 +3,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { dispatchWorkflowEvent } from '@/features/workflows/engine/dispatch'
+import { buildVisibilityIndex, type FieldVisibilityRow } from '@/features/fields/visibility'
+import {
+  buildRequirementIndex, checklistFieldIds, computeChecklistProgress, isValueComplete,
+  type RequirementRow, type FieldValueLike,
+} from '@/features/fields/checklist'
 import type { RecordType, RecordPriority, RecordStatus } from '@/types/database'
 
 export async function createRecord(data: {
@@ -122,7 +127,9 @@ export async function upsertFieldValue(
   // status-change event fires only when the value actually changes.
   const [{ data: field }, { data: prior }] = await Promise.all([
     supabase.from('fields').select('slug, field_type, organization_id').eq('id', fieldId).maybeSingle(),
-    supabase.from('field_values').select('value_text').eq('field_id', fieldId).eq('record_id', recordId).maybeSingle(),
+    supabase.from('field_values')
+      .select('value_text, value_number, value_boolean, value_date, value_json')
+      .eq('field_id', fieldId).eq('record_id', recordId).maybeSingle(),
   ])
 
   const { error } = await supabase
@@ -156,6 +163,57 @@ export async function upsertFieldValue(
       })
     }
   }
+
+  // Phase 35E — fire record.checklist_completed when THIS edit completes the
+  // record's group checklist (every required + group-visible field filled). We
+  // only run the (cheap) recompute when this field just transitioned to filled,
+  // so it fires once on completion, never on already-complete re-saves. Hidden
+  // fields never count. Best-effort: a failure here never blocks the value save.
+  try {
+    const orgId = (field as { organization_id?: string } | null)?.organization_id
+    const priorComplete = ft ? isValueComplete(ft, prior as FieldValueLike | null) : false
+    const newComplete = ft ? isValueComplete(ft, value as FieldValueLike) : false
+    if (ft && orgId && !priorComplete && newComplete) {
+      const { data: rec } = await supabase.from('records').select('group_id').eq('id', recordId).maybeSingle()
+      const groupId = (rec as { group_id?: string | null } | null)?.group_id ?? null
+      if (groupId) {
+        const { data: fields } = await supabase
+          .from('fields').select('id, name, field_type').eq('board_id', boardId)
+        const fieldList = (fields ?? []) as { id: string; name: string; field_type: string }[]
+        const fieldIds = fieldList.map((f) => f.id)
+        if (fieldIds.length > 0) {
+          const [{ data: reqRows }, { data: visRows }, { data: fvs }] = await Promise.all([
+            supabase.from('field_requirements').select('field_id, group_id, is_required').in('field_id', fieldIds),
+            supabase.from('field_group_visibility').select('field_id, group_id').in('field_id', fieldIds),
+            supabase.from('field_values')
+              .select('field_id, value_text, value_number, value_boolean, value_date, value_json')
+              .eq('record_id', recordId),
+          ])
+          const requirementIndex = buildRequirementIndex((reqRows ?? []) as RequirementRow[])
+          const visibilityIndex = buildVisibilityIndex((visRows ?? []) as FieldVisibilityRow[])
+          const ids = new Set(checklistFieldIds(fieldList, groupId, requirementIndex, visibilityIndex))
+          // Only relevant if the just-filled field is part of this checklist.
+          if (ids.has(fieldId)) {
+            const valuesByFieldId: Record<string, FieldValueLike> = {}
+            for (const fv of (fvs ?? []) as ({ field_id: string } & FieldValueLike)[]) valuesByFieldId[fv.field_id] = fv
+            const progress = computeChecklistProgress(fieldList, groupId, requirementIndex, visibilityIndex, valuesByFieldId)
+            if (progress.isComplete) {
+              await dispatchWorkflowEvent({
+                type: 'record.checklist_completed',
+                organizationId: orgId,
+                recordId,
+                boardId,
+                checklistGroupId: groupId,
+                checklistRequiredCount: progress.requiredCount,
+                checklistCompletedCount: progress.completedCount,
+                changedBy: user?.id ?? null,
+              })
+            }
+          }
+        }
+      }
+    }
+  } catch { /* checklist event is best-effort */ }
 }
 
 export async function moveRecord(recordId: string, toGroupId: string, boardId: string) {

@@ -293,6 +293,24 @@ export interface Database {
         };
         Update: Partial<Omit<Database["public"]["Tables"]["field_group_visibility"]["Insert"], "id" | "organization_id">>;
       };
+      field_requirements: {
+        Row: {
+          id: string;
+          organization_id: string;
+          field_id: string;
+          group_id: string;
+          is_required: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          field_id: string;
+          group_id: string;
+          is_required?: boolean;
+        };
+        Update: Partial<Omit<Database["public"]["Tables"]["field_requirements"]["Insert"], "id" | "organization_id">>;
+      };
       field_values: {
         Row: {
           id: string;

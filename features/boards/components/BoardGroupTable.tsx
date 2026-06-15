@@ -17,6 +17,8 @@ interface Props {
   records: any[]
   fields: any[]
   commonFieldIds?: Set<string>
+  requiredFieldIds?: Set<string>
+  checklistSummary?: { hasChecklist: boolean; avgPercentage: number }
   fieldValuesIndex: Record<string, Record<string, any>>
   groups: any[]
   boardId: string
@@ -40,6 +42,8 @@ export function BoardGroupTable({
   records,
   fields,
   commonFieldIds,
+  requiredFieldIds,
+  checklistSummary,
   fieldValuesIndex,
   groups,
   boardId,
@@ -155,6 +159,11 @@ export function BoardGroupTable({
         )}
 
         <div className="ml-auto flex items-center gap-3 pr-1">
+          {checklistSummary?.hasChecklist && (
+            <span className="hidden sm:inline text-2xs text-muted-foreground tabular-nums" title="Average checklist completion across this group">
+              Completion <span className={cn('font-medium', checklistSummary.avgPercentage === 100 ? 'text-emerald-400' : 'text-foreground')}>{checklistSummary.avgPercentage}%</span>
+            </span>
+          )}
           {valueTotal > 0 && (
             <span className="hidden sm:inline text-2xs text-muted-foreground tabular-nums">
               Volume <span className="font-medium text-foreground">{formatVolume(valueTotal)}</span>
@@ -209,6 +218,7 @@ export function BoardGroupTable({
                       boardId={boardId}
                       groupId={group.id}
                       isCommon={commonFieldIds ? commonFieldIds.has(field.id) : true}
+                      isRequired={requiredFieldIds ? requiredFieldIds.has(field.id) : false}
                     />
                   </th>
                 ))}

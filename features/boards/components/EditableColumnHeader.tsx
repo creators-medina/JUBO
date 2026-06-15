@@ -2,8 +2,8 @@
 
 import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, MoreVertical, Check, Globe, Eye } from 'lucide-react'
-import { updateField, setFieldGroupVisibility } from '@/features/fields/actions'
+import { Loader2, MoreVertical, Check, Globe, Eye, ListChecks } from 'lucide-react'
+import { updateField, setFieldGroupVisibility, setFieldRequirement } from '@/features/fields/actions'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -12,6 +12,8 @@ interface Props {
   boardId?: string
   groupId?: string
   isCommon?: boolean
+  /** Phase 35E — whether this field is required for the current group. */
+  isRequired?: boolean
 }
 
 /**
@@ -24,7 +26,7 @@ interface Props {
  * "Show only in this group"). A field with no visibility rows is common
  * (shows everywhere); restricting it to a group hides it from the others.
  */
-export function EditableColumnHeader({ field, boardId, groupId, isCommon = true }: Props) {
+export function EditableColumnHeader({ field, boardId, groupId, isCommon = true, isRequired = false }: Props) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(field.name)
@@ -84,6 +86,19 @@ export function EditableColumnHeader({ field, boardId, groupId, isCommon = true 
     })
   }
 
+  const setRequired = (required: boolean) => {
+    if (!boardId || !groupId) return
+    setMenuOpen(false)
+    startTransition(async () => {
+      try {
+        await setFieldRequirement({ fieldId: field.id, boardId, groupId, required })
+        router.refresh()
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Could not update requirement')
+      }
+    })
+  }
+
   if (editing) {
     return (
       <input
@@ -113,6 +128,10 @@ export function EditableColumnHeader({ field, boardId, groupId, isCommon = true 
         )}
       >
         {optimistic}
+        {/* Required-for-this-group marker. */}
+        {canManageVisibility && isRequired && (
+          <span className="text-emerald-400" aria-label="Required for this group" title="Required for this group">*</span>
+        )}
         {/* Group-specific marker so restricted columns are recognizable. */}
         {canManageVisibility && !isCommon && (
           <Eye className="h-2.5 w-2.5 text-primary/70" aria-label="Group-specific field" />
@@ -149,6 +168,16 @@ export function EditableColumnHeader({ field, boardId, groupId, isCommon = true 
                 <Eye className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
                 <span className="flex-1">Show only in this group</span>
                 {!isCommon && <Check className="h-3 w-3 text-primary" />}
+              </button>
+              <div className="my-1 border-t border-border" />
+              <button
+                type="button"
+                onClick={() => setRequired(!isRequired)}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-2xs normal-case tracking-normal text-foreground hover:bg-surface-1"
+              >
+                <ListChecks className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                <span className="flex-1">{isRequired ? 'Unmark required for this group' : 'Mark required for this group'}</span>
+                {isRequired && <Check className="h-3 w-3 text-emerald-400" />}
               </button>
             </div>
           )}
