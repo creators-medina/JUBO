@@ -68,6 +68,10 @@ export async function applyPipelineMovement(
     .eq('id', recordId)
   if (error) throw new Error(error.message)
 
+  // Phase 34B.2b — reset the destination board's default workflow status for the
+  // current stage (silent SQL delete; never emits record.field_changed).
+  await supabase.rpc('reset_default_status', { p_record_id: recordId, p_board_id: board.id })
+
   await supabase.from('activities').insert({
     organization_id: ctx.organizationId, record_id: recordId, user_id: ctx.userId,
     activity_type: 'status_change',
