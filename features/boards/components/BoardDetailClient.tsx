@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark, Zap } from 'lucide-react'
+import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark, Zap, MoreVertical, Copy, Archive, Pencil, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
@@ -23,7 +23,7 @@ import { moveRecord } from '@/features/records/actions'
 import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, type FieldVisibilityRow } from '@/features/fields/visibility'
 import { computeGroupChecklist } from '@/features/fields/checklist'
 import { reorderFields } from '@/features/fields/actions'
-import { createSavedView } from '../actions'
+import { createSavedView, reorderBoardGroups, duplicateBoardStructure, archiveBoard } from '../actions'
 import { updateSavedViewAttention } from '@/features/daily-actions/attention/actions'
 import { cn } from '@/lib/utils'
 import type { RecordPriority, RecordStatus } from '@/types/database'
@@ -77,6 +77,50 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
       .then(() => router.refresh())
       .catch(() => setLocalFields(prev))
   }, [localFields, board.id, router])
+
+  // Phase 35G — group reorder (drag + up/down). Persisted; refresh re-fetches.
+  const handleReorderGroup = useCallback((draggedId: string, targetId: string) => {
+    const order = groups.map((g: any) => g.id)
+    const from = order.indexOf(draggedId)
+    if (from < 0 || !order.includes(targetId) || draggedId === targetId) return
+    order.splice(from, 1)
+    order.splice(order.indexOf(targetId), 0, draggedId)
+    reorderBoardGroups(board.id, order).then(() => router.refresh()).catch(() => {})
+  }, [groups, board.id, router])
+
+  const handleMoveGroup = useCallback((groupId: string, dir: 'up' | 'down') => {
+    const order = groups.map((g: any) => g.id)
+    const i = order.indexOf(groupId)
+    const j = dir === 'up' ? i - 1 : i + 1
+    if (i < 0 || j < 0 || j >= order.length) return
+    ;[order[i], order[j]] = [order[j], order[i]]
+    reorderBoardGroups(board.id, order).then(() => router.refresh()).catch(() => {})
+  }, [groups, board.id, router])
+
+  // Phase 35G — board header menu (rename / duplicate structure / archive).
+  const [showBoardMenu, setShowBoardMenu] = useState(false)
+  const [confirmArchiveBoard, setConfirmArchiveBoard] = useState(false)
+  const [boardBusy, setBoardBusy] = useState(false)
+  const boardMenuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!showBoardMenu) return
+    const onDown = (e: MouseEvent) => { if (boardMenuRef.current && !boardMenuRef.current.contains(e.target as Node)) setShowBoardMenu(false) }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [showBoardMenu])
+
+  const onDuplicateBoard = () => {
+    setShowBoardMenu(false); setBoardBusy(true)
+    duplicateBoardStructure(board.id)
+      .then(({ id }) => router.push(`/boards/${id}`))
+      .catch((e) => { setBoardBusy(false); alert(e instanceof Error ? e.message : 'Could not duplicate board') })
+  }
+  const onArchiveBoard = () => {
+    setConfirmArchiveBoard(false); setBoardBusy(true)
+    archiveBoard(board.id)
+      .then(() => { router.push('/boards'); router.refresh() })
+      .catch((e) => { setBoardBusy(false); alert(e instanceof Error ? e.message : 'Could not archive board') })
+  }
 
   // Phase 35B — per-group column resolution. No visibility rows ⇒ every field
   // is common ⇒ identical to pre-35B behavior.
@@ -327,6 +371,25 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
             <Button size="icon" variant="ghost" className="w-7 h-7" title="Settings" onClick={() => setShowSettings(true)}>
               <Settings className="w-3.5 h-3.5" />
             </Button>
+            <div className="relative" ref={boardMenuRef}>
+              <Button size="icon" variant="ghost" className="w-7 h-7" title="Board menu" onClick={() => setShowBoardMenu((o) => !o)}>
+                {boardBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MoreVertical className="w-3.5 h-3.5" />}
+              </Button>
+              {showBoardMenu && (
+                <div className="absolute right-0 top-8 z-50 w-52 rounded-lg border border-border bg-card p-1 shadow-xl">
+                  <button type="button" onClick={() => { setShowBoardMenu(false); setShowSettings(true) }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
+                    <Pencil className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Rename board
+                  </button>
+                  <button type="button" onClick={onDuplicateBoard} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
+                    <Copy className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Duplicate structure
+                  </button>
+                  <div className="my-1 border-t border-border" />
+                  <button type="button" onClick={() => { setShowBoardMenu(false); setConfirmArchiveBoard(true) }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-destructive hover:bg-surface-1">
+                    <Archive className="h-3.5 w-3.5 flex-shrink-0 text-destructive" />Archive board
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -455,6 +518,10 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                     commonFieldIds={commonIds}
                     checklistSummary={checklistByGroup[group.id]}
                     onReorderColumn={handleReorderColumn}
+                    onMoveGroup={handleMoveGroup}
+                    onReorderGroup={handleReorderGroup}
+                    isFirstGroup={i === 0}
+                    isLastGroup={i === groups.length - 1}
                     fieldValuesIndex={fieldValuesIndex}
                     groups={groups}
                     boardId={board.id}
@@ -489,6 +556,19 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
         )}
         <BoardSettingsModal open={showSettings} onClose={() => setShowSettings(false)} board={board} />
         <AutomationsModal open={showAutomate} onClose={() => setShowAutomate(false)} board={board} organizationId={organizationId} fields={localFields} groups={groups} />
+
+        {confirmArchiveBoard && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setConfirmArchiveBoard(false)}>
+            <div className="w-full max-w-sm rounded-xl border border-border bg-card p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <h3 className="mb-2 text-sm font-semibold text-foreground">Archive this board?</h3>
+              <p className="mb-3 text-xs text-muted-foreground">Records and data will be preserved, but the board will be hidden.</p>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setConfirmArchiveBoard(false)} className="rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+                <button type="button" onClick={onArchiveBoard} className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90">Archive board</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <BulkActionBar
           selectedIds={Array.from(selectedIds)}

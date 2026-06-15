@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, ChevronRight, Plus, Check, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Check, X, MoreVertical, GripVertical, Pencil, Palette, Copy, ArrowUp, ArrowDown, Archive, Trash2, Loader2 } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { BoardRecordRow } from './BoardRecordRow'
-import { updateBoardGroup } from '@/features/boards/actions'
+import { updateBoardGroup, duplicateBoardGroup, archiveBoardGroup, deleteBoardGroupHard } from '@/features/boards/actions'
 import { EditableColumnHeader } from './EditableColumnHeader'
 import { formatVolume, stageColor } from './BoardStageSummary'
 import { cn } from '@/lib/utils'
@@ -19,6 +19,10 @@ interface Props {
   commonFieldIds?: Set<string>
   checklistSummary?: { hasChecklist: boolean; avgPercentage: number }
   onReorderColumn?: (draggedId: string, targetId: string) => void
+  onMoveGroup?: (groupId: string, dir: 'up' | 'down') => void
+  onReorderGroup?: (draggedId: string, targetId: string) => void
+  isFirstGroup?: boolean
+  isLastGroup?: boolean
   fieldValuesIndex: Record<string, Record<string, any>>
   groups: any[]
   boardId: string
@@ -44,6 +48,10 @@ export function BoardGroupTable({
   commonFieldIds,
   checklistSummary,
   onReorderColumn,
+  onMoveGroup,
+  onReorderGroup,
+  isFirstGroup,
+  isLastGroup,
   fieldValuesIndex,
   groups,
   boardId,
@@ -68,6 +76,41 @@ export function BoardGroupTable({
   const [color, setColor] = useState(group.color ?? '')
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [showMenu, setShowMenu] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showMenu) return
+    const onDown = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) { setShowMenu(false); setConfirmDelete(false) } }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [showMenu])
+
+  const closeMenu = () => { setShowMenu(false); setConfirmDelete(false) }
+  const groupFail = (e: unknown, msg: string) => alert(e instanceof Error ? e.message : msg)
+
+  const onDuplicateGroup = () => {
+    closeMenu()
+    startTransition(async () => {
+      try { await duplicateBoardGroup(group.id, boardId); router.refresh() }
+      catch (e) { groupFail(e, 'Could not duplicate group') }
+    })
+  }
+  const onArchiveGroup = () => {
+    closeMenu()
+    startTransition(async () => {
+      try { await archiveBoardGroup(group.id, boardId); router.refresh() }
+      catch (e) { groupFail(e, 'Could not archive group') }
+    })
+  }
+  const onDeleteGroup = () => {
+    closeMenu()
+    startTransition(async () => {
+      try { await deleteBoardGroupHard(group.id, boardId); router.refresh() }
+      catch (e) { groupFail(e, 'Could not delete group') }
+    })
+  }
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `group-drop:${group.id}`,
@@ -106,10 +149,28 @@ export function BoardGroupTable({
         </div>
 
         {/* Integrated header (above the rail + table so the color popover shows) */}
-        <div className={cn(
-          'group relative z-30 flex items-center gap-2 rounded-t-xl px-4 py-2.5 pl-5 transition-colors',
-          isOver && 'bg-primary/5'
-        )}>
+        <div
+          className={cn(
+            'group relative z-30 flex items-center gap-2 rounded-t-xl px-4 py-2.5 pl-5 transition-colors',
+            isOver && 'bg-primary/5'
+          )}
+          onDragOver={(e) => { if (onReorderGroup && e.dataTransfer.types.includes('text/group-id')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move' } }}
+          onDrop={(e) => {
+            if (!onReorderGroup) return
+            const dragged = e.dataTransfer.getData('text/group-id')
+            if (dragged && dragged !== group.id) { e.preventDefault(); onReorderGroup(dragged, group.id) }
+          }}
+        >
+        {onReorderGroup && (
+          <button
+            draggable
+            onDragStart={(e) => { e.dataTransfer.setData('text/group-id', group.id); e.dataTransfer.effectAllowed = 'move' }}
+            className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Drag to reorder group"
+          >
+            <GripVertical className="w-3.5 h-3.5" />
+          </button>
+        )}
         <button onClick={() => setCollapsed(c => !c)} className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors">
           {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
@@ -174,6 +235,31 @@ export function BoardGroupTable({
             <button onClick={onAddRecord} className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors" title="Add record">
               <Plus className="w-3.5 h-3.5" />
             </button>
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setShowMenu((o) => !o)}
+                className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
+                title="Group menu"
+              >
+                {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MoreVertical className="w-3.5 h-3.5" />}
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 top-6 z-50 w-44 rounded-lg border border-border bg-card p-1 shadow-xl text-left font-normal normal-case tracking-normal">
+                  <GroupMenuItem icon={Pencil} label="Rename group" onClick={() => { closeMenu(); setEditingName(true) }} />
+                  <GroupMenuItem icon={Palette} label="Change color" onClick={() => { closeMenu(); setShowColorPicker(true) }} />
+                  <GroupMenuItem icon={Copy} label="Duplicate group" onClick={onDuplicateGroup} />
+                  {onMoveGroup && !isFirstGroup && <GroupMenuItem icon={ArrowUp} label="Move up" onClick={() => { closeMenu(); onMoveGroup(group.id, 'up') }} />}
+                  {onMoveGroup && !isLastGroup && <GroupMenuItem icon={ArrowDown} label="Move down" onClick={() => { closeMenu(); onMoveGroup(group.id, 'down') }} />}
+                  <div className="my-1 border-t border-border" />
+                  <GroupMenuItem icon={Archive} label="Archive group" onClick={onArchiveGroup} />
+                  {confirmDelete ? (
+                    <GroupMenuItem icon={Trash2} label="Click to confirm delete" destructive onClick={onDeleteGroup} />
+                  ) : (
+                    <GroupMenuItem icon={Trash2} label="Delete group" destructive onClick={() => setConfirmDelete(true)} />
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -283,5 +369,23 @@ export function BoardGroupTable({
       )}
       </div>
     </div>
+  )
+}
+
+function GroupMenuItem({ icon: Icon, label, onClick, destructive }: {
+  icon: React.ElementType; label: string; onClick: () => void; destructive?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-surface-1',
+        destructive ? 'text-destructive' : 'text-foreground',
+      )}
+    >
+      <Icon className={cn('h-3.5 w-3.5 flex-shrink-0', destructive ? 'text-destructive' : 'text-muted-foreground')} />
+      {label}
+    </button>
   )
 }
