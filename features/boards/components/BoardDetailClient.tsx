@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark } from 'lucide-react'
+import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark, Zap } from 'lucide-react'
 import Link from 'next/link'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
@@ -15,6 +15,7 @@ import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsPr
 import { BoardGroupTable } from './BoardGroupTable'
 import { BoardStageSummary } from './BoardStageSummary'
 import { BoardSettingsModal } from './BoardSettingsModal'
+import { AutomationsModal } from '@/features/workflows/components/AutomationsModal'
 import { BulkActionBar } from './BulkActionBar'
 import { DragOverlayRow } from './DragOverlayRow'
 import { useBoardRealtime } from '@/hooks/useBoardRealtime'
@@ -109,6 +110,7 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
   const [showCreateRecord, setShowCreateRecord] = useState<string | null>(null)
   const { openWorkspace } = useWorkspaceTabs()
   const [showSettings, setShowSettings] = useState(false)
+  const [showAutomate, setShowAutomate] = useState(false)
   const [search, setSearch] = useState('')
   const [filterPriority, setFilterPriority] = useState<RecordPriority | ''>('')
   const [filterStatus, setFilterStatus] = useState<RecordStatus | ''>('')
@@ -267,6 +269,9 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <Button size="sm" variant="ghost" className="text-xs h-7 gap-1" onClick={() => setShowCreateGroup(true)}>
               <Plus className="w-3 h-3" />Group
+            </Button>
+            <Button size="sm" variant="ghost" className="text-xs h-7 gap-1" title="Automate" onClick={() => setShowAutomate(true)}>
+              <Zap className="w-3.5 h-3.5" />Automate
             </Button>
             <Button size="icon" variant="ghost" className="w-7 h-7" title="Settings" onClick={() => setShowSettings(true)}>
               <Settings className="w-3.5 h-3.5" />
@@ -429,6 +434,7 @@ export function BoardDetailClient({ board, groups, fields, records: serverRecord
           <CreateRecordModal open onClose={() => setShowCreateRecord(null)} boardId={board.id} groupId={showCreateRecord} organizationId={organizationId} fields={fields} />
         )}
         <BoardSettingsModal open={showSettings} onClose={() => setShowSettings(false)} board={board} />
+        <AutomationsModal open={showAutomate} onClose={() => setShowAutomate(false)} board={board} organizationId={organizationId} fields={fields} groups={groups} />
 
         <BulkActionBar
           selectedIds={Array.from(selectedIds)}

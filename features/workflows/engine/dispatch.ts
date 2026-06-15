@@ -22,10 +22,18 @@ export type DispatchContext = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   client?: any
   userId?: string | null
+  /** Recursion depth — automation-initiated dispatches increment this. */
+  depth?: number
 }
+
+// Backstop against automation cascades (e.g. status→move→group_changed→…).
+const MAX_DISPATCH_DEPTH = 4
 
 export async function dispatchWorkflowEvent(event: WorkflowEvent, ctx?: DispatchContext): Promise<void> {
   try {
+    const depth = ctx?.depth ?? 0
+    if (depth > MAX_DISPATCH_DEPTH) return // loop guard
+
     const supabase = ctx?.client ?? await createClient()
     let userId = ctx?.userId ?? null
     if (!userId) {
@@ -48,8 +56,11 @@ export async function dispatchWorkflowEvent(event: WorkflowEvent, ctx?: Dispatch
     if (!record) return
 
     for (const wf of workflows as WorkflowRow[]) {
+      // Board-scoped rules only run for their board (null = org-wide).
+      if (wf.board_id && event.boardId && wf.board_id !== event.boardId) continue
+      if (wf.board_id && !event.boardId && wf.board_id !== record.board_id) continue
       // eslint-disable-next-line no-await-in-loop
-      await runWorkflow(wf, event, record, userId, supabase)
+      await runWorkflow(wf, event, record, userId, supabase, depth)
     }
   } catch (err) {
     // Best-effort: a workflow failure must never break the user's primary action
@@ -64,7 +75,15 @@ async function runWorkflow(
   userId: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
+  depth: number,
 ): Promise<void> {
+  // Custom (DB-defined) rules run from config; code rules from the registry.
+  const cfg = wf.config as Record<string, unknown> | null
+  if (cfg && cfg.kind === 'status_to_group') {
+    await runStatusToGroup(wf, cfg, event, record, userId, supabase, depth)
+    return
+  }
+
   const template = templateById(wf.template_id)
   if (!template) return
 
@@ -88,6 +107,70 @@ async function runWorkflow(
   }
 
   await logExecution(supabase, event, wf, executed, status)
+}
+
+/**
+ * Phase 34B — "when status changes to <label>, move item to <group>".
+ * Matches the field_changed event against the rule, then moves the record via
+ * the safe move_record RPC (logs movement + activity). The downstream
+ * record.group_changed is dispatched with depth+1 so the loop guard applies.
+ */
+async function runStatusToGroup(
+  wf: WorkflowRow,
+  cfg: Record<string, unknown>,
+  event: WorkflowEvent,
+  record: WorkflowRecordSnapshot,
+  userId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  depth: number,
+): Promise<void> {
+  const trigger = (cfg.trigger ?? {}) as { fieldId?: string; fieldType?: string; toValue?: string }
+  const action = (cfg.action ?? {}) as { type?: string; groupId?: string }
+
+  // Defensive match (34A already guarantees a real change + status/select type).
+  const matches =
+    event.type === 'record.field_changed' &&
+    event.fieldType === 'status' &&
+    !!trigger.fieldId && event.fieldId === trigger.fieldId &&
+    (event.toValue ?? null) === (trigger.toValue ?? null) &&
+    event.fromValue !== event.toValue
+  if (!matches) { await logExecution(supabase, event, wf, [], 'skipped'); return }
+
+  const toGroupId = action.groupId
+  if (action.type !== 'move_to_group' || !toGroupId) {
+    await logExecution(supabase, event, wf, [], 'skipped'); return
+  }
+  // Already there → nothing to do.
+  if (record.group_id === toGroupId) { await logExecution(supabase, event, wf, [], 'skipped'); return }
+
+  // Validate the destination group belongs to THIS record's board (same-board move).
+  const { data: grp } = await supabase
+    .from('board_groups').select('id, name, board_id').eq('id', toGroupId).maybeSingle()
+  if (!grp || grp.board_id !== record.board_id) {
+    await logExecution(supabase, event, wf, [{ kind: 'move_to_group', detail: 'group not on this board', skipped: true }], 'skipped')
+    return
+  }
+
+  const fromGroupId = record.group_id
+  const { error } = await supabase.rpc('move_record', {
+    p_record_id: record.id,
+    p_to_group_id: toGroupId,
+    p_moved_by: userId,
+    p_movement_type: 'stage_change',
+  })
+  if (error) {
+    await logExecution(supabase, event, wf, [{ kind: 'move_to_group', detail: error.message, skipped: false }], 'failed')
+    return
+  }
+
+  await logExecution(supabase, event, wf, [{ kind: 'move_to_group', detail: `→ ${grp.name}`, skipped: false }], 'success')
+
+  // Let downstream group-based workflows react — depth-guarded against loops.
+  await dispatchWorkflowEvent(
+    { type: 'record.group_changed', organizationId: event.organizationId, recordId: record.id, boardId: record.board_id, fromGroupId, toGroupId, toGroupName: grp.name },
+    { client: supabase, userId, depth: depth + 1 },
+  )
 }
 
 async function logExecution(

@@ -110,6 +110,7 @@ export type WorkflowTemplate = {
 export type WorkflowRow = {
   id: string
   organization_id: string
+  board_id?: string | null
   template_id: string
   title: string
   description: string | null
