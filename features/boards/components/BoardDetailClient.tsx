@@ -22,6 +22,7 @@ import { useBoardRealtime } from '@/hooks/useBoardRealtime'
 import { moveRecord } from '@/features/records/actions'
 import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, type FieldVisibilityRow } from '@/features/fields/visibility'
 import { computeGroupChecklist } from '@/features/fields/checklist'
+import { reorderFields } from '@/features/fields/actions'
 import { createSavedView } from '../actions'
 import { updateSavedViewAttention } from '@/features/daily-actions/attention/actions'
 import { cn } from '@/lib/utils'
@@ -58,15 +59,34 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   const router = useRouter()
   const isMutating = useRef(false)
 
+  // Phase 35F — local field order for optimistic drag-to-reorder.
+  const [localFields, setLocalFields] = useState(fields)
+  useEffect(() => { setLocalFields(fields) }, [fields])
+
+  const handleReorderColumn = useCallback((draggedId: string, targetId: string) => {
+    const ids = localFields.map((f: any) => f.id)
+    const from = ids.indexOf(draggedId)
+    if (from < 0 || !ids.includes(targetId) || draggedId === targetId) return
+    const prev = localFields
+    const next = [...localFields]
+    const [moved] = next.splice(from, 1)
+    const insertAt = next.findIndex((f: any) => f.id === targetId)
+    next.splice(insertAt, 0, moved)
+    setLocalFields(next)
+    reorderFields(board.id, next.map((f: any) => f.id))
+      .then(() => router.refresh())
+      .catch(() => setLocalFields(prev))
+  }, [localFields, board.id, router])
+
   // Phase 35B — per-group column resolution. No visibility rows ⇒ every field
   // is common ⇒ identical to pre-35B behavior.
   const visibilityIndex = useMemo(() => buildVisibilityIndex(fieldVisibility), [fieldVisibility])
-  const commonIds = useMemo(() => new Set(commonFieldIds(fields, visibilityIndex)), [fields, visibilityIndex])
+  const commonIds = useMemo(() => new Set(commonFieldIds(localFields, visibilityIndex)), [localFields, visibilityIndex])
   const fieldsByGroup = useMemo(() => {
     const out: Record<string, any[]> = {}
-    for (const g of groups) out[g.id] = resolveVisibleFields(fields, g.id, visibilityIndex)
+    for (const g of groups) out[g.id] = resolveVisibleFields(localFields, g.id, visibilityIndex)
     return out
-  }, [fields, groups, visibilityIndex])
+  }, [localFields, groups, visibilityIndex])
 
   // Local record state for optimistic updates
   const [localRecords, setLocalRecords] = useState(serverRecords)
@@ -224,13 +244,13 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
       let hasChecklist = false
       let sum = 0
       for (const r of recs) {
-        const p = computeGroupChecklist(fields, g.id, visibilityIndex, fieldValuesIndex[r.id] ?? {})
+        const p = computeGroupChecklist(localFields, g.id, visibilityIndex, fieldValuesIndex[r.id] ?? {})
         if (p.hasChecklist) { hasChecklist = true; sum += p.percentage }
       }
       out[g.id] = { hasChecklist, avgPercentage: hasChecklist && recs.length > 0 ? Math.round(sum / recs.length) : 0 }
     }
     return out
-  }, [groups, topLevelRecords, fields, visibilityIndex, fieldValuesIndex])
+  }, [groups, topLevelRecords, localFields, visibilityIndex, fieldValuesIndex])
 
   // Filtered records (top-level only — subitems are nested under their parent)
   const filteredRecords = useMemo(() => {
@@ -431,9 +451,10 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                     key={group.id}
                     group={group}
                     records={filteredByGroup[group.id] ?? []}
-                    fields={fieldsByGroup[group.id] ?? fields}
+                    fields={fieldsByGroup[group.id] ?? localFields}
                     commonFieldIds={commonIds}
                     checklistSummary={checklistByGroup[group.id]}
+                    onReorderColumn={handleReorderColumn}
                     fieldValuesIndex={fieldValuesIndex}
                     groups={groups}
                     boardId={board.id}
@@ -462,12 +483,12 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
 
         {/* Modals */}
         <CreateGroupModal open={showCreateGroup} onClose={() => setShowCreateGroup(false)} boardId={board.id} nextPosition={groups.length} />
-        <CreateFieldModal open={showCreateField} onClose={() => setShowCreateField(false)} boardId={board.id} organizationId={organizationId} nextPosition={fields.length} />
+        <CreateFieldModal open={showCreateField} onClose={() => setShowCreateField(false)} boardId={board.id} organizationId={organizationId} nextPosition={localFields.length} />
         {showCreateRecord && (
-          <CreateRecordModal open onClose={() => setShowCreateRecord(null)} boardId={board.id} groupId={showCreateRecord} organizationId={organizationId} fields={fields} />
+          <CreateRecordModal open onClose={() => setShowCreateRecord(null)} boardId={board.id} groupId={showCreateRecord} organizationId={organizationId} fields={localFields} />
         )}
         <BoardSettingsModal open={showSettings} onClose={() => setShowSettings(false)} board={board} />
-        <AutomationsModal open={showAutomate} onClose={() => setShowAutomate(false)} board={board} organizationId={organizationId} fields={fields} groups={groups} />
+        <AutomationsModal open={showAutomate} onClose={() => setShowAutomate(false)} board={board} organizationId={organizationId} fields={localFields} groups={groups} />
 
         <BulkActionBar
           selectedIds={Array.from(selectedIds)}

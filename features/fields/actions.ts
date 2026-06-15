@@ -4,7 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { defaultStatusOptions, parseOptions } from '@/features/fields/status'
 import { buildVisibilityIndex, commonFieldIds, type FieldVisibilityRow } from '@/features/fields/visibility'
-import { groupChecklistFields, type RequirementRow } from '@/features/fields/checklist'
+import { groupChecklistFields, type RequirementRow, type FieldValueLike } from '@/features/fields/checklist'
+import { convertFieldValue, countConversionLoss } from '@/features/fields/conversion'
 import type { FieldType } from '@/types/database'
 
 /** A new status field with no options gets the Monday-style default labels. */
@@ -328,4 +329,158 @@ export async function getGroupChecklistFields(
     visibilityIndex,
   )
   return { fields: checklist.map((f) => ({ id: f.id, name: f.name })) }
+}
+
+// ── Phase 35F — Column management (delete / change type / duplicate / reorder) ──
+
+/** Load a field with its org + board, scoped by RLS. */
+async function loadFieldRow(supabase: Awaited<ReturnType<typeof createClient>>, fieldId: string) {
+  const { data } = await supabase
+    .from('fields')
+    .select('id, board_id, organization_id, name, slug, field_type, config, position, is_required, is_default_status')
+    .eq('id', fieldId).maybeSingle()
+  return data as null | {
+    id: string; board_id: string; organization_id: string; name: string; slug: string
+    field_type: FieldType; config: Record<string, unknown> | null; position: number
+    is_required: boolean; is_default_status: boolean
+  }
+}
+
+/**
+ * Delete a column: the field row + (via FK cascade) its field_values,
+ * field_group_visibility, and field_requirements. The board's default workflow
+ * status field is protected (deleting it would break the 34B.2a invariant).
+ */
+export async function deleteField(fieldId: string, boardId: string): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const field = await loadFieldRow(supabase, fieldId)
+  if (!field) throw new Error('Field not found or access denied')
+  if (field.is_default_status) throw new Error("This is the board's default status field and can't be deleted.")
+
+  const { error } = await supabase.from('fields').delete().eq('id', fieldId)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/boards/${boardId}`)
+}
+
+/** How many values would be lost converting this field to `toType` (no writes). */
+export async function previewFieldTypeChange(fieldId: string, toType: FieldType): Promise<{ total: number; lost: number }> {
+  const supabase = await createClient()
+  const field = await loadFieldRow(supabase, fieldId)
+  if (!field) throw new Error('Field not found or access denied')
+  if (field.field_type === toType) return { total: 0, lost: 0 }
+
+  const { data: vals } = await supabase
+    .from('field_values')
+    .select('value_text, value_number, value_boolean, value_date, value_json')
+    .eq('field_id', fieldId)
+  return countConversionLoss(field.field_type, toType, (vals ?? []) as FieldValueLike[])
+}
+
+/**
+ * Change a column's type, converting existing values per the conversion rules
+ * (features/fields/conversion.ts). Unconvertible values become empty. Converting
+ * to 'status' seeds the Monday default labels when none exist. The default
+ * status field is protected. Field id/slug are stable (downstreams keep working).
+ */
+export async function changeFieldType(input: { fieldId: string; boardId: string; toType: FieldType }): Promise<{ converted: number; lost: number }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const field = await loadFieldRow(supabase, input.fieldId)
+  if (!field) throw new Error('Field not found or access denied')
+  if (field.is_default_status) throw new Error("This is the board's default status field; its type is fixed.")
+  if (field.field_type === input.toType) return { converted: 0, lost: 0 }
+
+  const { data: vals } = await supabase
+    .from('field_values')
+    .select('id, value_text, value_number, value_boolean, value_date, value_json')
+    .eq('field_id', input.fieldId)
+
+  let converted = 0
+  let lost = 0
+  for (const row of (vals ?? []) as ({ id: string } & FieldValueLike)[]) {
+    const before = { value_text: row.value_text, value_number: row.value_number, value_boolean: row.value_boolean, value_date: row.value_date, value_json: row.value_json }
+    const wasEmpty = before.value_text == null && before.value_number == null && before.value_boolean == null && before.value_date == null && (before.value_json == null || (Array.isArray(before.value_json) && before.value_json.length === 0))
+    const patch = convertFieldValue(field.field_type, input.toType, before)
+    const nowEmpty = patch.value_text == null && patch.value_number == null && patch.value_boolean == null && patch.value_date == null && (patch.value_json == null || (Array.isArray(patch.value_json) && patch.value_json.length === 0))
+    if (!wasEmpty) { converted++; if (nowEmpty) lost++ }
+    const { error } = await supabase.from('field_values').update(patch).eq('id', row.id)
+    if (error) throw new Error(error.message)
+  }
+
+  // Seed default status labels when becoming a status field with no options.
+  const nextConfig = seedStatusConfig(input.toType, (field.config ?? {}) as Record<string, unknown>)
+  const { error: fErr } = await supabase
+    .from('fields').update({ field_type: input.toType, config: nextConfig }).eq('id', input.fieldId)
+  if (fErr) throw new Error(fErr.message)
+
+  revalidatePath(`/boards/${input.boardId}`)
+  return { converted, lost }
+}
+
+/**
+ * Duplicate a column: a new "<name> Copy" field with the same type + config
+ * (status labels / select options included) and the same visibility rules.
+ * Values are NOT copied — the duplicate starts empty. Never default-status.
+ */
+export async function duplicateField(fieldId: string, boardId: string): Promise<{ id: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const field = await loadFieldRow(supabase, fieldId)
+  if (!field) throw new Error('Field not found or access denied')
+
+  // Dedupe name + slug against the board.
+  const { data: existing } = await supabase.from('fields').select('name, slug, position').eq('board_id', boardId)
+  const names = new Set((existing ?? []).map((f) => f.name))
+  const slugs = new Set((existing ?? []).map((f) => f.slug))
+  let name = `${field.name} Copy`
+  let i = 2
+  while (names.has(name)) name = `${field.name} Copy ${i++}`
+  const base = (name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')) || 'field'
+  let slug = base
+  let k = 1
+  while (slugs.has(slug)) slug = `${base}_${k++}`
+  const position = Math.max(0, ...((existing ?? []).map((f) => f.position ?? 0))) + 1
+
+  const { data: created, error } = await supabase
+    .from('fields')
+    .insert({
+      organization_id: field.organization_id, board_id: boardId, name, slug,
+      field_type: field.field_type, config: field.config ?? {}, is_required: field.is_required,
+      position, is_default_status: false,
+    })
+    .select('id').single()
+  if (error || !created) throw new Error(error?.message ?? 'Could not duplicate field')
+
+  // Copy visibility rules (not values, not requirements).
+  const { data: visRows } = await supabase
+    .from('field_group_visibility').select('group_id').eq('field_id', fieldId)
+  if (visRows && visRows.length > 0) {
+    await supabase.from('field_group_visibility').insert(
+      visRows.map((v: { group_id: string }) => ({ organization_id: field.organization_id, field_id: created.id, group_id: v.group_id })),
+    )
+  }
+
+  revalidatePath(`/boards/${boardId}`)
+  return { id: created.id as string }
+}
+
+/** Persist a new column order (Phase 35F drag-to-reorder). Positions = index. */
+export async function reorderFields(boardId: string, orderedFieldIds: string[]): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  await Promise.all(
+    orderedFieldIds.map((id, idx) =>
+      supabase.from('fields').update({ position: idx }).eq('id', id).eq('board_id', boardId),
+    ),
+  )
+  revalidatePath(`/boards/${boardId}`)
 }

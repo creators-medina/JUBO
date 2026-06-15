@@ -18,6 +18,7 @@ interface Props {
   fields: any[]
   commonFieldIds?: Set<string>
   checklistSummary?: { hasChecklist: boolean; avgPercentage: number }
+  onReorderColumn?: (draggedId: string, targetId: string) => void
   fieldValuesIndex: Record<string, Record<string, any>>
   groups: any[]
   boardId: string
@@ -42,6 +43,7 @@ export function BoardGroupTable({
   fields,
   commonFieldIds,
   checklistSummary,
+  onReorderColumn,
   fieldValuesIndex,
   groups,
   boardId,
@@ -210,7 +212,19 @@ export function BoardGroupTable({
                     filtering) and no longer rendered as board columns — only
                     user-created fields show. (Phase 34A.1) */}
                 {fields.map(field => (
-                  <th key={field.id} className="text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground w-36 whitespace-nowrap">
+                  <th
+                    key={field.id}
+                    draggable={!!onReorderColumn}
+                    onDragStart={(e) => { e.dataTransfer.setData('text/field-id', field.id); e.dataTransfer.effectAllowed = 'move' }}
+                    onDragOver={(e) => { if (onReorderColumn) { e.preventDefault(); e.dataTransfer.dropEffect = 'move' } }}
+                    onDrop={(e) => {
+                      if (!onReorderColumn) return
+                      e.preventDefault()
+                      const dragged = e.dataTransfer.getData('text/field-id')
+                      if (dragged && dragged !== field.id) onReorderColumn(dragged, field.id)
+                    }}
+                    className={cn('text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground w-36 whitespace-nowrap', onReorderColumn && 'cursor-grab active:cursor-grabbing')}
+                  >
                     <EditableColumnHeader
                       field={field}
                       boardId={boardId}
