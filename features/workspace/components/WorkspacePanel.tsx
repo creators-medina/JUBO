@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   X, Maximize2, FileText, Activity, ListChecks, StickyNote, Database, Columns3,
-  ExternalLink, MoreHorizontal, ArrowRightLeft, CheckSquare,
+  ExternalLink, MoreHorizontal, ArrowRightLeft, CheckSquare, IdCard,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MoveToBoardDialog } from '@/features/boards/components/MoveToBoardDialog'
@@ -13,6 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useWorkspaceTabs } from '../providers/WorkspaceTabsProvider'
 import { ActivityTimeline } from '../timeline/ActivityTimeline'
 import { ChecklistView } from '../checklist/ChecklistView'
+import { PersonCard } from '@/features/person-card/PersonCard'
 import { NoteList } from '../notes/NoteList'
 import { NextActionCard } from './NextActionCard'
 import { WorkspaceTasks } from './WorkspaceTasks'
@@ -26,6 +27,7 @@ import { WORKSPACE_TABS, WORKSPACE_TAB_LABELS } from '../types'
 
 const TAB_ICONS: Record<WorkspaceTabKey, React.ElementType> = {
   overview:  FileText,
+  card:      IdCard,
   checklist: CheckSquare,
   activity:  Activity,
   tasks:     ListChecks,
@@ -328,6 +330,9 @@ function WorkspaceContent({
                   hasMortgageTemplate(data)
                     ? <MortgageWorkspace data={data} onChanged={load} />
                     : <OverviewView data={data} />
+                )}
+                {activeSubTab === 'card' && (
+                  <PersonCard recordId={recordId} />
                 )}
                 {activeSubTab === 'checklist' && (
                   <ChecklistView
