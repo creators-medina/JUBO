@@ -300,19 +300,28 @@ export function BoardGroupTable({
                 {/* Internal records.status/priority/value are system-level (archive,
                     filtering) and no longer rendered as board columns — only
                     user-created fields show. (Phase 34A.1) */}
-                {fields.map(field => (
+                {fields.map(field => {
+                  // Phase 37B-2C — the default workflow status column is pinned first
+                  // (getBoardFields orders is_default_status first), so it must NOT be
+                  // draggable and nothing may be dropped onto it (it can't be displaced
+                  // out of its protected slot). Field-column drag uses a DISTINCT id
+                  // space ('field-column:') from record drag (dnd-kit 'table-record:').
+                  const canReorder = !!onReorderColumn && !field.is_default_status
+                  return (
                   <th
                     key={field.id}
-                    draggable={!!onReorderColumn}
-                    onDragStart={(e) => { e.dataTransfer.setData('text/field-id', field.id); e.dataTransfer.effectAllowed = 'move' }}
-                    onDragOver={(e) => { if (onReorderColumn) { e.preventDefault(); e.dataTransfer.dropEffect = 'move' } }}
+                    draggable={canReorder}
+                    onDragStart={(e) => { if (!canReorder) return; e.dataTransfer.setData('text/field-id', `field-column:${field.id}`); e.dataTransfer.effectAllowed = 'move' }}
+                    onDragOver={(e) => { if (onReorderColumn && !field.is_default_status && e.dataTransfer.types.includes('text/field-id')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move' } }}
                     onDrop={(e) => {
-                      if (!onReorderColumn) return
+                      if (!onReorderColumn || field.is_default_status) return
+                      const raw = e.dataTransfer.getData('text/field-id')
+                      if (!raw.startsWith('field-column:')) return // ignore non-field drags
                       e.preventDefault()
-                      const dragged = e.dataTransfer.getData('text/field-id')
+                      const dragged = raw.slice('field-column:'.length)
                       if (dragged && dragged !== field.id) onReorderColumn(dragged, field.id)
                     }}
-                    className={cn('text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground w-36 whitespace-nowrap', onReorderColumn && 'cursor-grab active:cursor-grabbing')}
+                    className={cn('text-left px-3 py-2.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground w-36 whitespace-nowrap', canReorder && 'cursor-grab active:cursor-grabbing')}
                   >
                     <EditableColumnHeader
                       field={field}
@@ -322,7 +331,8 @@ export function BoardGroupTable({
                       usedCommonKeyIds={usedCommonKeyIds}
                     />
                   </th>
-                ))}
+                  )
+                })}
                 <th className="px-2 py-2.5 w-8 text-center">
                   <button onClick={onAddField} className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors" title="Add field">
                     <Plus className="w-3.5 h-3.5" />
