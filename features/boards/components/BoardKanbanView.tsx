@@ -108,7 +108,7 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={cn('flex w-72 flex-shrink-0 flex-col rounded-xl border bg-surface-1/30 transition-colors', isOver ? 'border-primary/60 bg-primary/5' : 'border-border')}
+      className={cn('flex w-72 flex-shrink-0 flex-col rounded-xl border bg-surface-1/30 transition-colors duration-150 motion-reduce:transition-none', isOver ? 'border-primary/60 bg-primary/5 ring-1 ring-primary/20' : 'border-border')}
     >
       <div className="flex items-center gap-2 px-3 py-2.5">
         <span className="text-xs font-semibold text-foreground">{stage.label}</span>
@@ -180,7 +180,7 @@ function KanbanCard({
       type="button"
       onClick={onClick}
       className={cn(
-        'w-full rounded-lg border border-border bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-surface-1',
+        'w-full cursor-grab rounded-lg border border-border bg-card px-3 py-2.5 text-left transition-[transform,opacity,border-color,background-color] duration-150 ease-out hover:border-primary/40 hover:bg-surface-1 active:cursor-grabbing motion-reduce:transition-none',
         isDragging && 'opacity-40',
       )}
     >

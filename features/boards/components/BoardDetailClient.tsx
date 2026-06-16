@@ -4,8 +4,8 @@ import { useState, useMemo, useRef, useCallback, useEffect, useTransition } from
 import { useRouter } from 'next/navigation'
 import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark, Zap, MoreVertical, Copy, Archive, Pencil, Loader2, Rows3, LayoutGrid } from 'lucide-react'
 import Link from 'next/link'
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, defaultDropAnimationSideEffects } from '@dnd-kit/core'
+import type { DragEndEvent, DragStartEvent, DropAnimation } from '@dnd-kit/core'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/primitives/EmptyState'
 import { CreateGroupModal } from '@/features/board-groups/components/CreateGroupModal'
@@ -162,6 +162,23 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   // DnD
   const [activeRecord, setActiveRecord] = useState<any>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+  // Phase 37B-2D — presentation-only: respect prefers-reduced-motion + a short,
+  // eased drop/rollback settle for the shared DragOverlay. Animation never gates
+  // the move (moveRecord fires on drop in handleDragEnd, independent of this).
+  const [reduceMotion, setReduceMotion] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const apply = () => setReduceMotion(mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+  const dropAnimation: DropAnimation = {
+    duration: reduceMotion ? 0 : 180,
+    easing: 'cubic-bezier(0.2, 0, 0, 1)',
+    sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.4' } } }),
+  }
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveRecord(event.active.data.current?.record ?? null)
@@ -638,10 +655,10 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
         />
       </div>
 
-      <DragOverlay>
+      <DragOverlay dropAnimation={dropAnimation}>
         {activeRecord && (
           viewMode === 'kanban'
-            ? <div className="w-64 rounded-lg border border-primary bg-card px-3 py-2.5 text-xs font-medium text-foreground shadow-xl">{activeRecord.title || 'Untitled'}</div>
+            ? <div className="w-64 origin-center scale-[1.02] rounded-lg border border-primary bg-card px-3 py-2.5 text-xs font-medium text-foreground shadow-2xl cursor-grabbing">{activeRecord.title || 'Untitled'}</div>
             : <DragOverlayRow record={activeRecord} />
         )}
       </DragOverlay>
