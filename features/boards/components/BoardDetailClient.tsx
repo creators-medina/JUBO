@@ -149,9 +149,12 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
 
   // Local record state for optimistic updates
   const [localRecords, setLocalRecords] = useState(serverRecords)
+  // Phase 37B-2 — records mid-move; their (server-reset) status chip is neutralized
+  // optimistically until the refresh lands. Cleared whenever server data syncs.
+  const [pendingMoveIds, setPendingMoveIds] = useState<Set<string>>(new Set())
 
   // Sync when server data refreshes
-  useEffect(() => { setLocalRecords(serverRecords) }, [serverRecords])
+  useEffect(() => { setLocalRecords(serverRecords); setPendingMoveIds(new Set()) }, [serverRecords])
 
   // Realtime
   useBoardRealtime(board.id, isMutating)
@@ -169,26 +172,37 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     setActiveRecord(null)
     if (!over) return
 
-    const fromGroupId = active.data.current?.groupId
-    const toGroupId = over.data.current?.groupId
+    // Phase 37B-2 — data-driven (works for table rows AND kanban cards). Only
+    // record→drop pairs are handled here; field/column reorder is separate.
+    const a = active.data.current
+    const o = over.data.current
+    if (a?.type !== 'record' || o?.type !== 'drop') return
 
+    const recordId = a.recordId as string
+    const fromGroupId = a.fromGroupId
+    const toGroupId = o.groupId
     if (!toGroupId || fromGroupId === toGroupId) return
+    // Same-board ONLY. Cross-board pipeline is deferred (37C) and unreachable in V1.
+    if (a.boardId !== o.boardId) return
 
-    const recordId = active.id as string
-
-    // Optimistic update
+    // Optimistic move (powers both views; pending set neutralizes the stale status chip).
     isMutating.current = true
     setLocalRecords(prev => prev.map(r => r.id === recordId ? { ...r, group_id: toGroupId } : r))
+    setPendingMoveIds(prev => { const n = new Set(prev); n.add(recordId); return n })
 
     try {
-      await moveRecord(recordId, toGroupId, board.id)
+      // The ONE rule: route through the moveRecord() wrapper (status reset +
+      // record_movements + activity in the RPC, AND record.group_changed dispatch
+      // in the wrapper) — never the raw move_record RPC.
+      await moveRecord(recordId, toGroupId, o.boardId)
       router.refresh()
     } catch {
       setLocalRecords(serverRecords) // rollback
+      setPendingMoveIds(new Set())
     } finally {
       isMutating.current = false
     }
-  }, [serverRecords, board.id, router])
+  }, [serverRecords, router])
 
   const handleOptimisticMove = useCallback((recordId: string, toGroupId: string) => {
     isMutating.current = true
@@ -549,6 +563,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                 fieldValuesIndex={fieldValuesIndex}
                 fields={localFields}
                 visibilityIndex={visibilityIndex}
+                pendingMoveIds={pendingMoveIds}
                 onSelectRecord={(id, title) => openWorkspace({ recordId: id, title })}
               />
             ) : (
@@ -624,7 +639,11 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
       </div>
 
       <DragOverlay>
-        {activeRecord && <DragOverlayRow record={activeRecord} />}
+        {activeRecord && (
+          viewMode === 'kanban'
+            ? <div className="w-64 rounded-lg border border-primary bg-card px-3 py-2.5 text-xs font-medium text-foreground shadow-xl">{activeRecord.title || 'Untitled'}</div>
+            : <DragOverlayRow record={activeRecord} />
+        )}
       </DragOverlay>
     </DndContext>
   )

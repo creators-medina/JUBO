@@ -14,6 +14,8 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { CheckSquare, User } from 'lucide-react'
+import { useDraggable, useDroppable } from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import { parseOptions } from '@/features/fields/status'
 import { computeGroupChecklist } from '@/features/fields/checklist'
 import { type VisibilityIndex } from '@/features/fields/visibility'
@@ -29,6 +31,7 @@ interface Props {
   fieldValuesIndex: Record<string, Record<string, any>>
   fields: any[]
   visibilityIndex: VisibilityIndex
+  pendingMoveIds?: Set<string>
   onSelectRecord: (recordId: string, title: string) => void
 }
 
@@ -50,7 +53,7 @@ function formatValue(field: any, fv: any): string {
 const COMMON_PRIORITY: Record<string, number> = { email: 0, phone: 1, currency: 2 }
 
 export function BoardKanbanView({
-  stages, recordsByGroup, totalByGroup, fieldsByGroup, fieldValuesIndex, fields, visibilityIndex, onSelectRecord,
+  stages, recordsByGroup, totalByGroup, fieldsByGroup, fieldValuesIndex, fields, visibilityIndex, pendingMoveIds, onSelectRecord,
 }: Props) {
   return (
     <div className="flex h-full gap-3 overflow-x-auto pb-4">
@@ -67,6 +70,7 @@ export function BoardKanbanView({
             fields={fields}
             fieldValuesIndex={fieldValuesIndex}
             visibilityIndex={visibilityIndex}
+            pendingMoveIds={pendingMoveIds}
             onSelectRecord={onSelectRecord}
           />
         )
@@ -76,7 +80,7 @@ export function BoardKanbanView({
 }
 
 function KanbanColumn({
-  stage, count, records, groupFields, fields, fieldValuesIndex, visibilityIndex, onSelectRecord,
+  stage, count, records, groupFields, fields, fieldValuesIndex, visibilityIndex, pendingMoveIds, onSelectRecord,
 }: {
   stage: Stage
   count: number
@@ -85,6 +89,7 @@ function KanbanColumn({
   fields: any[]
   fieldValuesIndex: Record<string, Record<string, any>>
   visibilityIndex: VisibilityIndex
+  pendingMoveIds?: Set<string>
   onSelectRecord: (recordId: string, title: string) => void
 }) {
   const defaultStatusField = groupFields.find((f) => f.is_default_status)
@@ -94,15 +99,24 @@ function KanbanColumn({
     .filter((f) => f.common_field_key_id && f.field_type !== 'checklist' && !f.is_default_status)
     .sort((a, b) => (COMMON_PRIORITY[a.field_type] ?? 9) - (COMMON_PRIORITY[b.field_type] ?? 9))
 
+  // Phase 37B-2 — column is a drop target. Distinct ID space ('kanban-stage:').
+  const { setNodeRef, isOver } = useDroppable({
+    id: `kanban-stage:${stage.id}`,
+    data: { type: 'drop', groupId: stage.groupId, boardId: stage.boardId },
+  })
+
   return (
-    <div className="flex w-72 flex-shrink-0 flex-col rounded-xl border border-border bg-surface-1/30">
+    <div
+      ref={setNodeRef}
+      className={cn('flex w-72 flex-shrink-0 flex-col rounded-xl border bg-surface-1/30 transition-colors', isOver ? 'border-primary/60 bg-primary/5' : 'border-border')}
+    >
       <div className="flex items-center gap-2 px-3 py-2.5">
         <span className="text-xs font-semibold text-foreground">{stage.label}</span>
         <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-2xs font-medium tabular-nums text-muted-foreground">{count}</span>
       </div>
       <div className="flex flex-col gap-2 overflow-y-auto px-2 pb-2">
         {records.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-2xs text-muted-foreground">No records</div>
+          <div className="rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-2xs text-muted-foreground">{isOver ? 'Drop here' : 'No records'}</div>
         ) : (
           records.map((record) => (
             <KanbanCard
@@ -113,6 +127,7 @@ function KanbanColumn({
               commonFields={commonFields}
               fieldValueMap={fieldValuesIndex[record.id] ?? {}}
               checklist={computeGroupChecklist(fields, stage.groupId, visibilityIndex, fieldValuesIndex[record.id] ?? {})}
+              pending={pendingMoveIds?.has(record.id) ?? false}
               onClick={() => onSelectRecord(record.id, record.title ?? 'Record')}
             />
           ))
@@ -123,7 +138,7 @@ function KanbanColumn({
 }
 
 function KanbanCard({
-  stage, record, defaultStatusField, commonFields, fieldValueMap, checklist, onClick,
+  stage, record, defaultStatusField, commonFields, fieldValueMap, checklist, pending, onClick,
 }: {
   stage: Stage
   record: any
@@ -131,12 +146,20 @@ function KanbanCard({
   commonFields: any[]
   fieldValueMap: Record<string, any>
   checklist: { completedCount: number; totalCount: number; percentage: number; hasChecklist: boolean }
+  pending: boolean
   onClick: () => void
 }) {
-  // boardId is threaded via `stage` for the 37B-2 drag dispatcher (unused in V1).
-  void stage.boardId
+  // Phase 37B-2 — draggable card. Distinct ID space ('kanban-card:'); payload is
+  // addressed by FULL (boardId, groupId) via `stage` for the board-aware dispatcher.
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `kanban-card:${record.id}`,
+    data: { type: 'record', recordId: record.id, fromGroupId: stage.groupId, boardId: stage.boardId, record },
+  })
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
 
-  const statusValue = defaultStatusField ? (fieldValueMap[defaultStatusField.id]?.value_text ?? '') : ''
+  // Stale status: while a move is pending, the server-side reset hasn't landed yet,
+  // so neutralize the chip instead of showing the old status as if it persisted.
+  const statusValue = pending ? '' : (defaultStatusField ? (fieldValueMap[defaultStatusField.id]?.value_text ?? '') : '')
   const statusColor = (() => {
     if (!defaultStatusField || !statusValue) return STATUS_EMPTY
     const opt = parseOptions(defaultStatusField.config).find((o) => o.label === statusValue)
@@ -150,9 +173,16 @@ function KanbanCard({
 
   return (
     <button
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
       type="button"
       onClick={onClick}
-      className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-surface-1"
+      className={cn(
+        'w-full rounded-lg border border-border bg-card px-3 py-2.5 text-left transition-colors hover:border-primary/40 hover:bg-surface-1',
+        isDragging && 'opacity-40',
+      )}
     >
       <div className="flex items-start justify-between gap-2">
         <span className="line-clamp-2 text-xs font-medium text-foreground">{record.title || 'Untitled'}</span>

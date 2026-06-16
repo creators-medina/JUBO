@@ -41,8 +41,9 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
   const hasSubitems = subitems.length > 0
 
   const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
-    id: record.id,
-    data: { groupId: record.group_id, record },
+    id: `table-record:${record.id}`,
+    // Phase 37B-2 — unified record-drag payload (board-aware; same shape as Kanban).
+    data: { type: 'record', recordId: record.id, fromGroupId: record.group_id, boardId, record },
   })
 
   const style = transform

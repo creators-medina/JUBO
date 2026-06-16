@@ -116,7 +116,8 @@ export function BoardGroupTable({
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `group-drop:${group.id}`,
-    data: { groupId: group.id },
+    // Phase 37B-2 — unified drop payload (board-aware).
+    data: { type: 'drop', groupId: group.id, boardId },
   })
 
   const saveName = () => {
