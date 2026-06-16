@@ -14,6 +14,7 @@ import { CreateRecordModal } from '@/features/records/components/CreateRecordMod
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { BoardGroupTable } from './BoardGroupTable'
 import { BoardKanbanView, type Stage } from './BoardKanbanView'
+import { buildKanbanFace, KanbanCardFace, formatCellValue } from './KanbanCardFace'
 import { BoardStageSummary } from './BoardStageSummary'
 import { BoardSettingsModal } from './BoardSettingsModal'
 import { AutomationsModal } from '@/features/workflows/components/AutomationsModal'
@@ -656,11 +657,23 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
       </div>
 
       <DragOverlay dropAnimation={dropAnimation}>
-        {activeRecord && (
-          viewMode === 'kanban'
-            ? <div className="w-64 origin-center scale-[1.02] rounded-lg border border-primary bg-card px-3 py-2.5 text-xs font-medium text-foreground shadow-2xl cursor-grabbing">{activeRecord.title || 'Untitled'}</div>
-            : <DragOverlayRow record={activeRecord} />
-        )}
+        {activeRecord && (() => {
+          // Phase 37B-2E — render the FULL lifted item, computed from the active
+          // record using the same per-group data the board already holds.
+          const gid = activeRecord.group_id
+          const gFields = fieldsByGroup[gid] ?? localFields
+          const fvMap = fieldValuesIndex[activeRecord.id] ?? {}
+          if (viewMode === 'kanban') {
+            const face = buildKanbanFace({ record: activeRecord, groupFields: gFields, fvMap, allFields: localFields, groupId: gid, visibilityIndex })
+            return (
+              <div className="w-72 origin-center scale-[1.02] rounded-lg border border-primary bg-card px-3 py-2.5 shadow-2xl cursor-grabbing">
+                <KanbanCardFace {...face} />
+              </div>
+            )
+          }
+          const cells = gFields.map((f: any) => ({ name: f.name, value: formatCellValue(f, fvMap[f.id]) }))
+          return <DragOverlayRow title={activeRecord.title} cells={cells} />
+        })()}
       </DragOverlay>
     </DndContext>
   )
