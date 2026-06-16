@@ -44,7 +44,14 @@ export function isFieldEligibleForCommon(field: { field_type?: string; is_defaul
   return field.field_type !== 'checklist' && field.is_default_status !== true
 }
 
-/** Decision 3 — exact, case-insensitive, trimmed name → key allowlist. */
+/**
+ * Decision 3 — exact, case-insensitive, trimmed name → key allowlist.
+ *
+ * NOTE: `name` (and aliases full_name/borrower_name) are intentionally NOT here.
+ * The record/item title is the source of truth for a person's name, so no field
+ * is ever auto-bound to the `name` key. The `name` key stays in the registry and
+ * remains manually assignable via the column menu.
+ */
 export const COMMON_KEY_ALLOWLIST: Record<string, string> = {
   email: 'email',
   'e-mail': 'email',
@@ -52,9 +59,6 @@ export const COMMON_KEY_ALLOWLIST: Record<string, string> = {
   mobile_phone: 'phone',
   borrower_phone: 'phone',
   cell: 'phone',
-  name: 'name',
-  full_name: 'name',
-  borrower_name: 'name',
   loan_amount: 'loan_amount',
   amount: 'loan_amount',
   preapproved_amount: 'loan_amount',

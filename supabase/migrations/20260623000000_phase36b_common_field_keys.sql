@@ -154,9 +154,8 @@ BEGIN
         WHEN 'mobile_phone' THEN 'phone'
         WHEN 'borrower_phone' THEN 'phone'
         WHEN 'cell' THEN 'phone'
-        WHEN 'name' THEN 'name'
-        WHEN 'full_name' THEN 'name'
-        WHEN 'borrower_name' THEN 'name'
+        -- 'name'/'full_name'/'borrower_name' intentionally excluded: the record
+        -- title is the source of truth for Name; no field auto-binds to 'name'.
         WHEN 'loan_amount' THEN 'loan_amount'
         WHEN 'amount' THEN 'loan_amount'
         WHEN 'preapproved_amount' THEN 'loan_amount'
