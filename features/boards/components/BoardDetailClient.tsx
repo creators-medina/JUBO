@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark, Zap, MoreVertical, Copy, Archive, Pencil, Loader2 } from 'lucide-react'
+import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark, Zap, MoreVertical, Copy, Archive, Pencil, Loader2, Rows3, LayoutGrid } from 'lucide-react'
 import Link from 'next/link'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
@@ -13,6 +13,7 @@ import { CreateFieldModal } from '@/features/fields/components/CreateFieldModal'
 import { CreateRecordModal } from '@/features/records/components/CreateRecordModal'
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { BoardGroupTable } from './BoardGroupTable'
+import { BoardKanbanView, type Stage } from './BoardKanbanView'
 import { BoardStageSummary } from './BoardStageSummary'
 import { BoardSettingsModal } from './BoardSettingsModal'
 import { AutomationsModal } from '@/features/workflows/components/AutomationsModal'
@@ -131,6 +132,14 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     for (const g of groups) out[g.id] = resolveVisibleFields(localFields, g.id, visibilityIndex)
     return out
   }, [localFields, groups, visibilityIndex])
+
+  // Phase 37B-1 — Kanban stages (columns). Modeled as Stage{boardId,groupId} even
+  // though V1 is single-board, so 37B-2's board-aware drag dispatcher drops in.
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table')
+  const stages = useMemo<Stage[]>(
+    () => groups.map((g: any) => ({ id: g.id, boardId: board.id, groupId: g.id, label: g.name })),
+    [groups, board.id],
+  )
 
   // Phase 36B — common keys already claimed on this board (for the menu guard).
   const usedCommonKeyIds = useMemo(
@@ -489,6 +498,24 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
               </select>
             </>
           )}
+
+          {/* Table | Kanban toggle (Phase 37B-1, client-only, no persistence) */}
+          <div className="ml-auto inline-flex items-center rounded-md border border-border bg-surface-1 p-0.5">
+            <button
+              onClick={() => setViewMode('table')}
+              className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs', viewMode === 'table' ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground')}
+              title="Table view"
+            >
+              <Rows3 className="w-3 h-3" /> Table
+            </button>
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs', viewMode === 'kanban' ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground')}
+              title="Kanban view"
+            >
+              <LayoutGrid className="w-3 h-3" /> Kanban
+            </button>
+          </div>
         </div>
 
         {/* Board content */}
@@ -513,6 +540,17 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                   </Button>
                 </EmptyState>
               </div>
+            ) : viewMode === 'kanban' ? (
+              <BoardKanbanView
+                stages={stages}
+                recordsByGroup={filteredByGroup}
+                totalByGroup={totalByGroup}
+                fieldsByGroup={fieldsByGroup}
+                fieldValuesIndex={fieldValuesIndex}
+                fields={localFields}
+                visibilityIndex={visibilityIndex}
+                onSelectRecord={(id, title) => openWorkspace({ recordId: id, title })}
+              />
             ) : (
               <div className="min-w-max">
                 {groups.map((group, i) => (
