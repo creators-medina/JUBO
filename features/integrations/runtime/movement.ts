@@ -72,6 +72,17 @@ export async function applyPipelineMovement(
   // current stage (silent SQL delete; never emits record.field_changed).
   await supabase.rpc('reset_default_status', { p_record_id: recordId, p_board_id: board.id })
 
+  // Phase 36C-1 — carry common fields into empty destination fields (silent SQL;
+  // cross-board only, no-op when from/to board match). Parent record only.
+  if (current.board_id && current.board_id !== board.id) {
+    await supabase.rpc('carry_common_fields', {
+      p_record_id: recordId,
+      p_from_board_id: current.board_id,
+      p_to_board_id: board.id,
+      p_actor_user_id: ctx.userId ?? null,
+    })
+  }
+
   await supabase.from('activities').insert({
     organization_id: ctx.organizationId, record_id: recordId, user_id: ctx.userId,
     activity_type: 'status_change',
