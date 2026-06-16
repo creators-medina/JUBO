@@ -115,15 +115,17 @@ function KanbanCard({
 }) {
   // Phase 37B-2 — draggable card. Distinct ID space ('kanban-card:'); payload is
   // addressed by FULL (boardId, groupId) via `stage` for the board-aware dispatcher.
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `kanban-card:${record.id}`,
-    data: { type: 'record', recordId: record.id, fromGroupId: stage.groupId, boardId: stage.boardId, record },
-  })
-  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
-
+  // Face is computed ONCE here for the real card; the overlay reuses this exact
+  // object (stashed in drag data) — it never recomputes or re-reads values.
   const face = buildKanbanFace({
     record, groupFields, fvMap: fieldValueMap, allFields: fields, groupId: stage.groupId, visibilityIndex, pending,
   })
+
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `kanban-card:${record.id}`,
+    data: { type: 'record', recordId: record.id, fromGroupId: stage.groupId, boardId: stage.boardId, record, view: 'kanban', face },
+  })
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
 
   return (
     <button

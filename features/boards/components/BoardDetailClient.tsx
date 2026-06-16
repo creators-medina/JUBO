@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useCallback, useEffect, useTransition } from
 import { useRouter } from 'next/navigation'
 import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark, Zap, MoreVertical, Copy, Archive, Pencil, Loader2, Rows3, LayoutGrid } from 'lucide-react'
 import Link from 'next/link'
-import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, defaultDropAnimationSideEffects } from '@dnd-kit/core'
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, defaultDropAnimationSideEffects, useDndContext } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent, DropAnimation } from '@dnd-kit/core'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/primitives/EmptyState'
@@ -14,7 +14,7 @@ import { CreateRecordModal } from '@/features/records/components/CreateRecordMod
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { BoardGroupTable } from './BoardGroupTable'
 import { BoardKanbanView, type Stage } from './BoardKanbanView'
-import { buildKanbanFace, KanbanCardFace, formatCellValue } from './KanbanCardFace'
+import { KanbanCardFace, formatCellValue } from './KanbanCardFace'
 import { BoardStageSummary } from './BoardStageSummary'
 import { BoardSettingsModal } from './BoardSettingsModal'
 import { AutomationsModal } from '@/features/workflows/components/AutomationsModal'
@@ -162,6 +162,8 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
 
   // DnD
   const [activeRecord, setActiveRecord] = useState<any>(null)
+  // 37B-2E — full drag payload (record + precomputed face / row refs) for the overlay.
+  const [activeData, setActiveData] = useState<any>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   // Phase 37B-2D — presentation-only: respect prefers-reduced-motion + a short,
@@ -183,11 +185,13 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveRecord(event.active.data.current?.record ?? null)
+    setActiveData(event.active.data.current ?? null)
   }
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveRecord(null)
+    setActiveData(null)
     if (!over) return
 
     // Phase 37B-2 — data-driven (works for table rows AND kanban cards). Only
@@ -657,24 +661,38 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
       </div>
 
       <DragOverlay dropAnimation={dropAnimation}>
-        {activeRecord && (() => {
-          // Phase 37B-2E — render the FULL lifted item, computed from the active
-          // record using the same per-group data the board already holds.
-          const gid = activeRecord.group_id
-          const gFields = fieldsByGroup[gid] ?? localFields
-          const fvMap = fieldValuesIndex[activeRecord.id] ?? {}
-          if (viewMode === 'kanban') {
-            const face = buildKanbanFace({ record: activeRecord, groupFields: gFields, fvMap, allFields: localFields, groupId: gid, visibilityIndex })
-            return (
-              <div className="w-72 origin-center scale-[1.02] rounded-lg border border-primary bg-card px-3 py-2.5 shadow-2xl cursor-grabbing">
-                <KanbanCardFace {...face} />
-              </div>
-            )
-          }
-          const cells = gFields.map((f: any) => ({ name: f.name, value: formatCellValue(f, fvMap[f.id]) }))
-          return <DragOverlayRow title={activeRecord.title} cells={cells} />
-        })()}
+        {activeData && <DragPreview data={activeData} />}
       </DragOverlay>
     </DndContext>
   )
+}
+
+/**
+ * Phase 37B-2E — the lifted drag preview. Rendered inside the existing single
+ * DragOverlay; reads the picked-up element's MEASURED width from dnd-kit's
+ * active.rect (no manual measurement/state) so it never collapses to content
+ * width. Renders the SAME precomputed face the real card already produced
+ * (kanban) or a full-width row shell from the row's passed-in fields/values
+ * (table) — no recompute, no data re-read.
+ */
+function DragPreview({ data }: { data: any }) {
+  const { active } = useDndContext()
+  const width = active?.rect?.current?.initial?.width
+  const widthStyle = width ? { width: `${width}px` } : undefined
+
+  if (data.view === 'kanban') {
+    return (
+      <div
+        style={widthStyle}
+        className={cn('origin-center scale-[1.02] rounded-lg border border-primary bg-card px-3 py-2.5 shadow-2xl cursor-grabbing', !widthStyle && 'w-72')}
+      >
+        <KanbanCardFace {...data.face} />
+      </div>
+    )
+  }
+
+  const fields = (data.fields ?? []) as any[]
+  const fvMap = (data.fieldValueMap ?? {}) as Record<string, any>
+  const cells = fields.map((f) => ({ name: f.name, value: formatCellValue(f, fvMap[f.id]) }))
+  return <DragOverlayRow title={data.title} cells={cells} widthStyle={widthStyle} />
 }

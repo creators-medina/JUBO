@@ -43,7 +43,9 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
   const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
     id: `table-record:${record.id}`,
     // Phase 37B-2 — unified record-drag payload (board-aware; same shape as Kanban).
-    data: { type: 'record', recordId: record.id, fromGroupId: record.group_id, boardId, record },
+    // 37B-2E: carry the row's already-available fields + values (references, no
+    // computation) so the overlay can render a full-width row shell without recompute.
+    data: { type: 'record', recordId: record.id, fromGroupId: record.group_id, boardId, record, view: 'table', title: record.title, fields, fieldValueMap },
   })
 
   const style = transform
