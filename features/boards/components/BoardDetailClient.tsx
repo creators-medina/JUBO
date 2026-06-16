@@ -132,6 +132,12 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     return out
   }, [localFields, groups, visibilityIndex])
 
+  // Phase 36B — common keys already claimed on this board (for the menu guard).
+  const usedCommonKeyIds = useMemo(
+    () => new Set(localFields.map((f: any) => f.common_field_key_id).filter(Boolean) as string[]),
+    [localFields],
+  )
+
   // Local record state for optimistic updates
   const [localRecords, setLocalRecords] = useState(serverRecords)
 
@@ -516,6 +522,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                     records={filteredByGroup[group.id] ?? []}
                     fields={fieldsByGroup[group.id] ?? localFields}
                     commonFieldIds={commonIds}
+                    usedCommonKeyIds={usedCommonKeyIds}
                     checklistSummary={checklistByGroup[group.id]}
                     onReorderColumn={handleReorderColumn}
                     onMoveGroup={handleMoveGroup}

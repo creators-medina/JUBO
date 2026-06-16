@@ -2,18 +2,22 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { MoreVertical, Check, Globe, Eye, Pencil, Copy, Trash2, Type, ChevronRight, Loader2, AlertTriangle } from 'lucide-react'
+import { MoreVertical, Check, Globe, Eye, Pencil, Copy, Trash2, Type, ChevronRight, Loader2, AlertTriangle, Link2 } from 'lucide-react'
 import {
   setFieldGroupVisibility, deleteField, duplicateField, changeFieldType, previewFieldTypeChange,
+  getCommonFieldKeys, setFieldCommonKey, clearFieldCommonKey,
 } from '@/features/fields/actions'
 import { COLUMN_TYPE_OPTIONS } from '@/features/fields/conversion'
+import { isTypeCompatible, isFieldEligibleForCommon, SCOPE_LABELS, type CommonFieldKey } from '@/features/fields/commonFields'
 import type { FieldType } from '@/types/database'
 
 interface Props {
-  field: { id: string; name: string; field_type: FieldType; is_default_status?: boolean }
+  field: { id: string; name: string; field_type: FieldType; is_default_status?: boolean; common_field_key_id?: string | null }
   boardId: string
   groupId: string
   isCommon: boolean
+  /** Common keys already claimed by OTHER fields on this board (Decision 6). */
+  usedCommonKeyIds?: Set<string>
   onStartRename: () => void
 }
 
@@ -23,16 +27,26 @@ interface Props {
  * data-loss warning before lossy type changes. The default workflow status
  * field hides Change-type + Delete (its type is fixed and it can't be removed).
  */
-export function ColumnMenu({ field, boardId, groupId, isCommon, onStartRename }: Props) {
+export function ColumnMenu({ field, boardId, groupId, isCommon, usedCommonKeyIds, onStartRename }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [showTypes, setShowTypes] = useState(false)
+  const [showCommon, setShowCommon] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [warn, setWarn] = useState<{ toType: FieldType; total: number; lost: number } | null>(null)
+  const [keys, setKeys] = useState<CommonFieldKey[] | null>(null)
   const [pending, startTransition] = useTransition()
   const ref = useRef<HTMLDivElement>(null)
 
   const isDefaultStatus = field.is_default_status === true
+  const commonEligible = isFieldEligibleForCommon(field)
+  const currentKey = keys?.find((k) => k.id === field.common_field_key_id) ?? null
+
+  // Lazy-load the registry when the menu opens (only for eligible fields).
+  useEffect(() => {
+    if (!open || !commonEligible || keys !== null) return
+    getCommonFieldKeys().then(setKeys).catch(() => setKeys([]))
+  }, [open, commonEligible, keys])
 
   useEffect(() => {
     if (!open) return
@@ -57,6 +71,26 @@ export function ColumnMenu({ field, boardId, groupId, isCommon, onStartRename }:
     startTransition(async () => {
       try { await duplicateField(field.id, boardId); router.refresh() }
       catch (e) { fail(e, 'Could not duplicate column') }
+    })
+  }
+
+  const onPickCommonKey = (keyId: string) => {
+    if (keyId === field.common_field_key_id) { close(); return }
+    // UI-only warning when reassigning an already-set key (never touches values).
+    if (field.common_field_key_id && !confirm('Change the common field for this column? This won’t modify any data.')) return
+    close()
+    startTransition(async () => {
+      try { await setFieldCommonKey({ fieldId: field.id, boardId, keyId }); router.refresh() }
+      catch (e) { fail(e, 'Could not set common field') }
+    })
+  }
+
+  const onClearCommonKey = () => {
+    if (field.common_field_key_id && !confirm('Clear the common field for this column? This won’t modify any data.')) return
+    close()
+    startTransition(async () => {
+      try { await clearFieldCommonKey({ fieldId: field.id, boardId }); router.refresh() }
+      catch (e) { fail(e, 'Could not clear common field') }
     })
   }
 
@@ -139,6 +173,64 @@ export function ColumnMenu({ field, boardId, groupId, isCommon, onStartRename }:
           )}
 
           <MenuItem icon={Copy} label="Duplicate" onClick={onDuplicate} />
+
+          {commonEligible && (
+            <div
+              className="relative"
+              onMouseEnter={() => setShowCommon(true)}
+              onMouseLeave={() => setShowCommon(false)}
+            >
+              <button type="button" className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-2xs normal-case tracking-normal text-foreground hover:bg-surface-1">
+                <Link2 className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                <span className="flex-1">Common field</span>
+                {currentKey && <span className="text-[10px] text-primary">{currentKey.label}</span>}
+                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+              </button>
+              {showCommon && (
+                <div className="absolute left-full top-0 z-50 ml-0.5 max-h-72 w-52 overflow-y-auto rounded-lg border border-border bg-card p-1 shadow-xl">
+                  {currentKey && (
+                    <div className="px-2 py-1 text-[10px] text-muted-foreground">
+                      Mapped: <span className="text-primary">{currentKey.label}</span> · {SCOPE_LABELS[currentKey.scope]}
+                    </div>
+                  )}
+                  {keys === null ? (
+                    <div className="flex items-center gap-2 px-2 py-1.5 text-2xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Loading…</div>
+                  ) : (
+                    (() => {
+                      const compatible = keys.filter((k) => isTypeCompatible(field.field_type, k.data_type))
+                      if (compatible.length === 0) return <div className="px-2 py-1.5 text-2xs text-muted-foreground">No compatible keys.</div>
+                      return compatible.map((k) => {
+                        const usedElsewhere = (usedCommonKeyIds?.has(k.id) ?? false) && k.id !== field.common_field_key_id
+                        const isCurrent = k.id === field.common_field_key_id
+                        return (
+                          <button
+                            key={k.id}
+                            type="button"
+                            disabled={usedElsewhere}
+                            onClick={() => onPickCommonKey(k.id)}
+                            title={usedElsewhere ? `${k.label} is already mapped on this board` : undefined}
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-2xs normal-case tracking-normal text-foreground hover:bg-surface-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <span className="flex-1">{k.label} <span className="text-muted-foreground">· {SCOPE_LABELS[k.scope]}</span></span>
+                            {isCurrent && <Check className="h-3 w-3 text-primary" />}
+                          </button>
+                        )
+                      })
+                    })()
+                  )}
+                  {currentKey && (
+                    <>
+                      <div className="my-1 border-t border-border" />
+                      <button type="button" onClick={onClearCommonKey} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-2xs normal-case tracking-normal text-destructive hover:bg-surface-1">
+                        Clear common key
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {!isDefaultStatus && (
             <MenuItem icon={Trash2} label="Delete" destructive onClick={() => { close(); setConfirmDelete(true) }} />
           )}

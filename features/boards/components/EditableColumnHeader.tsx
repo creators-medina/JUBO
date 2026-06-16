@@ -2,18 +2,20 @@
 
 import { useState, useTransition, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Eye } from 'lucide-react'
+import { Loader2, Eye, Link2 } from 'lucide-react'
 import { updateField } from '@/features/fields/actions'
 import { ColumnMenu } from './ColumnMenu'
 import { cn } from '@/lib/utils'
 import type { FieldType } from '@/types/database'
 
 interface Props {
-  field: { id: string; name: string; field_type?: FieldType; is_default_status?: boolean }
+  field: { id: string; name: string; field_type?: FieldType; is_default_status?: boolean; common_field_key_id?: string | null }
   /** Phase 35B/35F — column controls. Optional so existing callers still work. */
   boardId?: string
   groupId?: string
   isCommon?: boolean
+  /** Phase 36B — common keys claimed by other fields on this board. */
+  usedCommonKeyIds?: Set<string>
 }
 
 /**
@@ -22,7 +24,7 @@ interface Props {
  * untouched so downstream slug-readers keep working. The ⋮ ColumnMenu (Phase
  * 35F) holds rename / change-type / duplicate / delete + visibility controls.
  */
-export function EditableColumnHeader({ field, boardId, groupId, isCommon = true }: Props) {
+export function EditableColumnHeader({ field, boardId, groupId, isCommon = true, usedCommonKeyIds }: Props) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(field.name)
@@ -81,6 +83,10 @@ export function EditableColumnHeader({ field, boardId, groupId, isCommon = true 
         className={cn('inline-flex items-center gap-1.5 cursor-text select-none', isPending && 'opacity-70')}
       >
         {optimistic}
+        {/* Common-field marker. */}
+        {canManage && field.common_field_key_id && (
+          <Link2 className="h-2.5 w-2.5 text-primary/70" aria-label="Common field" />
+        )}
         {/* Group-specific marker so restricted columns are recognizable. */}
         {canManage && !isCommon && (
           <Eye className="h-2.5 w-2.5 text-primary/70" aria-label="Group-specific field" />
@@ -90,10 +96,11 @@ export function EditableColumnHeader({ field, boardId, groupId, isCommon = true 
 
       {canManage && (
         <ColumnMenu
-          field={{ id: field.id, name: optimistic, field_type: (field.field_type ?? 'text') as FieldType, is_default_status: field.is_default_status }}
+          field={{ id: field.id, name: optimistic, field_type: (field.field_type ?? 'text') as FieldType, is_default_status: field.is_default_status, common_field_key_id: field.common_field_key_id }}
           boardId={boardId!}
           groupId={groupId!}
           isCommon={isCommon}
+          usedCommonKeyIds={usedCommonKeyIds}
           onStartRename={() => { setDraft(optimistic); setEditing(true) }}
         />
       )}

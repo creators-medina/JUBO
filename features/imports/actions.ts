@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { coerceValue } from './validation/typeInference'
 import { statusOptionsFromValues } from '@/features/fields/status'
 import { ensureDefaultStatusField } from '@/features/fields/defaultStatus'
+import { autoAssignCommonKeys } from '@/features/fields/commonFieldsServer'
 import type { MondayParseResult } from './parsers/mondayXlsx'
 import type { BoardType, FieldType, RecordType } from '@/types/database'
 import type {
@@ -365,6 +366,17 @@ export async function provisionBoardFromImport(input: {
       const created = createdFields.find((c) => c.slug === row.slug)
       if (!created) throw new Error(`Field ${f.name} could not be created`)
       return { columnIndex: f.columnIndex, id: created.id, field_type: created.field_type as FieldType }
+    })
+
+    // Phase 36B — conservative common-key auto-assignment + audit (identity only).
+    await autoAssignCommonKeys(supabase, {
+      organizationId: input.organizationId,
+      boardId,
+      fields: createdFields.map((c) => ({
+        id: c.id,
+        name: fieldRows.find((r) => r.slug === c.slug)?.name ?? '',
+        field_type: c.field_type as string,
+      })),
     })
   }
 

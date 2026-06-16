@@ -17,6 +17,7 @@ interface Props {
   records: any[]
   fields: any[]
   commonFieldIds?: Set<string>
+  usedCommonKeyIds?: Set<string>
   checklistSummary?: { hasChecklist: boolean; avgPercentage: number }
   onReorderColumn?: (draggedId: string, targetId: string) => void
   onMoveGroup?: (groupId: string, dir: 'up' | 'down') => void
@@ -46,6 +47,7 @@ export function BoardGroupTable({
   records,
   fields,
   commonFieldIds,
+  usedCommonKeyIds,
   checklistSummary,
   onReorderColumn,
   onMoveGroup,
@@ -316,6 +318,7 @@ export function BoardGroupTable({
                       boardId={boardId}
                       groupId={group.id}
                       isCommon={commonFieldIds ? commonFieldIds.has(field.id) : true}
+                      usedCommonKeyIds={usedCommonKeyIds}
                     />
                   </th>
                 ))}

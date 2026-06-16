@@ -6,6 +6,8 @@ import { defaultStatusOptions, parseOptions } from '@/features/fields/status'
 import { buildVisibilityIndex, commonFieldIds, type FieldVisibilityRow } from '@/features/fields/visibility'
 import { groupChecklistFields, type RequirementRow, type FieldValueLike } from '@/features/fields/checklist'
 import { convertFieldValue, countConversionLoss } from '@/features/fields/conversion'
+import { isTypeCompatible, isFieldEligibleForCommon, type CommonFieldKey } from '@/features/fields/commonFields'
+import { autoAssignCommonKeys } from '@/features/fields/commonFieldsServer'
 import type { FieldType } from '@/types/database'
 
 /** A new status field with no options gets the Monday-style default labels. */
@@ -74,6 +76,14 @@ export async function createImportField(input: {
     .select('id, name, slug, field_type, position')
     .single()
   if (error || !created) throw new Error(error?.message ?? 'Could not create field')
+
+  // Phase 36B — conservative common-key auto-assignment + audit (identity only).
+  await autoAssignCommonKeys(supabase, {
+    organizationId: board.organization_id,
+    boardId: input.boardId,
+    fields: [{ id: created.id, name: created.name, field_type: created.field_type as string }],
+  })
+
   revalidatePath(`/boards/${input.boardId}`)
   return created as { id: string; name: string; slug: string; field_type: FieldType; position: number }
 }
@@ -469,6 +479,67 @@ export async function duplicateField(fieldId: string, boardId: string): Promise<
 
   revalidatePath(`/boards/${boardId}`)
   return { id: created.id as string }
+}
+
+// ── Phase 36B — Common field registry (identity only; no value movement) ─────
+
+/** The org's common field keys (for the column-menu dropdown). */
+export async function getCommonFieldKeys(): Promise<CommonFieldKey[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data } = await supabase
+    .from('common_field_keys')
+    .select('id, organization_id, key, label, data_type, scope')
+    .order('scope', { ascending: true })
+    .order('label', { ascending: true })
+  return (data ?? []) as CommonFieldKey[]
+}
+
+/**
+ * Link a field to a common key. Rejects: checklist / default-status fields,
+ * type-incompatible keys, and a key already used by another field on the same
+ * board (Decision 6 soft-block). Never reads or writes field_values.
+ */
+export async function setFieldCommonKey(input: { fieldId: string; boardId: string; keyId: string }): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data: field } = await supabase
+    .from('fields').select('id, board_id, organization_id, field_type, is_default_status').eq('id', input.fieldId).maybeSingle()
+  if (!field) throw new Error('Field not found or access denied')
+  const f = field as { board_id: string; organization_id: string; field_type: string; is_default_status: boolean }
+
+  if (!isFieldEligibleForCommon(f)) {
+    throw new Error(f.field_type === 'checklist' ? "Checklist fields can't be common." : "The default status field can't be common.")
+  }
+
+  const { data: key } = await supabase
+    .from('common_field_keys').select('id, label, data_type, organization_id').eq('id', input.keyId).maybeSingle()
+  if (!key) throw new Error('Common key not found')
+  const k = key as { id: string; label: string; data_type: string; organization_id: string }
+  if (k.organization_id !== f.organization_id) throw new Error('Key belongs to another organization')
+  if (!isTypeCompatible(f.field_type, k.data_type)) throw new Error(`This field’s type can’t map to ${k.label}.`)
+
+  // Decision 6 — soft-block a key already claimed on this board.
+  const { data: clash } = await supabase
+    .from('fields').select('id').eq('board_id', f.board_id).eq('common_field_key_id', input.keyId).neq('id', input.fieldId).maybeSingle()
+  if (clash) throw new Error(`${k.label} is already mapped on this board.`)
+
+  const { error } = await supabase.from('fields').update({ common_field_key_id: input.keyId }).eq('id', input.fieldId)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/boards/${input.boardId}`)
+}
+
+/** Clear a field's common key. Never reads or writes field_values. */
+export async function clearFieldCommonKey(input: { fieldId: string; boardId: string }): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { error } = await supabase.from('fields').update({ common_field_key_id: null }).eq('id', input.fieldId)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/boards/${input.boardId}`)
 }
 
 /** Persist a new column order (Phase 35F drag-to-reorder). Positions = index. */

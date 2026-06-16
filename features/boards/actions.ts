@@ -252,6 +252,8 @@ export async function duplicateBoardStructure(boardId: string): Promise<{ id: st
         organization_id: orgId, board_id: newBoardId, entity_type: f.entity_type ?? 'record',
         name: f.name, slug: f.slug, field_type: f.field_type, config: f.config ?? {},
         is_required: f.is_required, position: f.position, is_default_status: f.is_default_status,
+        // Phase 36B — carry the common-field identity to the duplicated board.
+        common_field_key_id: f.common_field_key_id ?? null,
       })
       .select('id').single()
     if (error || !nf) throw new Error(error?.message ?? 'Could not copy field')

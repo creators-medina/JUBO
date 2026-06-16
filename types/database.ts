@@ -259,6 +259,7 @@ export interface Database {
           is_required: boolean;
           position: number;
           is_default_status: boolean;
+          common_field_key_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -274,8 +275,30 @@ export interface Database {
           is_required?: boolean;
           position?: number;
           is_default_status?: boolean;
+          common_field_key_id?: string | null;
         };
         Update: Partial<Omit<Database["public"]["Tables"]["fields"]["Insert"], "id" | "organization_id">>;
+      };
+      common_field_keys: {
+        Row: {
+          id: string;
+          organization_id: string;
+          key: string;
+          label: string;
+          data_type: string;
+          scope: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          key: string;
+          label: string;
+          data_type: string;
+          scope: string;
+        };
+        Update: Partial<Omit<Database["public"]["Tables"]["common_field_keys"]["Insert"], "id" | "organization_id">>;
       };
       field_group_visibility: {
         Row: {
