@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Loader2, FileJson, CheckCircle2, AlertTriangle, XCircle, Clock, Link2 } from 'lucide-react'
-import { previewBlueprint } from '../actions'
+import Link from 'next/link'
+import { Loader2, FileJson, CheckCircle2, AlertTriangle, XCircle, Clock, Link2, Rocket, ExternalLink } from 'lucide-react'
+import { previewBlueprint, applyBlueprint, type ApplyResult } from '../actions'
 import { SAMPLE_BLUEPRINT, type BlueprintPreviewPlan, type PreviewItem } from '../types'
 import { cn } from '@/lib/utils'
 
@@ -14,11 +15,23 @@ export function BlueprintBuilder() {
   const [input, setInput] = useState('')
   const [plan, setPlan] = useState<BlueprintPreviewPlan | null>(null)
   const [pending, startTransition] = useTransition()
+  const [applyResult, setApplyResult] = useState<ApplyResult | null>(null)
+  const [applying, setApplying] = useState(false)
 
   const validate = () => {
+    setApplyResult(null)
     startTransition(async () => {
       const result = await previewBlueprint(input)
       setPlan(result)
+    })
+  }
+
+  const apply = () => {
+    if (!plan?.valid || !plan.applyToken) return
+    setApplying(true)
+    startTransition(async () => {
+      try { setApplyResult(await applyBlueprint(plan.applyToken)) }
+      finally { setApplying(false) }
     })
   }
 
@@ -54,16 +67,49 @@ export function BlueprintBuilder() {
             {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />} Validate / Preview
           </button>
           <button
-            disabled
-            title="Apply coming in 38C"
-            className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground opacity-60"
+            onClick={apply}
+            disabled={!plan?.valid || pending || applying || !!applyResult?.ok}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 disabled:opacity-50"
           >
-            Apply coming in 38C
+            {applying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
+            {applyResult?.ok ? 'Applied' : applying ? 'Applying…' : 'Apply Blueprint'}
           </button>
         </div>
       </div>
 
+      {applyResult && <ApplyResultBanner result={applyResult} />}
       {plan && <PreviewResults plan={plan} />}
+    </div>
+  )
+}
+
+function ApplyResultBanner({ result }: { result: ApplyResult }) {
+  if (result.ok) {
+    return (
+      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+        <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-foreground">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+          {result.alreadyApplied ? 'Already applied — no duplicates created.' : 'Blueprint applied.'}
+        </p>
+        <ul className="space-y-1">
+          {(result.result?.boards ?? []).map((b) => (
+            <li key={b.id}>
+              <Link href={`/boards/${b.id}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                <ExternalLink className="h-3 w-3" /> {b.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+  if (result.applying) {
+    return <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-foreground">This blueprint is already being applied.</div>
+  }
+  return (
+    <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3">
+      <p className="text-xs text-foreground"><XCircle className="mr-1 inline h-3.5 w-3.5 text-destructive" />{result.error ?? 'Apply failed.'}</p>
+      {result.retrySafe && <p className="mt-1 text-2xs text-muted-foreground">Any partially-created boards were removed. It is safe to re-validate and apply again.</p>}
     </div>
   )
 }

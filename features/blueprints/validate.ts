@@ -21,8 +21,8 @@ export type ValidateContext = {
 
 const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 
-function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'board'
+function slugify(s: string, fallback = 'board'): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || fallback
 }
 
 /** Validate a parsed blueprint against org context → a stable preview plan (no applyToken). */
@@ -200,7 +200,38 @@ export function validateBlueprint(bp: Blueprint, ctx: ValidateContext): Omit<Blu
       if (c?.key && c?.name) { checklistCount++; willCreate.push({ type: 'checklist', label: c.name, path: cpath, message: `Checklist field "${c.name}" (future field_type='checklist')`, severity: 'info' }) }
     })
 
-    resolvedBoards.push({ key: bkey, name: board?.name, slug, board_type: board?.board_type ?? 'custom', description: board?.description, groups, fields, checklist })
+    // ── Resolved, apply-ready plan: final field/checklist slugs (deduped within
+    // the board, across fields + checklist since both become `fields` rows),
+    // positions, and group-key references kept for apply to map to UUIDs. ──
+    const usedFieldSlugs = new Set<string>()
+    const slugField = (name?: string) => {
+      const base = slugify(name ?? 'field', 'field')
+      let s = base
+      let n = 1
+      while (usedFieldSlugs.has(s)) s = `${base}_${n++}`
+      usedFieldSlugs.add(s)
+      return s
+    }
+    const resolvedGroups = groups.map((g, i) => ({ key: g?.key, name: g?.name, color: g?.color ?? null, position: i }))
+    const resolvedFields = fields.map((f, i) => ({
+      key: f?.key, name: f?.name, slug: slugField(f?.name), type: f?.type,
+      position: typeof f?.position === 'number' ? f.position : i + 1,
+      options: Array.isArray(f?.options) ? f.options : [],
+      is_default_status: !!f?.is_default_status,
+      common_field_key: f?.common_field_key ?? null,
+      visible_in_group_keys: Array.isArray(f?.visible_in_groups) ? f.visible_in_groups : [],
+      required_in_group_keys: Array.isArray(f?.required_in_groups) ? f.required_in_groups : [],
+    }))
+    const resolvedChecklist = checklist.map((c) => ({
+      key: c?.key, name: c?.name, slug: slugField(c?.name),
+      visible_in_group_keys: Array.isArray(c?.visible_in_groups) ? c.visible_in_groups : [],
+    }))
+
+    resolvedBoards.push({
+      key: bkey, name: board?.name, slug, board_type: board?.board_type ?? 'custom',
+      description: board?.description ?? null, position: bi,
+      groups: resolvedGroups, fields: resolvedFields, checklist: resolvedChecklist,
+    })
   })
 
   // ── Automations — parsed, always deferred (never created in V1) ──
