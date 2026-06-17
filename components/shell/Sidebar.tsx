@@ -16,6 +16,7 @@ import {
   Settings,
   Workflow,
   Upload,
+  FileJson,
   ChevronLeft,
   ChevronRight,
   Command,
@@ -37,6 +38,7 @@ const toolItems = [
   { href: '/forecasts', label: 'Forecasts', icon: TrendingUp },
   { href: '/settings/workflows', label: 'Workflows', icon: Workflow },
   { href: '/imports', label: 'Imports', icon: Upload },
+  { href: '/blueprints', label: 'Blueprint Import', icon: FileJson },
   { href: '/settings/integrations', label: 'Integrations', icon: Plug },
 ]
 

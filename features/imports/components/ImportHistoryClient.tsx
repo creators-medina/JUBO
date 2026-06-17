@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Clock } from 'lucide-react'
+import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, Clock, Columns3, FileJson } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { IMPORT_TEMPLATES } from '../templates/importTemplates'
@@ -35,6 +35,16 @@ export function ImportHistoryClient({ imports }: { imports: ImportRow[] }) {
       </header>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Import Center — choose what kind of import */}
+        <section>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Import Center</h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <ImportCard href="/imports/new" icon={FileSpreadsheet} title="Spreadsheet Import" desc="Import contacts, records, or spreadsheet data." />
+            <ImportCard href="/imports/new" icon={Columns3} title="Monday Import" desc="Import Monday-style boards and spreadsheet structures." />
+            <ImportCard href="/blueprints" icon={FileJson} title="Blueprint Import" desc="Create boards, groups, fields, checklists, and status columns from a process blueprint." />
+          </div>
+        </section>
+
         {/* Quick-start templates */}
         <section>
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quick start</h2>
@@ -90,5 +100,15 @@ export function ImportHistoryClient({ imports }: { imports: ImportRow[] }) {
         </section>
       </div>
     </div>
+  )
+}
+
+function ImportCard({ href, icon: Icon, title, desc }: { href: string; icon: React.ElementType; title: string; desc: string }) {
+  return (
+    <Link href={href} className="flex flex-col gap-2 rounded-xl border border-border bg-surface-1 p-4 hover:bg-surface-2 transition-colors">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon className="h-4.5 w-4.5" /></div>
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      <p className="text-2xs text-muted-foreground">{desc}</p>
+    </Link>
   )
 }
