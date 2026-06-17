@@ -361,9 +361,11 @@ export function BoardGroupTable({
                     groups={groups}
                     boardId={boardId}
                     subitems={subitemsByParent?.[record.id] ?? []}
+                    fieldValuesIndex={fieldValuesIndex}
                     isSelected={selectedIds?.has(record.id) ?? false}
                     onToggleSelect={onToggleSelect}
                     onClick={() => onSelectRecord(record.id)}
+                    onOpenSubitem={(id) => onSelectRecord(id)}
                     onOptimisticMove={onOptimisticMove}
                   />
                 ))

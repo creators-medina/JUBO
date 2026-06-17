@@ -8,7 +8,10 @@ import { CSS } from '@dnd-kit/utilities'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { EditableCell } from './EditableCell'
 import { moveRecord, createSubitem } from '@/features/records/actions'
+import { parseOptions } from '@/features/fields/status'
 import { cn } from '@/lib/utils'
+
+const STATUS_EMPTY = '#64748b'
 
 const PRIORITY_COLORS: Record<string, string> = {
   urgent: 'bg-red-500',
@@ -25,20 +28,26 @@ interface Props {
   groups: any[]
   boardId: string
   subitems?: any[]
+  /** Phase 37B-3 — index for resolving each subitem's field values (read-only). */
+  fieldValuesIndex?: Record<string, Record<string, any>>
   isSelected?: boolean
   onToggleSelect?: (id: string) => void
   onClick: () => void
+  onOpenSubitem?: (id: string, title: string) => void
   onOptimisticMove?: (recordId: string, toGroupId: string) => void
 }
 
-export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId, subitems = [], isSelected, onToggleSelect, onClick, onOptimisticMove }: Props) {
+export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId, subitems = [], fieldValuesIndex, isSelected, onToggleSelect, onClick, onOpenSubitem, onOptimisticMove }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [expanded, setExpanded] = useState(false)
   const [addingSub, setAddingSub] = useState(false)
   const [subDraft, setSubDraft] = useState('')
-  const dynamicColCount = fields.length
   const hasSubitems = subitems.length > 0
+  // Phase 37B-3 — total parent columns for the full-width nested row's colSpan:
+  // checkbox + drag + Item + fields + actions.
+  const totalColSpan = fields.length + 4
+  const defaultStatusField = fields.find((f: any) => f.is_default_status)
 
   const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
     id: `table-record:${record.id}`,
@@ -185,49 +194,72 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
       </td>
     </tr>
 
-    {/* Subitem rows */}
-    {expanded && subitems.map((sub) => (
-      <tr key={sub.id} className="border-b border-border/40 bg-surface-1/40">
-        <td className="w-7" />
-        <td className="w-6" />
-        <td className="sticky left-0 z-10 bg-surface-1/40 px-3 py-1.5 text-xs text-foreground">
-          <div className="flex items-center gap-1.5 pl-5">
-            <CornerDownRight className="h-3 w-3 text-muted-foreground" />
-            <span className="truncate">{sub.title}</span>
-          </div>
-        </td>
-        <td colSpan={dynamicColCount + 1} />
-      </tr>
-    ))}
-
-    {/* Inline add-subitem row */}
+    {/* Phase 37B-3 — nested subitem table (Branch A: real child records).
+        ONE full-width spanning row with its OWN columns (Subitem | Status | Date),
+        NOT aligned to the parent's board columns. This <tr> has no dnd-kit hooks,
+        so it is never a drag source or drop target and never shifts row indices. */}
     {expanded && (
-      <tr className="border-b border-border/40 bg-surface-1/40">
-        <td className="w-7" />
-        <td className="w-6" />
-        <td className="sticky left-0 z-10 bg-surface-1/40 px-3 py-1.5">
-          <div className="flex items-center gap-1.5 pl-5">
-            {addingSub ? (
-              <input
-                autoFocus
-                value={subDraft}
-                placeholder="Subitem title…"
-                onChange={(e) => setSubDraft(e.target.value)}
-                onBlur={addSubitem}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') { e.preventDefault(); addSubitem() }
-                  if (e.key === 'Escape') { setSubDraft(''); setAddingSub(false) }
-                }}
-                className="w-full bg-transparent text-xs text-foreground focus:outline-none"
-              />
-            ) : (
-              <button onClick={() => setAddingSub(true)} className="flex items-center gap-1 text-2xs text-muted-foreground hover:text-foreground">
-                <Plus className="h-3 w-3" /> Add subitem
-              </button>
+      <tr className="bg-surface-1/20">
+        <td colSpan={totalColSpan} className="p-0">
+          <div className="mb-2 ml-10 mr-3 overflow-hidden rounded-lg border border-border bg-surface-1/50">
+            <div className="grid grid-cols-[1fr_140px_120px] gap-2 border-b border-border/60 bg-surface-1/70 px-3 py-1.5 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+              <span>Subitem</span><span>Status</span><span>Date</span>
+            </div>
+
+            {subitems.length === 0 && !addingSub && (
+              <div className="px-3 py-2 text-2xs text-muted-foreground">No subitems yet.</div>
             )}
+
+            {subitems.map((sub) => {
+              const sv = fieldValuesIndex?.[sub.id] ?? {}
+              const statusLabel = defaultStatusField ? (sv[defaultStatusField.id]?.value_text ?? '') : ''
+              const statusColor = statusLabel && defaultStatusField
+                ? (parseOptions(defaultStatusField.config).find((o) => o.label === statusLabel)?.color || STATUS_EMPTY)
+                : STATUS_EMPTY
+              const date = sub.next_action_due_at ? String(sub.next_action_due_at).split('T')[0] : ''
+              return (
+                <div
+                  key={sub.id}
+                  onClick={() => onOpenSubitem?.(sub.id, sub.title)}
+                  className="grid grid-cols-[1fr_140px_120px] items-center gap-2 border-b border-border/40 px-3 py-1.5 last:border-0 hover:bg-surface-2/50 cursor-pointer"
+                >
+                  <span className="flex min-w-0 items-center gap-1.5 text-xs text-foreground">
+                    <CornerDownRight className="h-3 w-3 flex-shrink-0 text-muted-foreground" />
+                    <span className="truncate">{sub.title}</span>
+                  </span>
+                  <span className="min-w-0">
+                    {statusLabel
+                      ? <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium text-white" style={{ backgroundColor: statusColor }}>{statusLabel}</span>
+                      : <span className="text-xs text-muted-foreground">—</span>}
+                  </span>
+                  <span className="text-xs text-muted-foreground">{date || '—'}</span>
+                </div>
+              )
+            })}
+
+            {/* Inline add-subitem row (reuses createSubitem) */}
+            <div className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
+              {addingSub ? (
+                <input
+                  autoFocus
+                  value={subDraft}
+                  placeholder="Subitem title…"
+                  onChange={(e) => setSubDraft(e.target.value)}
+                  onBlur={addSubitem}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); addSubitem() }
+                    if (e.key === 'Escape') { setSubDraft(''); setAddingSub(false) }
+                  }}
+                  className="w-full bg-transparent text-xs text-foreground focus:outline-none"
+                />
+              ) : (
+                <button onClick={() => setAddingSub(true)} className="flex items-center gap-1 text-2xs text-muted-foreground hover:text-foreground">
+                  <Plus className="h-3 w-3" /> Add subitem
+                </button>
+              )}
+            </div>
           </div>
         </td>
-        <td colSpan={dynamicColCount + 1} />
       </tr>
     )}
     </Fragment>
