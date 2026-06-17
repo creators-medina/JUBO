@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button'
 import { createField } from '@/features/fields/actions'
 import type { FieldType } from '@/types/database'
 
-const FIELD_TYPES: { value: FieldType; label: string }[] = [
+const FIELD_TYPES: { value: string; label: string }[] = [
   { value: 'text', label: 'Text' },
   { value: 'textarea', label: 'Textarea' },
+  { value: 'notes', label: 'Notes' },
   { value: 'number', label: 'Number' },
   { value: 'currency', label: 'Currency' },
   { value: 'boolean', label: 'Checkbox' },
@@ -39,18 +40,26 @@ export function CreateFieldModal({ open, onClose, boardId, organizationId, nextP
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [name, setName] = useState('')
-  const [fieldType, setFieldType] = useState<FieldType>('text')
+  const [fieldType, setFieldType] = useState<string>('text')
   const [isRequired, setIsRequired] = useState(false)
   const [selectOptions, setSelectOptions] = useState('')
   const [error, setError] = useState<string | null>(null)
+
+  // "Notes" is a presentation column over the existing notes system — it is
+  // persisted as a textarea field flagged with config.kind='notes' (no enum
+  // change, no field_values storage).
+  const isNotes = fieldType === 'notes'
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
     const config: Record<string, unknown> = {}
-    if ((fieldType === 'select' || fieldType === 'multiselect') && selectOptions) {
+    if (isNotes) {
+      config.kind = 'notes'
+    } else if ((fieldType === 'select' || fieldType === 'multiselect') && selectOptions) {
       config.options = selectOptions.split(',').map(s => s.trim()).filter(Boolean)
     }
+    const storedType: FieldType = isNotes ? 'textarea' : (fieldType as FieldType)
     startTransition(async () => {
       try {
         await createField({
@@ -58,8 +67,8 @@ export function CreateFieldModal({ open, onClose, boardId, organizationId, nextP
           board_id: boardId,
           name: name.trim(),
           slug: slugify(name),
-          field_type: fieldType,
-          is_required: isRequired,
+          field_type: storedType,
+          is_required: isNotes ? false : isRequired,
           position: nextPosition,
           config,
         })
@@ -105,6 +114,11 @@ export function CreateFieldModal({ open, onClose, boardId, organizationId, nextP
               ))}
             </select>
           </div>
+          {isNotes && (
+            <p className="text-2xs text-muted-foreground -mt-2">
+              Surfaces this record&apos;s notes. Click the cell to open the notes panel.
+            </p>
+          )}
           {(fieldType === 'select' || fieldType === 'multiselect') && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-foreground">
@@ -119,15 +133,17 @@ export function CreateFieldModal({ open, onClose, boardId, organizationId, nextP
               />
             </div>
           )}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isRequired}
-              onChange={e => setIsRequired(e.target.checked)}
-              className="rounded"
-            />
-            <span className="text-xs text-foreground">Required field</span>
-          </label>
+          {!isNotes && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isRequired}
+                onChange={e => setIsRequired(e.target.checked)}
+                className="rounded"
+              />
+              <span className="text-xs text-foreground">Required field</span>
+            </label>
+          )}
           {error && <p className="text-xs text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>

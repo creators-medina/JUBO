@@ -7,9 +7,12 @@ import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { EditableCell } from './EditableCell'
+import { NotesCell } from './NotesCell'
+import { isNotesField } from '../notes'
 import { moveRecord, createSubitem } from '@/features/records/actions'
 import { parseOptions } from '@/features/fields/status'
 import { cn } from '@/lib/utils'
+import type { NotesSummary } from '@/features/workspace/notes/queries'
 
 const STATUS_EMPTY = '#64748b'
 
@@ -35,9 +38,11 @@ interface Props {
   onClick: () => void
   onOpenSubitem?: (id: string, title: string) => void
   onOptimisticMove?: (recordId: string, toGroupId: string) => void
+  notesSummary?: NotesSummary
+  onOpenNotes?: (recordId: string) => void
 }
 
-export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId, subitems = [], fieldValuesIndex, isSelected, onToggleSelect, onClick, onOpenSubitem, onOptimisticMove }: Props) {
+export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId, subitems = [], fieldValuesIndex, isSelected, onToggleSelect, onClick, onOpenSubitem, onOptimisticMove, notesSummary, onOpenNotes }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [expanded, setExpanded] = useState(false)
@@ -157,15 +162,19 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
           (Phase 34A.1) — they stay system-only for archive/filtering. The
           priority dot beside the title remains as a subtle indicator. */}
 
-      {/* Dynamic field columns — inline editable */}
+      {/* Dynamic field columns — inline editable (notes columns open the panel) */}
       {fields.map(field => (
         <td key={field.id} className="px-2 py-1.5 w-36 text-xs text-foreground" onClick={e => e.stopPropagation()}>
-          <EditableCell
-            field={field}
-            fieldValue={fieldValueMap[field.id] ?? null}
-            recordId={record.id}
-            boardId={boardId}
-          />
+          {isNotesField(field) ? (
+            <NotesCell summary={notesSummary} onOpen={() => onOpenNotes?.(record.id)} />
+          ) : (
+            <EditableCell
+              field={field}
+              fieldValue={fieldValueMap[field.id] ?? null}
+              recordId={record.id}
+              boardId={boardId}
+            />
+          )}
         </td>
       ))}
 

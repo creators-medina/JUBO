@@ -38,6 +38,7 @@ interface Props {
   records: any[]
   fieldValues: any[]
   organizationId: string
+  notesByRecord?: Record<string, import('@/features/workspace/notes/queries').NotesSummary>
 }
 
 const PRIORITY_OPTIONS: { value: RecordPriority | ''; label: string }[] = [
@@ -57,7 +58,7 @@ const STATUS_OPTIONS: { value: RecordStatus | ''; label: string }[] = [
   { value: 'on_hold', label: 'On Hold' },
 ]
 
-export function BoardDetailClient({ board, groups, fields, fieldVisibility, records: serverRecords, fieldValues, organizationId }: Props) {
+export function BoardDetailClient({ board, groups, fields, fieldVisibility, records: serverRecords, fieldValues, organizationId, notesByRecord }: Props) {
   const router = useRouter()
   const isMutating = useRef(false)
 
@@ -613,6 +614,11 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                     emphasized={group.id === emphasizedGroupId}
                     stageIndex={i}
                     subitemsByParent={subitemsByParent}
+                    notesByRecord={notesByRecord}
+                    onOpenNotes={(recordId) => {
+                      const r = localRecords.find((x: any) => x.id === recordId)
+                      openWorkspace({ recordId, title: r?.title ?? 'Record', activeSubTab: 'notes' })
+                    }}
                     selectedIds={selectedIds}
                     onToggleSelect={toggleSelect}
                     onToggleSelectMany={toggleSelectMany}

@@ -33,6 +33,8 @@ interface Props {
   emphasized?: boolean
   stageIndex?: number
   subitemsByParent?: Record<string, any[]>
+  notesByRecord?: Record<string, import('@/features/workspace/notes/queries').NotesSummary>
+  onOpenNotes?: (recordId: string) => void
   selectedIds?: Set<string>
   onToggleSelect?: (id: string) => void
   onToggleSelectMany?: (ids: string[], on: boolean) => void
@@ -63,6 +65,8 @@ export function BoardGroupTable({
   emphasized = false,
   stageIndex = 0,
   subitemsByParent,
+  notesByRecord,
+  onOpenNotes,
   selectedIds,
   onToggleSelect,
   onToggleSelectMany,
@@ -367,6 +371,8 @@ export function BoardGroupTable({
                     onClick={() => onSelectRecord(record.id)}
                     onOpenSubitem={(id) => onSelectRecord(id)}
                     onOptimisticMove={onOptimisticMove}
+                    notesSummary={notesByRecord?.[record.id]}
+                    onOpenNotes={onOpenNotes}
                   />
                 ))
               )}

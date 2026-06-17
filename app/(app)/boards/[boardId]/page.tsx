@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getBoard, getBoardGroups } from '@/features/boards/queries'
 import { getGroupVisibleFields } from '@/features/fields/actions'
 import { getRecordsByBoard } from '@/features/records/queries'
+import { getNotesSummaryForRecords } from '@/features/workspace/notes/queries'
+import { isNotesField } from '@/features/boards/notes'
 import { BoardDetailClient } from '@/features/boards/components/BoardDetailClient'
 
 export default async function BoardDetailPage({
@@ -41,6 +43,10 @@ export default async function BoardDetailPage({
     ? await supabase.from('field_values').select('*').in('record_id', recordIds)
     : { data: [] }
 
+  // Notes column (Phase 35A): only summarize when the board actually has one.
+  const hasNotesColumn = (fields as any[]).some((f) => isNotesField(f))
+  const notesByRecord = hasNotesColumn ? await getNotesSummaryForRecords(recordIds) : undefined
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <BoardDetailClient
@@ -51,6 +57,7 @@ export default async function BoardDetailPage({
         records={records}
         fieldValues={fieldValues ?? []}
         organizationId={membership.organization_id}
+        notesByRecord={notesByRecord}
       />
     </div>
   )
