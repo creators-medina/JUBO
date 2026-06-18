@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { createRecord } from '@/features/records/actions'
+import { parseOptions } from '@/features/fields/status'
 
 interface Props {
   open: boolean
@@ -95,8 +96,10 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
                   className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="">Select…</option>
-                  {(field.config?.options ?? []).map((opt: string) => (
-                    <option key={opt} value={opt}>{opt}</option>
+                  {/* Options may be strings OR {id,label,color} objects (Phase 34A);
+                      parseOptions normalizes both so we never render an object child. */}
+                  {parseOptions(field.config).map((opt) => (
+                    <option key={opt.id ?? opt.label} value={opt.label}>{opt.label}</option>
                   ))}
                 </select>
               ) : (
