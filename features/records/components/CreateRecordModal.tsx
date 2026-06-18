@@ -33,7 +33,7 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
           .map(f => {
             const raw = fieldVals[f.id]
             if (['number', 'currency'].includes(f.field_type)) return { field_id: f.id, value_number: parseFloat(raw) }
-            if (f.field_type === 'boolean') return { field_id: f.id, value_boolean: raw === 'true' }
+            if (f.field_type === 'boolean' || f.field_type === 'checklist') return { field_id: f.id, value_boolean: raw === 'true' }
             if (['date', 'datetime'].includes(f.field_type)) return { field_id: f.id, value_date: raw }
             return { field_id: f.id, value_text: raw }
           })
@@ -79,7 +79,7 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
                   className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
                   rows={2}
                 />
-              ) : field.field_type === 'boolean' ? (
+              ) : (field.field_type === 'boolean' || field.field_type === 'checklist') ? (
                 <select
                   value={fieldVals[field.id] ?? ''}
                   onChange={e => setFieldVals(v => ({ ...v, [field.id]: e.target.value }))}
@@ -89,7 +89,7 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
                   <option value="true">Yes</option>
                   <option value="false">No</option>
                 </select>
-              ) : field.field_type === 'select' ? (
+              ) : (field.field_type === 'select' || field.field_type === 'status') ? (
                 <select
                   value={fieldVals[field.id] ?? ''}
                   onChange={e => setFieldVals(v => ({ ...v, [field.id]: e.target.value }))}
