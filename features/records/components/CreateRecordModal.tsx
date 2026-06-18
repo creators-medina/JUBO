@@ -16,8 +16,9 @@ interface Props {
   organizationId: string
   /** Current-group-visible fields only (Phase 38C-3). */
   fields: any[]
-  /** Globally-visible field ids (no group-specific visibility) — Basic Info fallback. */
-  commonFieldIds?: Set<string>
+  /** Field ids visible in EVERY group (no restriction OR explicitly all groups) —
+   *  structurally common/client-level fields for Basic Info. */
+  globalFieldIds?: Set<string>
   groupName?: string
 }
 
@@ -31,7 +32,7 @@ interface Props {
  * always collapsed; never required at creation. Viewport-bounded with a sticky
  * footer so Create is always reachable.
  */
-export function CreateRecordModal({ open, onClose, boardId, groupId, organizationId, fields, commonFieldIds, groupName }: Props) {
+export function CreateRecordModal({ open, onClose, boardId, groupId, organizationId, fields, globalFieldIds, groupName }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [title, setTitle] = useState('')
@@ -42,7 +43,7 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
   const checklistFields = fields.filter((f) => f.field_type === 'checklist')
   const nonChecklist = fields.filter((f) => f.field_type !== 'checklist')
   const isBasic = (f: any) =>
-    f.is_default_status || !!f.common_field_key_id || (commonFieldIds?.has(f.id) ?? false)
+    f.is_default_status || !!f.common_field_key_id || (globalFieldIds?.has(f.id) ?? false)
   const basicFields = nonChecklist
     .filter(isBasic)
     .sort((a, b) => (b.is_default_status ? 1 : 0) - (a.is_default_status ? 1 : 0) || (a.position ?? 0) - (b.position ?? 0))

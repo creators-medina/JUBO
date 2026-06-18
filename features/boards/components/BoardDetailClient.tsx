@@ -22,7 +22,7 @@ import { BulkActionBar } from './BulkActionBar'
 import { DragOverlayRow } from './DragOverlayRow'
 import { useBoardRealtime } from '@/hooks/useBoardRealtime'
 import { moveRecord } from '@/features/records/actions'
-import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, type FieldVisibilityRow } from '@/features/fields/visibility'
+import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, isFieldVisibleInGroup, type FieldVisibilityRow } from '@/features/fields/visibility'
 import { computeGroupChecklist } from '@/features/fields/checklist'
 import { reorderFields } from '@/features/fields/actions'
 import { createSavedView, reorderBoardGroups, duplicateBoardStructure, archiveBoard } from '../actions'
@@ -140,6 +140,17 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   // is common ⇒ identical to pre-35B behavior.
   const visibilityIndex = useMemo(() => buildVisibilityIndex(fieldVisibility), [fieldVisibility])
   const commonIds = useMemo(() => new Set(commonFieldIds(localFields, visibilityIndex)), [localFields, visibilityIndex])
+  // Phase 38C-3 — non-checklist fields visible in EVERY group (no restriction OR
+  // explicitly in all groups) = structurally common/client-level → Add Record Basic Info.
+  const globalFieldIds = useMemo(() => {
+    const out = new Set<string>()
+    if (groups.length === 0) return out
+    for (const f of localFields as any[]) {
+      if (f.field_type === 'checklist') continue
+      if (groups.every((g: any) => isFieldVisibleInGroup(f.id, g.id, visibilityIndex))) out.add(f.id)
+    }
+    return out
+  }, [localFields, groups, visibilityIndex])
   const fieldsByGroup = useMemo(() => {
     const out: Record<string, any[]> = {}
     for (const g of groups) out[g.id] = resolveVisibleFields(localFields, g.id, visibilityIndex)
@@ -665,7 +676,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
             /* Phase 38C-3 — current-group-visible fields only (same field_group_visibility
                the board table uses), NOT all-board. commonFieldIds = globally-visible set. */
             fields={fieldsByGroup[showCreateRecord] ?? localFields}
-            commonFieldIds={commonIds}
+            globalFieldIds={globalFieldIds}
             groupName={groups.find((g: any) => g.id === showCreateRecord)?.name}
           />
         )}
