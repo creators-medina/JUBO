@@ -656,7 +656,18 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
         <CreateGroupModal open={showCreateGroup} onClose={() => setShowCreateGroup(false)} boardId={board.id} nextPosition={groups.length} />
         <CreateFieldModal open={showCreateField} onClose={() => setShowCreateField(false)} boardId={board.id} organizationId={organizationId} nextPosition={localFields.length} />
         {showCreateRecord && (
-          <CreateRecordModal open onClose={() => setShowCreateRecord(null)} boardId={board.id} groupId={showCreateRecord} organizationId={organizationId} fields={localFields} />
+          <CreateRecordModal
+            open
+            onClose={() => setShowCreateRecord(null)}
+            boardId={board.id}
+            groupId={showCreateRecord}
+            organizationId={organizationId}
+            /* Phase 38C-3 — current-group-visible fields only (same field_group_visibility
+               the board table uses), NOT all-board. commonFieldIds = globally-visible set. */
+            fields={fieldsByGroup[showCreateRecord] ?? localFields}
+            commonFieldIds={commonIds}
+            groupName={groups.find((g: any) => g.id === showCreateRecord)?.name}
+          />
         )}
         <BoardSettingsModal open={showSettings} onClose={() => setShowSettings(false)} board={board} />
         <AutomationsModal open={showAutomate} onClose={() => setShowAutomate(false)} board={board} organizationId={organizationId} fields={localFields} groups={groups} />
