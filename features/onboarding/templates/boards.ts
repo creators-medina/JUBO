@@ -14,7 +14,12 @@ export type BoardFieldSpec = {
   field_type: FieldType
   options?: string[]        // for select / multiselect
   is_required?: boolean
+  config?: Record<string, unknown>   // extra field config (e.g. notes column kind)
 }
+
+// Phase 35A.1 — every starter board ships with a Notes column. It's a
+// presentation field over the existing notes system (no field_values storage).
+const NOTES_FIELD: BoardFieldSpec = { name: 'Notes', field_type: 'textarea', config: { kind: 'notes' } }
 
 export type BoardGroupSpec = { name: string; color?: string }
 
@@ -101,7 +106,7 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
       { name: 'Follow-Up',          color: C.amber },
       { name: 'Nurture',            color: C.slate },
     ],
-    fields: LEAD_FIELDS,
+    fields: [...LEAD_FIELDS, NOTES_FIELD],
   },
   {
     key: 'active_leads',
@@ -117,7 +122,7 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
       { name: 'Shopping',        color: C.amber },
       { name: 'Under Contract',  color: C.green },
     ],
-    fields: LEAD_FIELDS,
+    fields: [...LEAD_FIELDS, NOTES_FIELD],
   },
   {
     key: 'pipeline',
@@ -132,7 +137,7 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
       { name: 'Clear to Close',  color: C.teal },
       { name: 'Funded',          color: C.green },
     ],
-    fields: PIPELINE_FIELDS,
+    fields: [...PIPELINE_FIELDS, NOTES_FIELD],
   },
   {
     key: 'past_clients',
@@ -146,7 +151,7 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
       { name: 'Long-Term Nurture', color: C.slate },
       { name: 'Refi Opportunities',color: C.amber },
     ],
-    fields: PAST_CLIENT_FIELDS,
+    fields: [...PAST_CLIENT_FIELDS, NOTES_FIELD],
   },
   {
     key: 'partners',
@@ -161,7 +166,7 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
       { name: 'Top Producers',   color: C.violet },
       { name: 'Nurture',         color: C.slate },
     ],
-    fields: PARTNER_FIELDS,
+    fields: [...PARTNER_FIELDS, NOTES_FIELD],
   },
 ]
 

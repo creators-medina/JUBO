@@ -40,6 +40,42 @@ export async function createField(data: {
 }
 
 /**
+ * Phase 35A.1 — add a Notes column to an existing board, safely. A notes column
+ * is a presentation field (field_type 'textarea', config.kind='notes') over the
+ * existing notes system — no field_values storage, no migration. Idempotent:
+ * does nothing if the board already has a notes column (duplicate prevention,
+ * even under concurrent clicks).
+ */
+export async function addNotesColumn(boardId: string, organizationId: string): Promise<{ created: boolean }> {
+  const supabase = await createClient()
+  const { data: existing } = await supabase
+    .from('fields')
+    .select('id, slug, config')
+    .eq('board_id', boardId)
+  const rows = (existing as { id: string; slug: string; config: { kind?: string } | null }[] | null) ?? []
+  if (rows.some((f) => f.config?.kind === 'notes')) return { created: false }
+
+  // Keep the slug unique on the board (a non-notes "Notes" column may exist).
+  const used = new Set(rows.map((f) => f.slug))
+  let slug = 'notes'
+  for (let i = 2; used.has(slug); i++) slug = `notes_${i}`
+
+  const { error } = await supabase.from('fields').insert({
+    organization_id: organizationId,
+    board_id: boardId,
+    name: 'Notes',
+    slug,
+    field_type: 'textarea',
+    is_required: false,
+    position: rows.length,
+    config: { kind: 'notes' },
+  })
+  if (error) throw new Error(error.message)
+  revalidatePath(`/boards/${boardId}`)
+  return { created: true }
+}
+
+/**
  * Create a field during import (or any flow that needs a field from a column name).
  * Verifies the board is visible to the caller (RLS-scoped), slugifies + dedupes the
  * slug against the board, auto-positions, and RETURNS the created row so the client

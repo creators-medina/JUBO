@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark, Zap, MoreVertical, Copy, Archive, Pencil, Loader2, Rows3, LayoutGrid } from 'lucide-react'
+import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark, Zap, MoreVertical, Copy, Archive, Pencil, Loader2, Rows3, LayoutGrid, StickyNote } from 'lucide-react'
 import Link from 'next/link'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, defaultDropAnimationSideEffects, useDndContext } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent, DropAnimation } from '@dnd-kit/core'
@@ -26,6 +26,8 @@ import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, type FieldV
 import { computeGroupChecklist } from '@/features/fields/checklist'
 import { reorderFields } from '@/features/fields/actions'
 import { createSavedView, reorderBoardGroups, duplicateBoardStructure, archiveBoard } from '../actions'
+import { addNotesColumn } from '@/features/fields/actions'
+import { isNotesField } from '../notes'
 import { updateSavedViewAttention } from '@/features/daily-actions/attention/actions'
 import { cn } from '@/lib/utils'
 import type { RecordPriority, RecordStatus } from '@/types/database'
@@ -123,6 +125,15 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     archiveBoard(board.id)
       .then(() => { router.push('/boards'); router.refresh() })
       .catch((e) => { setBoardBusy(false); alert(e instanceof Error ? e.message : 'Could not archive board') })
+  }
+  // Phase 35A.1 — add a Notes column to this board (idempotent; hidden once present).
+  const hasNotesColumn = useMemo(() => (fields as any[]).some((f) => isNotesField(f)), [fields])
+  const onAddNotesColumn = () => {
+    setShowBoardMenu(false); setBoardBusy(true)
+    addNotesColumn(board.id, organizationId)
+      .then(() => router.refresh())
+      .catch((e) => alert(e instanceof Error ? e.message : 'Could not add Notes column'))
+      .finally(() => setBoardBusy(false))
   }
 
   // Phase 35B — per-group column resolution. No visibility rows ⇒ every field
@@ -435,6 +446,11 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                   <button type="button" onClick={onDuplicateBoard} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
                     <Copy className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Duplicate structure
                   </button>
+                  {!hasNotesColumn && (
+                    <button type="button" onClick={onAddNotesColumn} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
+                      <StickyNote className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Add Notes column
+                    </button>
+                  )}
                   <div className="my-1 border-t border-border" />
                   <button type="button" onClick={() => { setShowBoardMenu(false); setConfirmArchiveBoard(true) }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-destructive hover:bg-surface-1">
                     <Archive className="h-3.5 w-3.5 flex-shrink-0 text-destructive" />Archive board

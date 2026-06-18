@@ -121,7 +121,7 @@ export async function provisionWorkspace(
       field_type: f.field_type,
       is_required: f.is_required ?? false,
       position: i,
-      config: f.options ? { options: f.options } : {},
+      config: { ...(f.config ?? {}), ...(f.options ? { options: f.options } : {}) },
     }))
     if (fieldRows.length) {
       const { error: fErr } = await supabase.from('fields').insert(fieldRows)

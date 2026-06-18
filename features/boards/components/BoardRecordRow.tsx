@@ -166,7 +166,7 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
       {fields.map(field => (
         <td key={field.id} className="px-2 py-1.5 w-36 text-xs text-foreground" onClick={e => e.stopPropagation()}>
           {isNotesField(field) ? (
-            <NotesCell summary={notesSummary} onOpen={() => onOpenNotes?.(record.id)} />
+            <NotesCell summary={notesSummary} recordId={record.id} organizationId={record.organization_id} onOpen={() => onOpenNotes?.(record.id)} />
           ) : (
             <EditableCell
               field={field}
