@@ -113,7 +113,9 @@ export function ActivityTimeline({ items, emptyHint = 'No activity yet.' }: Prop
           <p className="text-2xs uppercase tracking-wider text-muted-foreground sticky top-0 bg-card/95 backdrop-blur-sm py-1 z-[1]">
             {group.label}
           </p>
-          <div className="space-y-1">
+          {/* Connecting rail behind the icon chips for a clean event sequence. */}
+          <div className="relative space-y-1">
+            <div className="pointer-events-none absolute left-[9px] top-2 bottom-2 w-px bg-border" aria-hidden />
             {group.items.map(item => <TimelineRow key={`${item.type}-${item.id}`} item={item} />)}
           </div>
         </div>
@@ -132,8 +134,8 @@ function TimelineRow({ item }: { item: TimelineItem }) {
   const outcome = meta?.outcome as string | undefined
 
   return (
-    <div className="flex gap-3 py-1.5 group">
-      <span className={cn('mt-0.5 w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0', accent)}>
+    <div className="relative flex gap-3 py-1.5 group">
+      <span className={cn('relative z-[1] mt-0.5 w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 ring-2 ring-card', accent)}>
         <Icon className="w-2.5 h-2.5" />
       </span>
       <div className="flex-1 min-w-0 space-y-0.5">

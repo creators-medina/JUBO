@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   X, Maximize2, FileText, Activity, ListChecks, StickyNote, Database, Columns3,
-  ExternalLink, MoreHorizontal, ArrowRightLeft, CheckSquare, IdCard,
+  ArrowRightLeft, CheckSquare, IdCard,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MoveToBoardDialog } from '@/features/boards/components/MoveToBoardDialog'
@@ -22,6 +22,8 @@ import { MortgageWorkspace, hasMortgageTemplate } from '@/features/mortgage/work
 import { WorkspaceHeaderMeta } from '@/features/mortgage/workspaces/WorkspaceHeaderMeta'
 import { CommunicationActions } from '@/features/communications/components/CommunicationActions'
 import { LastContactCard } from '@/features/communications/components/LastContactCard'
+import { getLastContactedAt, daysSince, getContactHealth } from '@/features/communications/metrics'
+import type { ContactHealth } from '@/features/communications/types'
 import type { WorkspaceTabKey, NoteRow, TimelineItem } from '../types'
 import { WORKSPACE_TABS, WORKSPACE_TAB_LABELS } from '../types'
 
@@ -208,42 +210,60 @@ function WorkspaceContent({
   }, [data])
 
   const groupName = data?.groups.find(g => g.id === data?.record?.group_id)?.name ?? '—'
+  const isMortgage = data ? hasMortgageTemplate(data) : false
+  const lastContactDays = data ? daysSince(getLastContactedAt(data.communications)) : null
+  const contactHealth: ContactHealth = data ? getContactHealth(data.communications) : 'unknown'
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full md:max-w-[min(72rem,92vw)] bg-background border-l border-border flex flex-col h-full shadow-2xl">
-        {/* Top bar — title + actions */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex flex-col min-w-0">
+        {/* Header — identity + context + quick actions */}
+        <header className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border bg-gradient-to-b from-surface-1/50 to-background flex-shrink-0">
+          <div className="flex items-start gap-3 min-w-0">
+            {loading ? (
+              <div className="h-9 w-9 rounded-lg bg-surface-2 animate-pulse flex-shrink-0" />
+            ) : (
+              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-semibold text-primary">
+                {initials(data?.record?.title)}
+              </div>
+            )}
+            <div className="min-w-0">
               {loading ? (
-                <div className="h-5 w-64 bg-surface-2 rounded animate-pulse" />
+                <div className="h-6 w-64 bg-surface-2 rounded animate-pulse" />
               ) : (
-                <h2 className="text-base font-semibold text-foreground truncate">{data?.record?.title ?? 'Record'}</h2>
+                <h2 className="text-lg font-semibold tracking-tight text-foreground truncate">{data?.record?.title ?? 'Record'}</h2>
               )}
-              <p className="text-2xs text-muted-foreground">
-                {data?.record?.board_id && (
-                  <Link href={`/boards/${data.record.board_id}`}
-                    className="hover:text-foreground transition-colors inline-flex items-center gap-1">
-                    Board
-                    <ExternalLink className="w-2.5 h-2.5" />
-                  </Link>
-                )}
-                {data && (<>
-                  {' · '}
-                  <span>{groupName}</span>
-                  {/* Internal records.status hidden (Phase 34A.1) — it's a
-                      system field (archive/filtering), not user-facing status. */}
-                </>)}
-              </p>
-              {data && <WorkspaceHeaderMeta data={data} />}
+              {data && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {data.record?.board_id && (
+                    <Link
+                      href={`/boards/${data.record.board_id}`}
+                      className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-1.5 py-0.5 text-2xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Columns3 className="h-2.5 w-2.5" />
+                      {data.board?.name ?? 'Board'}
+                    </Link>
+                  )}
+                  {!isMortgage && groupName !== '—' && (
+                    <span className="inline-flex items-center rounded-md bg-surface-2 px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">{groupName}</span>
+                  )}
+                  {lastContactDays != null && (
+                    <span className="inline-flex items-center gap-1 text-2xs text-muted-foreground">
+                      <span className={cn('h-1.5 w-1.5 rounded-full', HEALTH_DOT[contactHealth])} />
+                      Last contact {lastContactDays === 0 ? 'today' : `${lastContactDays}d ago`}
+                    </span>
+                  )}
+                </div>
+              )}
+              {/* Mortgage-template badges (stage / amount / next action / stale). Null for generic. */}
+              {data && isMortgage && <WorkspaceHeaderMeta data={data} />}
             </div>
           </div>
 
           <div className="flex items-center gap-1 flex-shrink-0">
             {tabs > 1 && (
-              <span className="text-2xs text-muted-foreground mr-2">⌘⇧] next · ⌘⇧[ prev</span>
+              <span className="hidden sm:inline text-2xs text-muted-foreground mr-2">⌘⇧] next · ⌘⇧[ prev</span>
             )}
             {data?.record?.board_id && (
               <button
@@ -271,7 +291,7 @@ function WorkspaceContent({
               <X className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        </header>
 
         {showMove && data?.record?.board_id && (
           <MoveToBoardDialog
@@ -282,8 +302,8 @@ function WorkspaceContent({
           />
         )}
 
-        {/* Tabs nav */}
-        <div className="flex items-center gap-0.5 px-3 border-b border-border flex-shrink-0">
+        {/* Tabs nav — horizontally scrollable on small screens */}
+        <div className="flex items-center gap-0.5 px-3 border-b border-border flex-shrink-0 overflow-x-auto">
           {WORKSPACE_TABS.filter(t => t !== 'pipeline').map(t => {
             const Icon = TAB_ICONS[t]
             const active = activeSubTab === t
@@ -292,7 +312,7 @@ function WorkspaceContent({
                 key={t}
                 onClick={() => onSubTabChange(t)}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
+                  'flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
                   active
                     ? 'border-primary text-foreground'
                     : 'border-transparent text-muted-foreground hover:text-foreground',
@@ -326,6 +346,16 @@ function WorkspaceContent({
               </div>
             ) : (
               <>
+                {/* Mobile-only quick actions + next action (sidebar is hidden < lg). */}
+                <div className="lg:hidden mb-4 space-y-3">
+                  <CommunicationActions recordId={recordId} onChanged={load} />
+                  <NextActionCard
+                    recordId={recordId}
+                    nextAction={data.record.next_action ?? null}
+                    nextActionDueAt={data.record.next_action_due_at ?? null}
+                    nextActionCompletedAt={data.record.next_action_completed_at ?? null}
+                  />
+                </div>
                 {activeSubTab === 'overview' && (
                   hasMortgageTemplate(data)
                     ? <MortgageWorkspace data={data} onChanged={load} />
@@ -355,12 +385,16 @@ function WorkspaceContent({
                   />
                 )}
                 {activeSubTab === 'notes' && (
-                  <NoteList
-                    organizationId={data.record.organization_id}
-                    recordId={recordId}
-                    notes={data.notes}
-                    currentUserId={data.currentUserId}
-                  />
+                  <div className="space-y-3">
+                    <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Notes</p>
+                    <NoteList
+                      organizationId={data.record.organization_id}
+                      recordId={recordId}
+                      notes={data.notes}
+                      currentUserId={data.currentUserId}
+                      defaultDrafting
+                    />
+                  </div>
                 )}
                 {activeSubTab === 'data' && (
                   <DataView data={data} />
@@ -401,6 +435,23 @@ function WorkspaceContent({
       </div>
     </div>
   )
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const HEALTH_DOT: Record<ContactHealth, string> = {
+  healthy: 'bg-emerald-400',
+  warming: 'bg-amber-400',
+  stale:   'bg-red-400',
+  unknown: 'bg-surface-3',
+}
+
+/** Up to two initials from a record title for the header avatar. */
+function initials(title?: string | null): string {
+  const parts = (title ?? '').trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '—'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 // ── Sub-views ────────────────────────────────────────────────────────────────

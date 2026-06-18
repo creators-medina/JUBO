@@ -13,13 +13,15 @@ interface Props {
   recordId: string
   notes: NoteRow[]
   currentUserId: string | null
+  /** Open the composer immediately (e.g. the workspace Notes tab) — no hunting. */
+  defaultDrafting?: boolean
 }
 
 const AUTOSAVE_DELAY_MS = 800
 
-export function NoteList({ organizationId, recordId, notes, currentUserId }: Props) {
+export function NoteList({ organizationId, recordId, notes, currentUserId, defaultDrafting = false }: Props) {
   const router = useRouter()
-  const [drafting, setDrafting] = useState(false)
+  const [drafting, setDrafting] = useState(defaultDrafting)
   const [newDraft, setNewDraft] = useState('')
   const [, startTransition] = useTransition()
 
