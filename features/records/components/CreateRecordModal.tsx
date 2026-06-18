@@ -6,7 +6,9 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { createRecord } from '@/features/records/actions'
+import { createNote } from '@/features/workspace/notes/actions'
 import { parseOptions } from '@/features/fields/status'
+import type { BoardType } from '@/types/database'
 
 interface Props {
   open: boolean
@@ -20,6 +22,8 @@ interface Props {
    *  structurally common/client-level fields for Basic Info. */
   globalFieldIds?: Set<string>
   groupName?: string
+  /** Phase 35A.3 — CRM boards read as contact intake (terminology + first note). */
+  boardType?: BoardType
 }
 
 /**
@@ -32,12 +36,16 @@ interface Props {
  * always collapsed; never required at creation. Viewport-bounded with a sticky
  * footer so Create is always reachable.
  */
-export function CreateRecordModal({ open, onClose, boardId, groupId, organizationId, fields, globalFieldIds, groupName }: Props) {
+export function CreateRecordModal({ open, onClose, boardId, groupId, organizationId, fields, globalFieldIds, groupName, boardType }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [title, setTitle] = useState('')
   const [fieldVals, setFieldVals] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
+  // Phase 35A.3 — CRM boards are contact-centric. Same Smart Add Record intake,
+  // contact terminology, plus an optional first note (reuses the notes system).
+  const isContact = boardType === 'crm'
+  const [notesDraft, setNotesDraft] = useState('')
 
   // ── Structural partition (no name/board-shape detection) ──
   const checklistFields = fields.filter((f) => f.field_type === 'checklist')
@@ -63,9 +71,14 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
             if (['date', 'datetime'].includes(f.field_type)) return { field_id: f.id, value_date: raw }
             return { field_id: f.id, value_text: raw }
           })
-        await createRecord({ organization_id: organizationId, board_id: boardId, group_id: groupId, title: title.trim(), fieldValues })
+        const rec = await createRecord({ organization_id: organizationId, board_id: boardId, group_id: groupId, title: title.trim(), fieldValues })
+        // Optional first note (contact intake) — reuses the existing notes RPC + activity log.
+        if (isContact && notesDraft.trim() && rec?.id) {
+          try { await createNote({ organization_id: organizationId, record_id: rec.id, content: notesDraft.trim() }) } catch { /* note is best-effort */ }
+        }
         setTitle('')
         setFieldVals({})
+        setNotesDraft('')
         onClose()
         router.refresh()
       } catch (err: any) {
@@ -115,7 +128,7 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
       <DialogContent className="bg-card border-border max-w-lg max-h-[85vh] flex flex-col gap-0 p-0 overflow-hidden">
         {/* Sticky header */}
         <div className="flex-shrink-0 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold text-foreground">Add record{groupName ? ` · ${groupName}` : ''}</h2>
+          <h2 className="text-sm font-semibold text-foreground">{isContact ? 'Add contact' : 'Add record'}{groupName ? ` · ${groupName}` : ''}</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
@@ -124,14 +137,24 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
             {/* Basic Info — always expanded */}
             <div className="space-y-3 px-4 py-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-foreground">Title</label>
+                <label className="text-xs font-medium text-foreground">{isContact ? 'Name' : 'Title'}<span className="ml-0.5 text-destructive">*</span></label>
                 <input
                   type="text" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus
-                  placeholder="Record title"
+                  placeholder={isContact ? 'Contact name' : 'Record title'}
                   className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
               {basicFields.map((f) => <FieldRow key={f.id} field={f} />)}
+              {isContact && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">Notes</label>
+                  <textarea
+                    value={notesDraft} onChange={(e) => setNotesDraft(e.target.value)} rows={2}
+                    placeholder="First note — context, where they're at, next step…"
+                    className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Current Stage Fields — expanded only if a couple */}
@@ -154,7 +177,7 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
             {error && <p className="mb-2 text-xs text-destructive">{error}</p>}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-              <Button type="submit" size="sm" disabled={isPending || !title.trim()}>{isPending ? 'Creating…' : 'Create record'}</Button>
+              <Button type="submit" size="sm" disabled={isPending || !title.trim()}>{isPending ? (isContact ? 'Adding…' : 'Creating…') : (isContact ? 'Add contact' : 'Create record')}</Button>
             </div>
           </div>
         </form>

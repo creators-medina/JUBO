@@ -126,6 +126,10 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
       .then(() => { router.push('/boards'); router.refresh() })
       .catch((e) => { setBoardBusy(false); alert(e instanceof Error ? e.message : 'Could not archive board') })
   }
+  // Phase 35A.3 — CRM boards are contact-centric: "Add contact" instead of
+  // "Add record". Loan Pipeline (board_type 'pipeline') stays generic for now.
+  const entityNoun = board.board_type === 'crm' ? 'contact' : 'record'
+
   // Phase 35A.1 — add a Notes column to this board (idempotent; hidden once present).
   const hasNotesColumn = useMemo(() => (fields as any[]).some((f) => isNotesField(f)), [fields])
   const onAddNotesColumn = () => {
@@ -651,6 +655,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                     onToggleSelectMany={toggleSelectMany}
                     onAddRecord={() => setShowCreateRecord(group.id)}
                     onAddField={() => setShowCreateField(true)}
+                    entityNoun={entityNoun}
                     onSelectRecord={id => {
                       const r = localRecords.find((x: any) => x.id === id)
                       openWorkspace({ recordId: id, title: r?.title ?? 'Record' })
@@ -678,6 +683,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
             fields={fieldsByGroup[showCreateRecord] ?? localFields}
             globalFieldIds={globalFieldIds}
             groupName={groups.find((g: any) => g.id === showCreateRecord)?.name}
+            boardType={board.board_type}
           />
         )}
         <BoardSettingsModal open={showSettings} onClose={() => setShowSettings(false)} board={board} />

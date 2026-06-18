@@ -42,6 +42,8 @@ interface Props {
   onAddField: () => void
   onSelectRecord: (id: string) => void
   onOptimisticMove: (recordId: string, toGroupId: string) => void
+  /** Singular noun for add affordances — 'contact' on CRM boards, else 'record'. */
+  entityNoun?: string
 }
 
 export function BoardGroupTable({
@@ -72,6 +74,7 @@ export function BoardGroupTable({
   onToggleSelectMany,
   onAddRecord,
   onAddField,
+  entityNoun = 'record',
   onSelectRecord,
   onOptimisticMove,
 }: Props) {
@@ -239,7 +242,7 @@ export function BoardGroupTable({
             </span>
           )}
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={onAddRecord} className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors" title="Add record">
+            <button onClick={onAddRecord} className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors" title={`Add ${entityNoun}`}>
               <Plus className="w-3.5 h-3.5" />
             </button>
             <div className="relative" ref={menuRef}>
@@ -351,7 +354,7 @@ export function BoardGroupTable({
                     {isOver ? (
                       <span className="text-primary">Drop here</span>
                     ) : hasActiveFilters ? 'No records match filters' : (
-                      <button onClick={onAddRecord} className="hover:text-foreground transition-colors">+ Add first record</button>
+                      <button onClick={onAddRecord} className="hover:text-foreground transition-colors">+ Add first {entityNoun}</button>
                     )}
                   </td>
                 </tr>
@@ -380,7 +383,7 @@ export function BoardGroupTable({
                 <tr className="border-t border-border">
                   <td colSpan={6 + fields.length + 2}>
                     <button onClick={onAddRecord} className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-surface-1 transition-colors w-full text-left">
-                      <Plus className="w-3 h-3" />Add record
+                      <Plus className="w-3 h-3" />Add {entityNoun}
                     </button>
                   </td>
                 </tr>
