@@ -23,6 +23,36 @@ const BOARD_TYPE_ACCENT: Record<string, string> = {
   custom: 'text-muted-foreground',
 }
 
+// Presentation-only grouping: boards are matched into visual groups by name.
+// This does NOT change board names, ids, routes, or any stored data.
+const CLIENT_JOURNEY_MATCHERS = [
+  'phase 1',
+  'phase 2',
+  'phase 2-3',
+  'phase 3',
+  'phase 4',
+  'lead capture',
+  'post closing',
+  'in process',
+]
+
+const RELATIONSHIPS_MATCHERS = ['realtor', 'partner', 'referral', 'past client']
+
+type BoardGroupKey = 'clientJourney' | 'relationships' | 'other'
+
+function groupKeyForBoard(board: Board): BoardGroupKey {
+  const name = board.name.toLowerCase()
+  if (CLIENT_JOURNEY_MATCHERS.some(m => name.includes(m))) return 'clientJourney'
+  if (RELATIONSHIPS_MATCHERS.some(m => name.includes(m))) return 'relationships'
+  return 'other'
+}
+
+const GROUP_ORDER: { key: BoardGroupKey; label: string }[] = [
+  { key: 'clientJourney', label: 'Client Journey' },
+  { key: 'relationships', label: 'Relationships' },
+  { key: 'other', label: 'Other Boards' },
+]
+
 export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean }) {
   const { currentOrganization } = useOrganization()
   const pathname = usePathname()
@@ -42,41 +72,40 @@ export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean 
 
   if (boards.length === 0 && collapsed) return null
 
-  return (
-    <div className="space-y-0.5">
-      {!collapsed && (
-        <div className="flex items-center justify-between px-2 py-1">
-          <p className="text-2xs font-medium text-muted-foreground uppercase tracking-wider">Boards</p>
-          <Link
-            href="/boards"
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-sidebar-item-hover transition-colors"
-            title="All boards"
-          >
-            <Plus className="w-3 h-3" />
-          </Link>
-        </div>
-      )}
-      {boards.map(board => {
-        const active = pathname === `/boards/${board.id}`
-        return (
-          <Link
-            key={board.id}
-            href={`/boards/${board.id}`}
-            title={collapsed ? board.name : undefined}
-            className={cn(
-              'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors',
-              collapsed ? 'justify-center' : '',
-              active
-                ? 'bg-sidebar-item-active text-foreground'
-                : 'text-muted-foreground hover:bg-sidebar-item-hover hover:text-foreground'
-            )}
-          >
-            <Columns3 className={cn('w-4 h-4 flex-shrink-0', BOARD_TYPE_ACCENT[board.board_type] ?? 'text-muted-foreground')} />
-            {!collapsed && <span className="truncate text-sm">{board.name}</span>}
-          </Link>
-        )
-      })}
-      {!collapsed && boards.length === 0 && (
+  const grouped: Record<BoardGroupKey, Board[]> = {
+    clientJourney: [],
+    relationships: [],
+    other: [],
+  }
+  for (const board of boards) {
+    grouped[groupKeyForBoard(board)].push(board)
+  }
+
+  const renderBoard = (board: Board) => {
+    const active = pathname === `/boards/${board.id}`
+    return (
+      <Link
+        key={board.id}
+        href={`/boards/${board.id}`}
+        title={collapsed ? board.name : undefined}
+        className={cn(
+          'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors',
+          collapsed ? 'justify-center' : '',
+          active
+            ? 'bg-sidebar-item-active text-foreground'
+            : 'text-muted-foreground hover:bg-sidebar-item-hover hover:text-foreground'
+        )}
+      >
+        <Columns3 className={cn('w-4 h-4 flex-shrink-0', BOARD_TYPE_ACCENT[board.board_type] ?? 'text-muted-foreground')} />
+        {!collapsed && <span className="truncate text-sm">{board.name}</span>}
+      </Link>
+    )
+  }
+
+  if (boards.length === 0) {
+    if (collapsed) return null
+    return (
+      <div className="space-y-0.5">
         <Link
           href="/boards"
           className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-item-hover transition-colors"
@@ -84,7 +113,29 @@ export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean 
           <Plus className="w-3.5 h-3.5" />
           Create first board
         </Link>
-      )}
+      </div>
+    )
+  }
+
+  // Collapsed: render icons only, no group headers.
+  if (collapsed) {
+    return <div className="space-y-0.5">{boards.map(renderBoard)}</div>
+  }
+
+  return (
+    <div className="space-y-3">
+      {GROUP_ORDER.map(group => {
+        const groupBoards = grouped[group.key]
+        if (groupBoards.length === 0) return null
+        return (
+          <div key={group.key} className="space-y-0.5">
+            <p className="px-2 py-1 text-2xs font-medium text-muted-foreground uppercase tracking-wider">
+              {group.label}
+            </p>
+            {groupBoards.map(renderBoard)}
+          </div>
+        )
+      })}
     </div>
   )
 }

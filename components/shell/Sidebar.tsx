@@ -29,17 +29,33 @@ import { DynamicDashboardsSidebarSection } from '@/features/dashboards/component
 import { CreateDashboardModal } from '@/features/dashboards/components/CreateDashboardModal'
 import { useOrganization } from '@/providers/OrganizationProvider'
 
-const toolItems = [
-  { href: '/today', label: 'Today', icon: Sunrise },
-  { href: '/prospecting', label: 'Prospecting', icon: PhoneCall },
-  { href: '/conversations', label: 'Conversations', icon: MessageSquare },
-  { href: '/business-plan', label: 'Business Plan', icon: Gauge },
-  { href: '/goals', label: 'Goals', icon: Target },
-  { href: '/forecasts', label: 'Forecasts', icon: TrendingUp },
-  { href: '/settings/workflows', label: 'Workflows', icon: Workflow },
-  { href: '/imports', label: 'Imports', icon: Upload },
-  { href: '/blueprints', label: 'Blueprint Import', icon: FileJson },
-  { href: '/settings/integrations', label: 'Integrations', icon: Plug },
+const toolGroups: { label: string; items: { href: string; label: string; icon: typeof Sunrise }[] }[] = [
+  {
+    label: 'Win the Day',
+    items: [
+      { href: '/prospecting', label: 'Prospecting', icon: PhoneCall },
+      { href: '/today', label: 'Today', icon: Sunrise },
+      { href: '/conversations', label: 'Conversations', icon: MessageSquare },
+    ],
+  },
+  {
+    label: 'Business',
+    items: [
+      { href: '/business-plan', label: 'Business Plan', icon: Gauge },
+      { href: '/goals', label: 'Goals', icon: Target },
+      { href: '/forecasts', label: 'Forecasts', icon: TrendingUp },
+    ],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { href: '/settings/workflows', label: 'Workflows', icon: Workflow },
+      { href: '/imports', label: 'Imports', icon: Upload },
+      { href: '/blueprints', label: 'Blueprint Import', icon: FileJson },
+      { href: '/settings/integrations', label: 'Integrations', icon: Plug },
+      { href: '/settings', label: 'Settings', icon: Settings },
+    ],
+  },
 ]
 
 interface SidebarProps {
@@ -96,43 +112,51 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           onCreateClick={() => setShowCreateDashboard(true)}
         />
 
-        {/* Boards */}
-        <div className="space-y-0.5">
-          <SidebarItem
-            href="/boards"
-            label="All Boards"
-            icon={Columns3}
-            active={pathname === '/boards'}
-            collapsed={collapsed}
-          />
+        {/* Boards (grouped by name; All Boards kept available but de-emphasized) */}
+        <div className="space-y-1">
           <DynamicBoardsSidebarSection collapsed={collapsed} />
+          {collapsed ? (
+            <SidebarItem
+              href="/boards"
+              label="All Boards"
+              icon={Columns3}
+              active={pathname === '/boards'}
+              collapsed={collapsed}
+            />
+          ) : (
+            <Link
+              href="/boards"
+              className={cn(
+                'flex items-center gap-2 px-2 py-1 rounded-md text-2xs transition-colors',
+                pathname === '/boards'
+                  ? 'text-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-sidebar-item-hover'
+              )}
+            >
+              <Columns3 className="w-3 h-3 flex-shrink-0" />
+              All Boards
+            </Link>
+          )}
         </div>
 
         {/* Tools */}
-        <SidebarSection label={collapsed ? '' : 'Tools'} collapsed={collapsed}>
-          {toolItems.map(item => (
-            <SidebarItem
-              key={item.href}
-              href={item.href}
-              label={item.label}
-              icon={item.icon}
-              active={pathname.startsWith(item.href)}
-              collapsed={collapsed}
-            />
-          ))}
-        </SidebarSection>
+        {toolGroups.map(group => (
+          <SidebarSection key={group.label} label={collapsed ? '' : group.label} collapsed={collapsed}>
+            {group.items.map(item => (
+              <SidebarItem
+                key={item.href}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
+                active={item.href === '/settings'
+                  ? pathname === '/settings' || (pathname.startsWith('/settings') && !pathname.startsWith('/settings/workflows') && !pathname.startsWith('/settings/integrations'))
+                  : pathname.startsWith(item.href)}
+                collapsed={collapsed}
+              />
+            ))}
+          </SidebarSection>
+        ))}
       </nav>
-
-      {/* Bottom */}
-      <div className="px-2 pb-3">
-        <SidebarItem
-          href="/settings"
-          label="Settings"
-          icon={Settings}
-          active={pathname.startsWith('/settings')}
-          collapsed={collapsed}
-        />
-      </div>
 
       {/* Collapse toggle */}
       <button
