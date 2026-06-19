@@ -7,13 +7,15 @@
 // the DragOverlay can render the identical "lifted card".
 // ─────────────────────────────────────────────────────────────────────────
 
+import { Plus } from 'lucide-react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { type VisibilityIndex } from '@/features/fields/visibility'
 import { buildKanbanFace, KanbanCardFace } from './KanbanCardFace'
+import { stageColor } from './BoardStageSummary'
 import { cn } from '@/lib/utils'
 
-export type Stage = { id: string; boardId: string; groupId: string; label: string }
+export type Stage = { id: string; boardId: string; groupId: string; label: string; color?: string | null }
 
 interface Props {
   stages: Stage[]
@@ -25,17 +27,19 @@ interface Props {
   visibilityIndex: VisibilityIndex
   pendingMoveIds?: Set<string>
   onSelectRecord: (recordId: string, title: string) => void
+  onAddRecord?: (groupId: string) => void
 }
 
 export function BoardKanbanView({
-  stages, recordsByGroup, totalByGroup, fieldsByGroup, fieldValuesIndex, fields, visibilityIndex, pendingMoveIds, onSelectRecord,
+  stages, recordsByGroup, totalByGroup, fieldsByGroup, fieldValuesIndex, fields, visibilityIndex, pendingMoveIds, onSelectRecord, onAddRecord,
 }: Props) {
   return (
     <div className="flex h-full gap-4 overflow-x-auto pb-4">
-      {stages.map((stage) => (
+      {stages.map((stage, i) => (
         <KanbanColumn
           key={stage.id}
           stage={stage}
+          accent={stageColor(stage, i)}
           count={totalByGroup[stage.groupId] ?? (recordsByGroup[stage.groupId] ?? []).length}
           records={recordsByGroup[stage.groupId] ?? []}
           groupFields={fieldsByGroup[stage.groupId] ?? []}
@@ -44,6 +48,7 @@ export function BoardKanbanView({
           visibilityIndex={visibilityIndex}
           pendingMoveIds={pendingMoveIds}
           onSelectRecord={onSelectRecord}
+          onAddRecord={onAddRecord}
         />
       ))}
     </div>
@@ -51,9 +56,10 @@ export function BoardKanbanView({
 }
 
 function KanbanColumn({
-  stage, count, records, groupFields, fields, fieldValuesIndex, visibilityIndex, pendingMoveIds, onSelectRecord,
+  stage, accent, count, records, groupFields, fields, fieldValuesIndex, visibilityIndex, pendingMoveIds, onSelectRecord, onAddRecord,
 }: {
   stage: Stage
+  accent: string
   count: number
   records: any[]
   groupFields: any[]
@@ -62,6 +68,7 @@ function KanbanColumn({
   visibilityIndex: VisibilityIndex
   pendingMoveIds?: Set<string>
   onSelectRecord: (recordId: string, title: string) => void
+  onAddRecord?: (groupId: string) => void
 }) {
   // Phase 37B-2 — column is a drop target. Distinct ID space ('kanban-stage:').
   const { setNodeRef, isOver } = useDroppable({
@@ -72,15 +79,38 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={cn('flex w-72 flex-shrink-0 flex-col rounded-xl border bg-surface-1/30 transition-colors duration-150 motion-reduce:transition-none sm:w-80', isOver ? 'border-primary/60 bg-primary/5 ring-1 ring-primary/20' : 'border-border')}
+      className={cn(
+        // Premium glassy lane: subtle multi-color edge + interactive glimmer.
+        'premium-surface premium-surface--hover-sweep flex w-72 flex-shrink-0 flex-col rounded-xl bg-surface-1/40 backdrop-blur-md transition-[box-shadow,background-color] duration-150 motion-reduce:transition-none sm:w-80',
+        isOver ? 'bg-primary/5 ring-1 ring-primary/40' : '',
+      )}
     >
+      {/* Colored top accent — gives each lane a stable identity color. */}
+      <div aria-hidden className="h-1 w-full flex-shrink-0" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
+
       <div className="flex items-center gap-2 border-b border-border/50 px-3.5 py-3">
-        <span className="text-sm font-semibold tracking-tight text-foreground">{stage.label}</span>
+        <span aria-hidden className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: accent }} />
+        <span className="truncate text-sm font-semibold tracking-tight text-foreground">{stage.label}</span>
         <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-2xs font-semibold tabular-nums text-muted-foreground">{count}</span>
+        {onAddRecord && (
+          <button
+            type="button"
+            onClick={() => onAddRecord(stage.groupId)}
+            title={`Add to ${stage.label}`}
+            className="ml-auto flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
       <div className="flex flex-col gap-2.5 overflow-y-auto px-2.5 py-2.5">
         {records.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border/60 px-3 py-8 text-center text-2xs text-muted-foreground">{isOver ? 'Drop here' : 'No records'}</div>
+          <div className={cn(
+            'rounded-xl border border-dashed px-3 py-8 text-center text-2xs transition-colors',
+            isOver ? 'border-primary/50 text-foreground' : 'border-border/60 text-muted-foreground',
+          )}>
+            {isOver ? 'Drop here' : 'No records'}
+          </div>
         ) : (
           records.map((record) => (
             <KanbanCard
@@ -95,6 +125,16 @@ function KanbanColumn({
               onClick={() => onSelectRecord(record.id, record.title ?? 'Record')}
             />
           ))
+        )}
+        {onAddRecord && (
+          <button
+            type="button"
+            onClick={() => onAddRecord(stage.groupId)}
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/50 px-3 py-2 text-2xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:bg-surface-1 hover:text-foreground"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add card
+          </button>
         )}
       </div>
     </div>
@@ -136,7 +176,8 @@ function KanbanCard({
       type="button"
       onClick={onClick}
       className={cn(
-        'w-full cursor-grab rounded-xl border border-border bg-card px-3.5 py-3 text-left shadow-sm transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out hover:border-primary/40 hover:bg-surface-1 hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
+        // Soft dark-glass card; relative+overflow-hidden so the colored rail clips.
+        'relative w-full cursor-grab overflow-hidden rounded-xl border border-border/70 bg-card/80 py-3 pl-4 pr-3.5 text-left shadow-sm backdrop-blur-sm transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out hover:border-primary/40 hover:bg-surface-1/90 hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
         isDragging && 'opacity-40',
       )}
     >

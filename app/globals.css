@@ -243,9 +243,38 @@
 .premium-surface--achievement {
   box-shadow: 0 0 42px -18px oklch(0.80 0.15 150 / 0.40);
 }
+/* Interactive glimmer (Phase 36B.1) — a single light sweep on hover, for
+   premium lanes/surfaces. Occasional, not constant: it rests invisible and
+   crosses once when a surface is hovered. Reuses the premium-sweep keyframe
+   and the compositor-friendly transform+opacity approach. */
+.premium-surface--hover-sweep::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    oklch(1 0 0 / 0.06) 50%,
+    transparent 100%
+  );
+  transform: translateX(-170%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.premium-surface--hover-sweep:hover::after {
+  animation: premium-sweep 2.6s ease-in-out;
+}
 /* Respect reduced motion — the frame stays, the sweep does not. */
 @media (prefers-reduced-motion: reduce) {
   .premium-surface--sweep::after {
+    animation: none;
+    opacity: 0;
+  }
+  .premium-surface--hover-sweep:hover::after {
     animation: none;
     opacity: 0;
   }

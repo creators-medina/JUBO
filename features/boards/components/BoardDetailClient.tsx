@@ -165,7 +165,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   // though V1 is single-board, so 37B-2's board-aware drag dispatcher drops in.
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table')
   const stages = useMemo<Stage[]>(
-    () => groups.map((g: any) => ({ id: g.id, boardId: board.id, groupId: g.id, label: g.name })),
+    () => groups.map((g: any) => ({ id: g.id, boardId: board.id, groupId: g.id, label: g.name, color: g.color ?? null })),
     [groups, board.id],
   )
 
@@ -619,6 +619,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                 visibilityIndex={visibilityIndex}
                 pendingMoveIds={pendingMoveIds}
                 onSelectRecord={(id, title) => openWorkspace({ recordId: id, title })}
+                onAddRecord={(groupId) => setShowCreateRecord(groupId)}
               />
             ) : (
               <div className="min-w-max">
@@ -734,7 +735,7 @@ function DragPreview({ data }: { data: any }) {
     return (
       <div
         style={widthStyle}
-        className={cn('origin-center scale-[1.02] rounded-xl border border-primary bg-card px-3.5 py-3 shadow-2xl cursor-grabbing', !widthStyle && 'w-72')}
+        className={cn('relative origin-center scale-[1.02] overflow-hidden rounded-xl border border-primary bg-card/90 py-3 pl-4 pr-3.5 shadow-2xl backdrop-blur-sm cursor-grabbing', !widthStyle && 'w-72')}
       >
         <KanbanCardFace {...data.face} />
       </div>

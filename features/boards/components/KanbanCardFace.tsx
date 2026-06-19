@@ -101,6 +101,14 @@ export function KanbanCardFace({ title, statusLabel, statusColor, common, hasOwn
   const checklistDone = checklist.hasChecklist && checklist.percentage === 100
   return (
     <>
+      {/* Colored left rail — keyed to the record's status color (existing data).
+          Sits inside the relative/overflow-hidden card shell. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 left-0 w-1"
+        style={{ backgroundColor: statusColor }}
+      />
+
       {/* PRIMARY — the person. First thing the eye lands on. */}
       <div className="flex items-start justify-between gap-2">
         <span className="line-clamp-2 text-sm font-semibold leading-snug tracking-tight text-foreground">
