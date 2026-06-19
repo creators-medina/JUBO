@@ -90,7 +90,7 @@ function KanbanColumn({
       {/* Colored top accent — gives each lane a stable identity color. */}
       <div aria-hidden className="h-1 w-full flex-shrink-0" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
 
-      <div className="flex items-center gap-2 border-b border-border/50 px-3.5 py-3">
+      <div className="flex flex-shrink-0 items-center gap-2 border-b border-border/50 px-3.5 py-3">
         <span aria-hidden className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: accent }} />
         <span className="truncate text-sm font-semibold tracking-tight text-foreground">{stage.label}</span>
         <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-2xs font-semibold tabular-nums text-muted-foreground">{count}</span>
@@ -105,7 +105,10 @@ function KanbanColumn({
           </button>
         )}
       </div>
-      <div className="flex flex-col gap-3 overflow-y-auto px-2.5 py-3">
+      {/* flex-1 + min-h-0 make this the column's internal scroll region (the
+          column itself is overflow-hidden via premium-surface). Without min-h-0
+          the list grows to content height and the column clips the cards. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2.5 py-3">
         {records.length === 0 ? (
           <div className={cn(
             'rounded-xl border border-dashed px-3 py-8 text-center text-2xs transition-colors',
@@ -181,7 +184,7 @@ function KanbanCard({
         // Soft dark-glass card. block (not flex) so the face's block rows stay
         // full-width and the status pill stays content-width. relative+
         // overflow-hidden clips the colored rail to the rounded corners.
-        'relative block w-full min-h-[3.5rem] cursor-grab overflow-hidden rounded-xl border border-border/70 bg-card/80 py-3 pl-4 pr-3.5 text-left shadow-sm backdrop-blur-sm transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out hover:border-primary/40 hover:bg-surface-1/90 hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
+        'relative block w-full flex-shrink-0 min-h-[4rem] cursor-grab overflow-hidden rounded-xl border border-border/70 bg-card/80 py-3.5 pl-4 pr-3.5 text-left shadow-sm backdrop-blur-sm transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out hover:border-primary/40 hover:bg-surface-1/90 hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
         isDragging && 'opacity-40',
       )}
     >
