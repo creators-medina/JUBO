@@ -20,6 +20,12 @@ import { WorkspaceTasks } from './WorkspaceTasks'
 import { useWorkspaceKeyboard } from '../hooks/useWorkspaceKeyboard'
 import { MortgageWorkspace, hasMortgageTemplate } from '@/features/mortgage/workspaces/MortgageWorkspace'
 import { WorkspaceHeaderMeta } from '@/features/mortgage/workspaces/WorkspaceHeaderMeta'
+import { computeOpportunitySignals } from '@/features/mortgage/scoring/opportunities'
+import { OpportunitySignals } from '@/features/mortgage/sections'
+import { resolveTemplateKey } from '@/features/mortgage/templates/resolve'
+import { isChecklistFieldType, isChecklistChecked } from '@/features/fields/checklist'
+import { formatRelativeTime } from '@/features/boards/components/KanbanCardFace'
+import { StatusRail, type StatusTile } from '../command/StatusRail'
 import { CommunicationActions } from '@/features/communications/components/CommunicationActions'
 import { LastContactCard } from '@/features/communications/components/LastContactCard'
 import { getLastContactedAt, daysSince, getContactHealth } from '@/features/communications/metrics'
@@ -214,6 +220,75 @@ function WorkspaceContent({
   const lastContactDays = data ? daysSince(getLastContactedAt(data.communications)) : null
   const contactHealth: ContactHealth = data ? getContactHealth(data.communications) : 'unknown'
 
+  // Phase 3 — Needs Attention signals (mortgage templates only; generic parity
+  // is a later phase). Pure: reads loaded data, no query.
+  const signals = useMemo(() => {
+    if (!data || !isMortgage) return []
+    return computeOpportunitySignals(data as any, resolveTemplateKey(data as any))
+  }, [data, isMortgage])
+
+  // Phase 2 — Status Rail tiles, computed from already-loaded data only.
+  const statusTiles = useMemo<StatusTile[]>(() => {
+    if (!data) return []
+    const r = data.record
+
+    // STAGE — position of the record's group among the board's ordered groups.
+    const idx = data.groups.findIndex(g => g.id === r.group_id)
+    const stageValue = idx >= 0 ? `${idx + 1} / ${data.groups.length}` : '—'
+
+    // HEALTH — verdict word + recency, dot colored by contact health.
+    const healthVerdict = contactHealth === 'healthy' ? 'On track'
+      : contactHealth === 'warming' ? 'Cooling'
+      : contactHealth === 'stale' ? 'At risk'
+      : 'No contact'
+    const healthAccent = contactHealth === 'healthy' ? 'var(--accent-green)'
+      : contactHealth === 'warming' ? 'var(--accent-amber)'
+      : contactHealth === 'stale' ? 'var(--accent-rose)'
+      : 'var(--surface-3)'
+    const healthSub = lastContactDays == null ? 'no contact yet'
+      : lastContactDays === 0 ? 'today' : `${lastContactDays}d ago`
+
+    // NEXT — glance at the next-action due state (full hero lives in the rail).
+    const na = r.next_action as string | null
+    const due = r.next_action_due_at as string | null
+    const doneNa = r.next_action_completed_at as string | null
+    let nextValue = 'None', nextAccent = 'var(--surface-3)', nextSub: string | undefined
+    if (doneNa) { nextValue = 'Done'; nextAccent = 'var(--accent-green)'; nextSub = na ?? undefined }
+    else if (na) {
+      nextSub = na
+      if (due) {
+        const d = Math.ceil((new Date(due).getTime() - Date.now()) / 86400000)
+        if (d < 0) { nextValue = 'Overdue'; nextAccent = 'var(--accent-rose)' }
+        else if (d === 0) { nextValue = 'Today'; nextAccent = 'var(--accent-amber)' }
+        else if (d === 1) { nextValue = 'Tomorrow'; nextAccent = 'var(--primary)' }
+        else { nextValue = `${d}d`; nextAccent = 'var(--primary)' }
+      } else { nextValue = 'Scheduled'; nextAccent = 'var(--primary)' }
+    }
+
+    // MISSING — checklist completion from loaded fields/values (no new query).
+    const checklistFields = data.fields.filter((f: any) => isChecklistFieldType(f.field_type))
+    const fvByField = new Map<string, any>()
+    for (const fv of data.fieldValues) fvByField.set(fv.field_id, fv)
+    const total = checklistFields.length
+    const completed = checklistFields.filter((f: any) => isChecklistChecked(fvByField.get(f.id))).length
+    const missing = total - completed
+    const missingValue = total === 0 ? '—' : missing === 0 ? 'Complete' : `${missing} left`
+    const missingAccent = total === 0 ? 'var(--surface-3)' : missing === 0 ? 'var(--accent-green)' : 'var(--accent-amber)'
+    const missingSub = total === 0 ? 'No checklist' : `${completed}/${total} done`
+
+    // LAST ACTIVITY — freshness from the synthesized timeline.
+    const lastTs = timeline[0]?.timestamp
+    const lastValue = lastTs ? (formatRelativeTime(lastTs) || '—') : '—'
+
+    return [
+      { key: 'stage', label: 'Stage', value: stageValue, sub: groupName !== '—' ? groupName : undefined, accent: 'var(--accent-violet)' },
+      { key: 'health', label: 'Health', value: healthVerdict, sub: healthSub, accent: healthAccent, dot: true, pulse: true },
+      { key: 'next', label: 'Next', value: nextValue, sub: nextSub, accent: nextAccent },
+      { key: 'missing', label: 'Missing', value: missingValue, sub: missingSub, accent: missingAccent },
+      { key: 'activity', label: 'Last activity', value: lastValue, accent: 'var(--accent-cyan)' },
+    ]
+  }, [data, contactHealth, lastContactDays, groupName, timeline])
+
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -346,14 +421,21 @@ function WorkspaceContent({
               </div>
             ) : (
               <>
-                {/* Mobile-only quick actions + next action (sidebar is hidden < lg). */}
-                <div className="lg:hidden mb-4 space-y-3">
-                  <CommunicationActions recordId={recordId} onChanged={load} />
-                  <NextActionCard
+                {/* Status Rail — top of the Command Center (Overview only). */}
+                {activeSubTab === 'overview' && (
+                  <div className="mb-4">
+                    <StatusRail tiles={statusTiles} />
+                  </div>
+                )}
+                {/* Command Rail reflowed inline on mobile (sidebar is hidden < lg)
+                    so Next Action + Needs Attention stay high. */}
+                <div className="lg:hidden mb-4">
+                  <CommandRail
                     recordId={recordId}
-                    nextAction={data.record.next_action ?? null}
-                    nextActionDueAt={data.record.next_action_due_at ?? null}
-                    nextActionCompletedAt={data.record.next_action_completed_at ?? null}
+                    data={data}
+                    timeline={timeline}
+                    signals={signals}
+                    onChanged={load}
                   />
                 </div>
                 {activeSubTab === 'overview' && (
@@ -403,32 +485,17 @@ function WorkspaceContent({
             )}
           </div>
 
-          {/* Right sidebar */}
+          {/* Command Rail (desktop) — the control panel: Next Action hero,
+              Needs Attention, quick log, last contact, tasks, recent activity. */}
           <aside className="hidden lg:flex flex-col overflow-y-auto border-l border-border bg-surface-1/30 p-4 gap-4">
             {data && (
-              <>
-                <CommunicationActions recordId={recordId} onChanged={load} />
-                <LastContactCard logs={data.communications} />
-
-                <NextActionCard
-                  recordId={recordId}
-                  nextAction={data.record.next_action ?? null}
-                  nextActionDueAt={data.record.next_action_due_at ?? null}
-                  nextActionCompletedAt={data.record.next_action_completed_at ?? null}
-                />
-
-                <SidebarSection title="Upcoming Tasks">
-                  <UpcomingTasks tasks={data.tasks} />
-                </SidebarSection>
-
-                <SidebarSection title="Recent Activity">
-                  <CompactTimeline items={timeline.slice(0, 5)} />
-                </SidebarSection>
-
-                <SidebarSection title="Related Records">
-                  <p className="text-2xs text-muted-foreground italic">Coming soon</p>
-                </SidebarSection>
-              </>
+              <CommandRail
+                recordId={recordId}
+                data={data}
+                timeline={timeline}
+                signals={signals}
+                onChanged={load}
+              />
             )}
           </aside>
         </div>
@@ -452,6 +519,51 @@ function initials(title?: string | null): string {
   if (parts.length === 0) return '—'
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+// ── Command Rail (Phase 3) ─────────────────────────────────────────────────
+// The control panel: Next Action as the dominant hero, then Needs Attention,
+// quick log, last contact, tasks, and recent activity. Rendered in the desktop
+// sidebar AND inline on mobile (the reflow) so the next move is never hidden.
+// Pure composition over already-loaded data + existing components.
+function CommandRail({
+  recordId, data, timeline, signals, onChanged,
+}: {
+  recordId: string
+  data: Loaded
+  timeline: TimelineItem[]
+  signals: any[]
+  onChanged: () => void
+}) {
+  const isMort = hasMortgageTemplate(data)
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Next Action — the dominant element. A subtle premium frame lifts it
+          above the rest without competing with its own state border. */}
+      <div className="premium-surface rounded-xl">
+        <NextActionCard
+          recordId={recordId}
+          nextAction={data.record.next_action ?? null}
+          nextActionDueAt={data.record.next_action_due_at ?? null}
+          nextActionCompletedAt={data.record.next_action_completed_at ?? null}
+        />
+      </div>
+
+      {/* Needs Attention — ranked signals (mortgage templates only for now). */}
+      {isMort && <OpportunitySignals signals={signals} />}
+
+      <CommunicationActions recordId={recordId} onChanged={onChanged} />
+      <LastContactCard logs={data.communications} />
+
+      <SidebarSection title="Upcoming Tasks">
+        <UpcomingTasks tasks={data.tasks} />
+      </SidebarSection>
+
+      <SidebarSection title="Recent Activity">
+        <CompactTimeline items={timeline.slice(0, 5)} />
+      </SidebarSection>
+    </div>
+  )
 }
 
 // ── Sub-views ────────────────────────────────────────────────────────────────

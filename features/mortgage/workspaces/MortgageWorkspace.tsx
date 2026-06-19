@@ -47,7 +47,9 @@ export function MortgageWorkspace({ data, onChanged }: { data: MortgageData; onC
   return (
     <div className="space-y-4">
       <QuickActions data={data} templateKey={template.key} onChanged={onChanged} />
-      {template.sections.map(renderSection)}
+      {/* opportunity_signals now lives in the Command Rail (Needs Attention) —
+          filtered here to avoid rendering it twice. */}
+      {template.sections.filter((s) => s !== 'opportunity_signals').map(renderSection)}
       {comms.length > 0 && <RecentCommunications logs={comms} />}
     </div>
   )
