@@ -734,7 +734,7 @@ function DragPreview({ data }: { data: any }) {
     return (
       <div
         style={widthStyle}
-        className={cn('origin-center scale-[1.02] rounded-lg border border-primary bg-card px-3 py-2.5 shadow-2xl cursor-grabbing', !widthStyle && 'w-72')}
+        className={cn('origin-center scale-[1.02] rounded-xl border border-primary bg-card px-3.5 py-3 shadow-2xl cursor-grabbing', !widthStyle && 'w-72')}
       >
         <KanbanCardFace {...data.face} />
       </div>

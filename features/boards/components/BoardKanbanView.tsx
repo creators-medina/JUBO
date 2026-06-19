@@ -31,7 +31,7 @@ export function BoardKanbanView({
   stages, recordsByGroup, totalByGroup, fieldsByGroup, fieldValuesIndex, fields, visibilityIndex, pendingMoveIds, onSelectRecord,
 }: Props) {
   return (
-    <div className="flex h-full gap-3 overflow-x-auto pb-4">
+    <div className="flex h-full gap-4 overflow-x-auto pb-4">
       {stages.map((stage) => (
         <KanbanColumn
           key={stage.id}
@@ -72,15 +72,15 @@ function KanbanColumn({
   return (
     <div
       ref={setNodeRef}
-      className={cn('flex w-72 flex-shrink-0 flex-col rounded-xl border bg-surface-1/30 transition-colors duration-150 motion-reduce:transition-none', isOver ? 'border-primary/60 bg-primary/5 ring-1 ring-primary/20' : 'border-border')}
+      className={cn('flex w-72 flex-shrink-0 flex-col rounded-xl border bg-surface-1/30 transition-colors duration-150 motion-reduce:transition-none sm:w-80', isOver ? 'border-primary/60 bg-primary/5 ring-1 ring-primary/20' : 'border-border')}
     >
-      <div className="flex items-center gap-2 px-3 py-2.5">
-        <span className="text-xs font-semibold text-foreground">{stage.label}</span>
-        <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-2xs font-medium tabular-nums text-muted-foreground">{count}</span>
+      <div className="flex items-center gap-2 border-b border-border/50 px-3.5 py-3">
+        <span className="text-sm font-semibold tracking-tight text-foreground">{stage.label}</span>
+        <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-2xs font-semibold tabular-nums text-muted-foreground">{count}</span>
       </div>
-      <div className="flex flex-col gap-2 overflow-y-auto px-2 pb-2">
+      <div className="flex flex-col gap-2.5 overflow-y-auto px-2.5 py-2.5">
         {records.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-2xs text-muted-foreground">{isOver ? 'Drop here' : 'No records'}</div>
+          <div className="rounded-xl border border-dashed border-border/60 px-3 py-8 text-center text-2xs text-muted-foreground">{isOver ? 'Drop here' : 'No records'}</div>
         ) : (
           records.map((record) => (
             <KanbanCard
@@ -136,7 +136,7 @@ function KanbanCard({
       type="button"
       onClick={onClick}
       className={cn(
-        'w-full cursor-grab rounded-lg border border-border bg-card px-3 py-2.5 text-left transition-[transform,opacity,border-color,background-color] duration-150 ease-out hover:border-primary/40 hover:bg-surface-1 active:cursor-grabbing motion-reduce:transition-none',
+        'w-full cursor-grab rounded-xl border border-border bg-card px-3.5 py-3 text-left shadow-sm transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out hover:border-primary/40 hover:bg-surface-1 hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
         isDragging && 'opacity-40',
       )}
     >
