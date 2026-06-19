@@ -109,9 +109,11 @@ export function KanbanCardFace({ title, statusLabel, statusColor, common, hasOwn
         style={{ background: `linear-gradient(180deg, ${statusColor}, color-mix(in srgb, ${statusColor} 60%, transparent))` }}
       />
 
-      {/* PRIMARY — the person. First thing the eye lands on. */}
+      {/* PRIMARY — the person. First thing the eye lands on. min-w-0 + break-words
+          let long borrower names/emails wrap (then clamp) instead of overflowing
+          the flex row and getting clipped by the shell. */}
       <div className="flex items-start justify-between gap-2">
-        <span className="line-clamp-2 text-sm font-semibold leading-snug tracking-tight text-foreground">
+        <span className="min-w-0 line-clamp-2 break-words text-sm font-semibold leading-snug tracking-tight text-foreground">
           {title || 'Untitled'}
         </span>
         {hasOwner && (
@@ -146,7 +148,7 @@ export function KanbanCardFace({ title, statusLabel, statusColor, common, hasOwn
                 ) : (
                   <span className="flex-shrink-0 text-muted-foreground/70">{c.name}:</span>
                 )}
-                <span className="truncate text-foreground/90">{c.value}</span>
+                <span className="min-w-0 truncate text-foreground/90">{c.value}</span>
               </div>
             )
           })}

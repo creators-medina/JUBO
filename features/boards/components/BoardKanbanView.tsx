@@ -105,7 +105,7 @@ function KanbanColumn({
           </button>
         )}
       </div>
-      <div className="flex flex-col gap-2.5 overflow-y-auto px-2.5 py-2.5">
+      <div className="flex flex-col gap-3 overflow-y-auto px-2.5 py-3">
         {records.length === 0 ? (
           <div className={cn(
             'rounded-xl border border-dashed px-3 py-8 text-center text-2xs transition-colors',
@@ -178,8 +178,10 @@ function KanbanCard({
       type="button"
       onClick={onClick}
       className={cn(
-        // Soft dark-glass card; relative+overflow-hidden so the colored rail clips.
-        'relative w-full cursor-grab overflow-hidden rounded-xl border border-border/70 bg-card/80 py-3 pl-4 pr-3.5 text-left shadow-sm backdrop-blur-sm transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out hover:border-primary/40 hover:bg-surface-1/90 hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
+        // Soft dark-glass card. block (not flex) so the face's block rows stay
+        // full-width and the status pill stays content-width. relative+
+        // overflow-hidden clips the colored rail to the rounded corners.
+        'relative block w-full min-h-[3.5rem] cursor-grab overflow-hidden rounded-xl border border-border/70 bg-card/80 py-3 pl-4 pr-3.5 text-left shadow-sm backdrop-blur-sm transition-[transform,opacity,border-color,background-color,box-shadow] duration-150 ease-out hover:border-primary/40 hover:bg-surface-1/90 hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
         isDragging && 'opacity-40',
       )}
     >

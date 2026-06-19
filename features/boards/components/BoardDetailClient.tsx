@@ -732,10 +732,15 @@ function DragPreview({ data }: { data: any }) {
   const widthStyle = width ? { width: `${width}px` } : undefined
 
   if (data.view === 'kanban') {
+    // Kanban cards are narrow. Clamp the lifted preview to a card-sized width and
+    // always provide a concrete fallback, so it can NEVER stretch across the
+    // screen even if the measured rect is missing or wrong. (Table rows below
+    // intentionally keep their full measured width.)
+    const kanbanWidth = width && width > 0 ? Math.min(width, 340) : 288
     return (
       <div
-        style={widthStyle}
-        className={cn('relative origin-center scale-[1.02] overflow-hidden rounded-xl border border-primary bg-card/90 py-3 pl-4 pr-3.5 shadow-2xl backdrop-blur-sm cursor-grabbing', !widthStyle && 'w-72')}
+        style={{ width: kanbanWidth }}
+        className="relative block origin-center scale-[1.02] overflow-hidden rounded-xl border border-primary bg-card py-3 pl-4 pr-3.5 shadow-2xl cursor-grabbing"
       >
         <KanbanCardFace {...data.face} />
       </div>
