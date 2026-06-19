@@ -109,11 +109,13 @@ export function KanbanCardFace({ title, statusLabel, statusColor, common, hasOwn
         style={{ background: `linear-gradient(180deg, ${statusColor}, color-mix(in srgb, ${statusColor} 60%, transparent))` }}
       />
 
-      {/* PRIMARY — the person. First thing the eye lands on. min-w-0 + break-words
-          let long borrower names/emails wrap (then clamp) instead of overflowing
-          the flex row and getting clipped by the shell. */}
+      {/* PRIMARY — the person, and the most important element. No line-clamp:
+          the full contact/borrower name is always shown and wraps to as many
+          lines as needed (min-w-0 + break-words keep it inside the card). The
+          card height grows to fit; secondary metadata may truncate, the name
+          never does. */}
       <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 line-clamp-2 break-words text-sm font-semibold leading-snug tracking-tight text-foreground">
+        <span className="min-w-0 break-words text-sm font-semibold leading-snug tracking-tight text-foreground">
           {title || 'Untitled'}
         </span>
         {hasOwner && (
