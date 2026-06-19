@@ -163,7 +163,7 @@ function CurrentPace({ forecasts }: { forecasts: Forecast[] }) {
 
 function PaceStat({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-3 py-2.5 text-center">
+    <div className="premium-card rounded-xl px-3 py-2.5 text-center">
       <p className={cn('text-lg font-semibold tabular-nums', tone ?? 'text-foreground')}>{value}</p>
       <p className="mt-0.5 text-2xs text-muted-foreground">{label}</p>
     </div>
@@ -180,7 +180,7 @@ export function PlanRow({ icon, label, value, suffix, hint, highlight }: {
   highlight?: boolean
 }) {
   return (
-    <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${highlight ? 'border-primary/40 bg-primary/5' : 'border-border bg-card'}`}>
+    <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${highlight ? 'border border-primary/40 bg-primary/5' : 'premium-card'}`}>
       <div className="flex items-center gap-3">
         <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${highlight ? 'bg-primary/20 text-primary' : 'bg-surface-2 text-muted-foreground'}`}>
           {icon}

@@ -105,8 +105,8 @@ export function KanbanCardFace({ title, statusLabel, statusColor, common, hasOwn
           Sits inside the relative/overflow-hidden card shell. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-0 w-1"
-        style={{ backgroundColor: statusColor }}
+        className="pointer-events-none absolute inset-y-0 left-0 w-1.5"
+        style={{ background: `linear-gradient(180deg, ${statusColor}, color-mix(in srgb, ${statusColor} 60%, transparent))` }}
       />
 
       {/* PRIMARY — the person. First thing the eye lands on. */}

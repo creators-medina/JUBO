@@ -97,8 +97,10 @@
 
   /* Semantic */
   --destructive: oklch(0.58 0.22 25);
-  --border: oklch(0.22 0.014 255);
-  --input: oklch(0.22 0.014 255);
+  /* Phase 36C — borders carry a touch more light + blue chroma so surfaces read
+     as defined edges, not flat fills. Subtle, app-wide lift. */
+  --border: oklch(0.245 0.022 262);
+  --input: oklch(0.235 0.018 262);
   --ring: oklch(0.65 0.19 260);
 
   /* Radius */
@@ -116,6 +118,15 @@
   --surface-1: oklch(0.175 0.016 255);
   --surface-2: oklch(0.205 0.014 255);
   --surface-3: oklch(0.22 0.014 255);
+
+  /* Phase 36C — shared accent palette. One source of truth for chips, soft
+     glows, and stage/status accents so color isn't hardcoded per component. */
+  --accent-violet: oklch(0.66 0.19 290);
+  --accent-blue:   oklch(0.66 0.16 250);
+  --accent-cyan:   oklch(0.74 0.11 195);
+  --accent-green:  oklch(0.72 0.15 155);
+  --accent-amber:  oklch(0.80 0.13 75);
+  --accent-rose:   oklch(0.72 0.18 8);
 
   /* Shadcn sidebar compat */
   --sidebar: oklch(0.13 0.018 255);
@@ -141,6 +152,13 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Phase 36C — ambient color wash: a faint violet (top-right) + blue
+       (bottom-left) glow over the flat base, so the whole app feels alive,
+       not dark-flat. Static, layered above the base background-color. */
+    background-image:
+      radial-gradient(115% 80% at 100% 0%, oklch(0.66 0.19 290 / 0.06), transparent 55%),
+      radial-gradient(115% 80% at 0% 100%, oklch(0.66 0.16 250 / 0.05), transparent 55%);
+    background-attachment: fixed;
   }
   html {
     @apply font-sans;
@@ -278,4 +296,94 @@
     animation: none;
     opacity: 0;
   }
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Colorful premium system (Phase 36C)
+   Reusable primitives that add color, depth, and dark-glass energy without
+   per-component one-offs. The workhorse .premium-card is lighter than the hero
+   .premium-surface, so it's safe for broad use (dashboard / table / kanban).
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Workhorse card: glass tint + faintly violet-tinted border + a soft corner
+   glow + a premium hover lift. The glow is a z-index:-1 pseudo inside an
+   isolated stacking context, so it sits behind content WITHOUT lifting children
+   — sticky table columns and normal layout are untouched. */
+.premium-card {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--card);
+  background-image:
+    radial-gradient(130% 110% at 0% 0%, oklch(0.66 0.19 290 / 0.05), transparent 55%),
+    linear-gradient(180deg, color-mix(in oklch, var(--surface-1) 70%, transparent), transparent 60%);
+  border: 1px solid color-mix(in oklch, var(--primary) 16%, var(--border));
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.premium-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  /* warm rose corner glow, bottom-right — the MOSSBOSS-style soft halo */
+  background: radial-gradient(70% 60% at 100% 100%, oklch(0.74 0.17 350 / 0.08), transparent 60%);
+}
+.premium-card:hover {
+  border-color: color-mix(in oklch, var(--primary) 36%, var(--border));
+  box-shadow: 0 12px 34px -20px oklch(0.65 0.19 260 / 0.55);
+}
+/* Stronger ambient lift for emphasized/hero-ish cards (still not a hero frame). */
+.premium-card--lift {
+  box-shadow: 0 14px 38px -22px oklch(0.65 0.19 260 / 0.5);
+}
+@media (prefers-reduced-motion: reduce) {
+  .premium-card { transition: none; }
+}
+
+/* Soft corner glow as a standalone, opt-in accent for surfaces that already
+   have their own background (e.g. board group wrappers). Tunable hue via
+   --glow (defaults to violet). Sits behind content, sticky-safe. */
+.glow-corner {
+  position: relative;
+  isolation: isolate;
+}
+.glow-corner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(60% 55% at 100% 100%, var(--glow, oklch(0.66 0.19 290 / 0.10)), transparent 62%);
+}
+
+/* Colorful chips — translucent fill + matching border + bright text. Driven by
+   the shared accent palette so chips stay on-brand and consistent. Use a hue
+   modifier (.chip--violet, etc). Compact by default. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 9999px;
+  padding: 0.15rem 0.55rem;
+  font-size: var(--font-size-2xs);
+  line-height: 1;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.chip--violet { color: oklch(0.85 0.10 290); background: color-mix(in oklch, var(--accent-violet) 16%, transparent); border-color: color-mix(in oklch, var(--accent-violet) 38%, transparent); }
+.chip--blue   { color: oklch(0.85 0.09 250); background: color-mix(in oklch, var(--accent-blue) 16%, transparent);   border-color: color-mix(in oklch, var(--accent-blue) 38%, transparent); }
+.chip--cyan   { color: oklch(0.88 0.08 195); background: color-mix(in oklch, var(--accent-cyan) 16%, transparent);   border-color: color-mix(in oklch, var(--accent-cyan) 38%, transparent); }
+.chip--green  { color: oklch(0.87 0.10 155); background: color-mix(in oklch, var(--accent-green) 16%, transparent);  border-color: color-mix(in oklch, var(--accent-green) 38%, transparent); }
+.chip--amber  { color: oklch(0.88 0.09 80);  background: color-mix(in oklch, var(--accent-amber) 18%, transparent);  border-color: color-mix(in oklch, var(--accent-amber) 40%, transparent); }
+.chip--rose   { color: oklch(0.85 0.11 8);   background: color-mix(in oklch, var(--accent-rose) 16%, transparent);   border-color: color-mix(in oklch, var(--accent-rose) 38%, transparent); }
+
+/* Premium hover for interactive surfaces that aren't full cards (e.g. sidebar
+   active row, tabs). Just the lift — pair with your own bg. */
+.premium-hover { transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease; }
+.premium-hover:hover { box-shadow: 0 8px 22px -16px oklch(0.65 0.19 260 / 0.5); }
+@media (prefers-reduced-motion: reduce) {
+  .premium-hover { transition: none; }
 }

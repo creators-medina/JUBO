@@ -16,7 +16,9 @@ interface WidgetShellProps {
 export function WidgetShell({ title, children, onEdit, onRemove, error, className, dragHandleProps }: WidgetShellProps) {
   return (
     <div className={cn(
-      'h-full rounded-xl border border-border bg-card flex flex-col overflow-hidden',
+      // Phase 36C — dashboard metric cards use the shared premium-card primitive
+      // (glass tint + soft corner glow + premium hover). One class, broad lift.
+      'premium-card h-full rounded-xl flex flex-col overflow-hidden',
       className,
     )}>
       {/* Header */}

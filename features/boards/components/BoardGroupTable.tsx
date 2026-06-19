@@ -148,14 +148,30 @@ export function BoardGroupTable({
 
   return (
     <div className="mb-5" ref={setDropRef} id={`group-${group.id}`} style={{ scrollMarginTop: 12 }}>
-      {/* Pipeline stage surface — header + table read as one object */}
-      <div className={cn(
-        'relative rounded-xl border bg-surface-1/30 transition-colors',
-        isOver ? 'border-primary/50' : emphasized ? 'border-border ring-1 ring-primary/10' : 'border-border',
-      )}>
+      {/* Pipeline stage surface — header + table read as one object. Phase 36C:
+          stage-tinted glass + a soft corner glow baked into the background, so it
+          reads colorful without a pseudo/stacking-context (sticky columns + the
+          z-50 group menus stay safe). */}
+      <div
+        className={cn(
+          'relative rounded-xl border transition-colors',
+          isOver ? 'border-primary/50' : emphasized ? 'border-border ring-1 ring-primary/15' : 'border-border',
+        )}
+        style={{
+          backgroundColor: 'color-mix(in oklch, var(--surface-1) 55%, transparent)',
+          backgroundImage: `radial-gradient(55% 50% at 100% 100%, ${rail}1f, transparent 62%), linear-gradient(180deg, ${rail}10, transparent 45%)`,
+        }}
+      >
         {/* Stage identity rail — clipped to the surface's rounded corners */}
         <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden rounded-xl" aria-hidden>
-          <div className="absolute inset-y-0 left-0" style={{ width: emphasized ? 4 : 3, background: rail, opacity: emphasized ? 0.95 : 0.7 }} />
+          <div
+            className="absolute inset-y-0 left-0"
+            style={{
+              width: emphasized ? 5 : 4,
+              background: `linear-gradient(180deg, ${rail}, color-mix(in srgb, ${rail} 55%, transparent))`,
+              opacity: emphasized ? 1 : 0.85,
+            }}
+          />
         </div>
 
         {/* Integrated header (above the rail + table so the color popover shows) */}
@@ -223,7 +239,10 @@ export function BoardGroupTable({
         ) : (
           <button onDoubleClick={() => setEditingName(true)} className="flex items-center gap-2">
             <span className="text-sm font-semibold tracking-tight" style={{ color: rail }}>{group.name}</span>
-            <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-surface-2 px-1.5 text-2xs font-medium tabular-nums text-muted-foreground">
+            <span
+              className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-2xs font-semibold tabular-nums"
+              style={{ color: rail, backgroundColor: `${rail}1f` }}
+            >
               {hasActiveFilters && records.length !== totalCount ? `${records.length}/${totalCount}` : totalCount}
             </span>
           </button>

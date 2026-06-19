@@ -80,10 +80,12 @@ function KanbanColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        // Premium glassy lane: subtle multi-color edge + interactive glimmer.
+        // Premium glassy lane: subtle multi-color edge + interactive glimmer +
+        // a stage-tinted top color wash (Phase 36C).
         'premium-surface premium-surface--hover-sweep flex w-72 flex-shrink-0 flex-col rounded-xl bg-surface-1/40 backdrop-blur-md transition-[box-shadow,background-color] duration-150 motion-reduce:transition-none sm:w-80',
         isOver ? 'bg-primary/5 ring-1 ring-primary/40' : '',
       )}
+      style={{ backgroundImage: `radial-gradient(85% 35% at 50% 0%, ${accent}14, transparent 72%)` }}
     >
       {/* Colored top accent — gives each lane a stable identity color. */}
       <div aria-hidden className="h-1 w-full flex-shrink-0" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />

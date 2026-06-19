@@ -347,7 +347,7 @@ function StreakChip({ streak }: { streak: ProspectingStreak }) {
 
 function HeroStat({ label, value, accent, warn }: { label: string; value: number | string; accent?: boolean; warn?: boolean }) {
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2">
+    <div className="premium-card rounded-lg px-3 py-2">
       <p className={cn('text-lg font-semibold tabular-nums', warn ? 'text-amber-400' : accent ? 'text-emerald-400' : 'text-foreground')}>{value}</p>
       <p className="text-2xs text-muted-foreground">{label}</p>
     </div>
@@ -376,7 +376,7 @@ function MomentumCard({ label, completed, goal }: { label: string; completed: nu
   return done ? (
     <PremiumSurface tone="achievement" className="rounded-xl bg-card p-3">{inner}</PremiumSurface>
   ) : (
-    <div className="rounded-xl border border-border bg-card p-3">{inner}</div>
+    <div className="premium-card rounded-xl p-3">{inner}</div>
   )
 }
 
