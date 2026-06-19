@@ -209,13 +209,14 @@
   inset: 0;
   border-radius: inherit;
   padding: 1px;
+  /* Phase 36C.1 — softer edge, less contrast against the dark surface. */
   background: linear-gradient(
     135deg,
-    oklch(0.74 0.17 350 / 0.34),  /* pink */
-    oklch(0.66 0.19 290 / 0.30),  /* violet */
-    oklch(0.66 0.16 250 / 0.26),  /* blue */
-    oklch(0.74 0.11 195 / 0.24),  /* teal */
-    oklch(0.82 0.13 85 / 0.30)    /* gold */
+    oklch(0.74 0.17 350 / 0.24),  /* pink */
+    oklch(0.66 0.19 290 / 0.21),  /* violet */
+    oklch(0.66 0.16 250 / 0.18),  /* blue */
+    oklch(0.74 0.11 195 / 0.17),  /* teal */
+    oklch(0.82 0.13 85 / 0.21)    /* gold */
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -223,8 +224,9 @@
   pointer-events: none;
   z-index: 0;
 }
-/* Occasional light sweep — a narrow highlight that crosses once, then rests.
-   ~26s cycle, visible for ~3s. Transform + opacity only (compositor-friendly). */
+/* Occasional light sweep — a narrow highlight that crosses once, then rests for
+   a long while. ~48s cycle, visible briefly (Phase 36C.1: slower + dimmer so it
+   reads as calm life, not a flash). Transform + opacity only. */
 .premium-surface--sweep::after {
   content: "";
   position: absolute;
@@ -235,19 +237,19 @@
   background: linear-gradient(
     105deg,
     transparent 0%,
-    oklch(1 0 0 / 0.07) 50%,
+    oklch(1 0 0 / 0.045) 50%,
     transparent 100%
   );
   transform: translateX(-170%);
-  animation: premium-sweep 26s ease-in-out infinite;
+  animation: premium-sweep 48s ease-in-out infinite;
   pointer-events: none;
   z-index: 0;
 }
 @keyframes premium-sweep {
   0%   { transform: translateX(-170%); opacity: 0; }
-  4%   { opacity: 1; }
-  13%  { transform: translateX(330%); opacity: 1; }
-  16%  { opacity: 0; }
+  3%   { opacity: 0.5; }
+  11%  { transform: translateX(330%); opacity: 0.5; }
+  14%  { opacity: 0; }
   100% { transform: translateX(330%); opacity: 0; }
 }
 /* Achievement state — a warmer emerald→gold edge + a soft static halo. */
@@ -259,7 +261,7 @@
   );
 }
 .premium-surface--achievement {
-  box-shadow: 0 0 42px -18px oklch(0.80 0.15 150 / 0.40);
+  box-shadow: 0 0 38px -20px oklch(0.80 0.15 150 / 0.26);
 }
 /* Interactive glimmer (Phase 36B.1) — a single light sweep on hover, for
    premium lanes/surfaces. Occasional, not constant: it rests invisible and
@@ -275,7 +277,7 @@
   background: linear-gradient(
     105deg,
     transparent 0%,
-    oklch(1 0 0 / 0.06) 50%,
+    oklch(1 0 0 / 0.04) 50%,
     transparent 100%
   );
   transform: translateX(-170%);
@@ -284,7 +286,8 @@
   z-index: 0;
 }
 .premium-surface--hover-sweep:hover::after {
-  animation: premium-sweep 2.6s ease-in-out;
+  /* Phase 36C.1 — a single, slow, gentle glide on hover (was 2.6s). */
+  animation: premium-sweep 4.5s ease-in-out;
 }
 /* Respect reduced motion — the frame stays, the sweep does not. */
 @media (prefers-reduced-motion: reduce) {
@@ -326,8 +329,9 @@
   border-radius: inherit;
   pointer-events: none;
   z-index: -1;
-  /* warm rose corner glow, bottom-right — the MOSSBOSS-style soft halo */
-  background: radial-gradient(70% 60% at 100% 100%, oklch(0.74 0.17 350 / 0.08), transparent 60%);
+  /* warm rose corner glow, bottom-right — the MOSSBOSS-style soft halo
+     (Phase 36C.1: softer, calmer) */
+  background: radial-gradient(70% 60% at 100% 100%, oklch(0.74 0.17 350 / 0.05), transparent 62%);
 }
 .premium-card:hover {
   border-color: color-mix(in oklch, var(--primary) 36%, var(--border));
