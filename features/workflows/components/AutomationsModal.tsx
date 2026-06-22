@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Zap, X, Plus, Trash2, Loader2 } from 'lucide-react'
+import { Zap, X, Plus, Trash2, Loader2, AlertTriangle } from 'lucide-react'
 import { parseOptions } from '@/features/fields/status'
 import { createStatusAutomation, deleteWorkflow, listBoardAutomations } from '../actions'
 import { setWorkflowEnabled } from '../actions'
@@ -42,8 +42,20 @@ export function AutomationsModal({
   const [fieldId, setFieldId] = useState('')
   const [toValue, setToValue] = useState('')
   const [sourceGroupId, setSourceGroupId] = useState('')   // '' = any group (board-wide)
+  const [targetMode, setTargetMode] = useState<'next' | 'specific'>('next') // Phase 38D-1
   const [destBoardId, setDestBoardId] = useState(board.id)  // default to current board
   const [destGroupId, setDestGroupId] = useState('')
+
+  // Surface dead rules (deleted status field/label) instead of silently no-firing.
+  const ruleWarning = (wf: WorkflowRow): string | null => {
+    const cfg = wf.config as { kind?: string; trigger?: { fieldId?: string; toValue?: string } } | null
+    if (!cfg || cfg.kind !== 'status_to_group') return null
+    const t = cfg.trigger ?? {}
+    const f = statusFields.find((sf) => sf.id === t.fieldId)
+    if (!f) return 'references a deleted status field'
+    if (t.toValue && !parseOptions(f.config).some((o) => o.label === t.toValue)) return 'references a deleted status label'
+    return null
+  }
 
   const selectedField = statusFields.find((f) => f.id === fieldId) ?? null
   const labels = selectedField ? parseOptions(selectedField.config) : []
@@ -82,15 +94,15 @@ export function AutomationsModal({
   if (!open) return null
 
   const create = () => {
-    if (!selectedField || !toValue || !destGroupId) return
+    if (!selectedField || !toValue) return
+    if (targetMode === 'specific' && !destGroupId) return
     const sourceName = sourceGroupId ? (groups.find((g) => g.id === sourceGroupId)?.name ?? 'group') : null
     const destGroupName = destGroups.find((g) => g.id === destGroupId)?.name ?? 'group'
     const destBoardName = targets.find((b) => b.id === destBoardId)?.name ?? board.name
     const crossBoard = destBoardId !== board.id
-    const title =
-      `When ${selectedField.name} = ${toValue}` +
-      (sourceName ? ` in ${sourceName}` : '') +
-      ` → move to ${crossBoard ? `${destBoardName} / ` : ''}${destGroupName}`
+    const title = targetMode === 'next'
+      ? `When ${selectedField.name} = ${toValue}${sourceName ? ` in ${sourceName}` : ''} → move to the next group in this board`
+      : `When ${selectedField.name} = ${toValue}${sourceName ? ` in ${sourceName}` : ''} → move to ${crossBoard ? `${destBoardName} / ` : ''}${destGroupName}`
     setError(null)
     startTransition(async () => {
       try {
@@ -98,9 +110,11 @@ export function AutomationsModal({
           organizationId, boardId: board.id,
           fieldId: selectedField.id, fieldSlug: selectedField.slug, toValue,
           sourceGroupId: sourceGroupId || null,
-          destBoardId, groupId: destGroupId, title,
+          targetMode,
+          ...(targetMode === 'specific' ? { destBoardId, groupId: destGroupId } : {}),
+          title,
         })
-        setFieldId(''); setToValue(''); setSourceGroupId(''); setDestBoardId(board.id); setDestGroupId('')
+        setFieldId(''); setToValue(''); setSourceGroupId(''); setTargetMode('next'); setDestBoardId(board.id); setDestGroupId('')
         refresh(); router.refresh()
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Could not create automation.')
@@ -144,16 +158,24 @@ export function AutomationsModal({
             <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">No automations yet.</p>
           ) : (
             <ul className="space-y-1.5">
-              {items.map((wf) => (
+              {items.map((wf) => {
+                const warn = ruleWarning(wf)
+                return (
                 <li key={wf.id} className="flex items-center gap-2 rounded-lg border border-border bg-surface-1 px-3 py-2">
-                  <span className={`flex-1 truncate text-xs ${wf.enabled ? 'text-foreground' : 'text-muted-foreground line-through'}`}>{wf.title}</span>
+                  <span className={`flex-1 truncate text-xs ${wf.enabled && !warn ? 'text-foreground' : 'text-muted-foreground line-through'}`}>{wf.title}</span>
+                  {warn && (
+                    <span title={warn} className="inline-flex flex-shrink-0 items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-400">
+                      <AlertTriangle className="h-3 w-3" /> {warn}
+                    </span>
+                  )}
                   <label className="flex items-center gap-1 text-2xs text-muted-foreground">
                     <input type="checkbox" checked={wf.enabled} disabled={pending} onChange={() => toggle(wf)} className="rounded border-border" />
                     {wf.enabled ? 'On' : 'Off'}
                   </label>
                   <button onClick={() => remove(wf)} disabled={pending} className="text-muted-foreground hover:text-red-300 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>
                 </li>
-              ))}
+                )
+              })}
             </ul>
           )}
         </div>
@@ -185,20 +207,28 @@ export function AutomationsModal({
               </div>
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span>then move item to</span>
-                <select value={destBoardId} onChange={(e) => setDestBoardId(e.target.value)} className={sel}>
-                  {/* current board first; getMoveTargets includes it too */}
-                  {targets.length === 0 && <option value={board.id}>{board.name}</option>}
-                  {targets.map((b) => <option key={b.id} value={b.id}>{b.name}{b.id === board.id ? ' (this board)' : ''}</option>)}
+                <select value={targetMode} onChange={(e) => setTargetMode(e.target.value as 'next' | 'specific')} className={sel}>
+                  <option value="next">Next group in this board</option>
+                  <option value="specific">Specific group…</option>
                 </select>
-                <select value={destGroupId} onChange={(e) => setDestGroupId(e.target.value)} className={sel}>
-                  <option value="">group…</option>
-                  {destGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
+                {targetMode === 'specific' && (
+                  <>
+                    <select value={destBoardId} onChange={(e) => setDestBoardId(e.target.value)} className={sel}>
+                      {/* current board first; getMoveTargets includes it too */}
+                      {targets.length === 0 && <option value={board.id}>{board.name}</option>}
+                      {targets.map((b) => <option key={b.id} value={b.id}>{b.name}{b.id === board.id ? ' (this board)' : ''}</option>)}
+                    </select>
+                    <select value={destGroupId} onChange={(e) => setDestGroupId(e.target.value)} className={sel}>
+                      <option value="">group…</option>
+                      {destGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                    </select>
+                  </>
+                )}
               </div>
               <div className="flex justify-end">
                 <button
                   onClick={create}
-                  disabled={pending || !fieldId || !toValue || !destGroupId}
+                  disabled={pending || !fieldId || !toValue || (targetMode === 'specific' && !destGroupId)}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                 >
                   {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Add automation

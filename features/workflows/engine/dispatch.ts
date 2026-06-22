@@ -144,20 +144,49 @@ async function runStatusToGroup(
     await logExecution(supabase, event, wf, [], 'skipped'); return
   }
 
-  const toGroupId = action.groupId
-  if (!toGroupId) { await logExecution(supabase, event, wf, [], 'skipped'); return }
+  // ── Resolve the target group + board. Two action shapes share THIS one path
+  // (only target resolution differs — same trigger/event/consumer/move/dispatch):
+  //   move_to_next_group → computed AT EXECUTION TIME from current board order
+  //   move_to_group / move_to_board_group → fixed target group (Phase 34B/34B.1)
+  let destBoardId: string
+  let toGroupId: string
+  let grpName: string
 
-  // Resolve the destination group + its board; default destination board = current.
-  const { data: grp } = await supabase
-    .from('board_groups').select('id, name, board_id, is_archived').eq('id', toGroupId).maybeSingle()
-  const destBoardId = action.boardId ?? record.board_id
-  if (!grp || grp.is_archived || grp.board_id !== destBoardId) {
-    await logExecution(supabase, event, wf, [{ kind: 'move', detail: 'destination group not on destination board', skipped: true }], 'skipped')
-    return
-  }
-  // Already there → nothing to do.
-  if (record.group_id === toGroupId && record.board_id === destBoardId) {
-    await logExecution(supabase, event, wf, [], 'skipped'); return
+  if (action.type === 'move_to_next_group') {
+    // Phase 38D-1 — next group within the SAME board, by CURRENT group order
+    // (never snapshotted; add/reorder changes "next" with no rule edit).
+    const { data: grps } = await supabase
+      .from('board_groups').select('id, name, position').eq('board_id', record.board_id).eq('is_archived', false)
+      .order('position', { ascending: true })
+    const list = (grps ?? []) as { id: string; name: string; position: number }[]
+    if (list.length === 0 || !record.group_id) {
+      await logExecution(supabase, event, wf, [{ kind: 'move_to_next_group', detail: 'no current group', skipped: true }], 'skipped'); return
+    }
+    const idx = list.findIndex((g) => g.id === record.group_id)
+    if (idx < 0) {
+      await logExecution(supabase, event, wf, [{ kind: 'move_to_next_group', detail: 'current group not found', skipped: true }], 'skipped'); return
+    }
+    if (idx >= list.length - 1) {
+      await logExecution(supabase, event, wf, [{ kind: 'move_to_next_group', detail: 'already in last group', skipped: true }], 'skipped'); return
+    }
+    destBoardId = record.board_id
+    toGroupId = list[idx + 1].id
+    grpName = list[idx + 1].name
+  } else {
+    const target = action.groupId
+    if (!target) { await logExecution(supabase, event, wf, [], 'skipped'); return }
+    const { data: grp } = await supabase
+      .from('board_groups').select('id, name, board_id, is_archived').eq('id', target).maybeSingle()
+    destBoardId = action.boardId ?? record.board_id
+    if (!grp || grp.is_archived || grp.board_id !== destBoardId) {
+      await logExecution(supabase, event, wf, [{ kind: 'move', detail: 'destination group not on destination board', skipped: true }], 'skipped')
+      return
+    }
+    if (record.group_id === target && record.board_id === destBoardId) {
+      await logExecution(supabase, event, wf, [], 'skipped'); return
+    }
+    toGroupId = target
+    grpName = grp.name
   }
 
   const fromGroupId = record.group_id
@@ -189,11 +218,13 @@ async function runStatusToGroup(
     }
   }
 
-  await logExecution(supabase, event, wf, [{ kind: crossBoard ? 'move_to_board_group' : 'move_to_group', detail: `→ ${grp.name}`, skipped: false }], 'success')
+  await logExecution(supabase, event, wf, [{ kind: action.type === 'move_to_next_group' ? 'move_to_next_group' : (crossBoard ? 'move_to_board_group' : 'move_to_group'), detail: `→ ${grpName}`, skipped: false }], 'success')
 
   // Let downstream group-based workflows react — depth-guarded against loops.
+  // NOTE: this is record.group_changed, NOT record.field_changed — so a move can
+  // never re-fire this status rule (one status change = exactly one move).
   await dispatchWorkflowEvent(
-    { type: 'record.group_changed', organizationId: event.organizationId, recordId: record.id, boardId: destBoardId, fromGroupId, toGroupId, toGroupName: grp.name },
+    { type: 'record.group_changed', organizationId: event.organizationId, recordId: record.id, boardId: destBoardId, fromGroupId, toGroupId, toGroupName: grpName },
     { client: supabase, userId, depth: depth + 1 },
   )
 }

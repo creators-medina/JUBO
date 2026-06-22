@@ -44,19 +44,28 @@ export async function createStatusAutomation(input: {
   sourceGroupId?: string | null
   /** Destination — defaults to the source board when omitted. */
   destBoardId?: string
-  /** Destination group (on the destination board). */
-  groupId: string
+  /** Destination group (on the destination board) — required for 'specific'. */
+  groupId?: string
+  /** 'specific' (fixed group, default) or 'next' (Phase 38D-1 dynamic next group). */
+  targetMode?: 'specific' | 'next'
   title: string
 }): Promise<string> {
   const supabase = await createClient()
   const templateId = `custom:status_to_group:${crypto.randomUUID()}`
+  const isNext = input.targetMode === 'next'
   const destBoardId = input.destBoardId ?? input.boardId
-  const crossBoard = destBoardId !== input.boardId
+  const crossBoard = !isNext && destBoardId !== input.boardId
+  if (!isNext && !input.groupId) throw new Error('A destination group is required.')
+  // Phase 38D-1 — dynamic action: next group is resolved at execution time (same
+  // board). Specific keeps the fixed-target shape. Same execution path either way.
+  const action = isNext
+    ? { type: 'move_to_next_group' }
+    : { type: crossBoard ? 'move_to_board_group' : 'move_to_group', boardId: destBoardId, groupId: input.groupId }
   const config = {
     kind: 'status_to_group',
     trigger: { type: 'record.field_changed', fieldId: input.fieldId, fieldSlug: input.fieldSlug, fieldType: 'status', toValue: input.toValue },
     condition: input.sourceGroupId ? { sourceGroupId: input.sourceGroupId } : {},
-    action: { type: crossBoard ? 'move_to_board_group' : 'move_to_group', boardId: destBoardId, groupId: input.groupId },
+    action,
   }
   const { data, error } = await supabase.rpc('create_custom_workflow', {
     p_organization_id: input.organizationId,
