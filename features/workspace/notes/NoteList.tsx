@@ -15,11 +15,13 @@ interface Props {
   currentUserId: string | null
   /** Open the composer immediately (e.g. the workspace Notes tab) — no hunting. */
   defaultDrafting?: boolean
+  /** Phase 36E-1 — org members for @mention autocomplete (optional, additive). */
+  members?: { id: string; name: string }[]
 }
 
 const AUTOSAVE_DELAY_MS = 800
 
-export function NoteList({ organizationId, recordId, notes, currentUserId, defaultDrafting = false }: Props) {
+export function NoteList({ organizationId, recordId, notes, currentUserId, defaultDrafting = false, members }: Props) {
   const router = useRouter()
   const [drafting, setDrafting] = useState(defaultDrafting)
   const [newDraft, setNewDraft] = useState('')
@@ -50,6 +52,7 @@ export function NoteList({ organizationId, recordId, notes, currentUserId, defau
           onChange={setNewDraft}
           onSubmit={handleCreate}
           onCancel={() => { setDrafting(false); setNewDraft('') }}
+          members={members}
           autoFocus
         />
       ) : (
@@ -85,28 +88,68 @@ export function NoteList({ organizationId, recordId, notes, currentUserId, defau
 }
 
 function NoteDraft({
-  value, onChange, onSubmit, onCancel, autoFocus,
+  value, onChange, onSubmit, onCancel, autoFocus, members,
 }: {
   value: string
   onChange: (v: string) => void
   onSubmit: () => void
   onCancel: () => void
   autoFocus?: boolean
+  members?: { id: string; name: string }[]
 }) {
+  const taRef = useRef<HTMLTextAreaElement>(null)
+  const [mention, setMention] = useState<{ query: string; start: number } | null>(null)
+
+  // Phase 36E-1 — detect an "@token" being typed at the caret to drive autocomplete.
+  const onType = (v: string) => {
+    onChange(v)
+    if (!members || members.length === 0) { setMention(null); return }
+    const caret = taRef.current?.selectionStart ?? v.length
+    const upto = v.slice(0, caret)
+    const m = /(^|\s)@(\w*)$/.exec(upto)
+    if (m) setMention({ query: m[2].toLowerCase(), start: caret - m[2].length - 1 })
+    else setMention(null)
+  }
+
+  const matches = mention
+    ? (members ?? []).filter((mm) => mm.name.toLowerCase().includes(mention.query)).slice(0, 6)
+    : []
+
+  const insertMention = (name: string) => {
+    if (!mention) return
+    const caret = taRef.current?.selectionStart ?? value.length
+    const next = `${value.slice(0, mention.start)}@${name} ${value.slice(caret)}`
+    onChange(next)
+    setMention(null)
+    requestAnimationFrame(() => taRef.current?.focus())
+  }
+
   return (
-    <div className="rounded-lg border border-border bg-card p-2 space-y-2">
+    <div className="relative rounded-lg border border-border bg-card p-2 space-y-2">
       <textarea
+        ref={taRef}
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => onType(e.target.value)}
         onKeyDown={e => {
+          if (mention && matches.length > 0 && (e.key === 'Enter' || e.key === 'Tab')) { e.preventDefault(); insertMention(matches[0].name); return }
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onSubmit() }
-          if (e.key === 'Escape') onCancel()
+          if (e.key === 'Escape') { if (mention) { setMention(null); return } onCancel() }
         }}
-        placeholder="Operational notes — what happened, what's next, context for later…"
+        placeholder="Operational notes — what happened, what's next… @mention a teammate"
         autoFocus={autoFocus}
         rows={3}
         className="w-full px-2 py-1.5 rounded-md bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none"
       />
+      {mention && matches.length > 0 && (
+        <div className="absolute left-2 top-14 z-10 w-56 overflow-hidden rounded-lg border border-border bg-card shadow-xl">
+          {matches.map((mm) => (
+            <button key={mm.id} type="button" onMouseDown={(e) => { e.preventDefault(); insertMention(mm.name) }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
+              @{mm.name}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <p className="text-2xs text-muted-foreground">⌘⏎ to save · esc to cancel</p>
         <div className="flex items-center gap-1">

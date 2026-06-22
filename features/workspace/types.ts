@@ -5,6 +5,7 @@
 export type WorkspaceTabKey =
   | 'overview'
   | 'card'
+  | 'communicate'
   | 'checklist'
   | 'activity'
   | 'tasks'
@@ -46,16 +47,17 @@ export type TimelineItem = {
 }
 
 export const WORKSPACE_TAB_LABELS: Record<WorkspaceTabKey, string> = {
-  overview:  'Overview',
-  card:      'Card',
-  checklist: 'Checklist',
-  activity:  'Activity',
-  tasks:     'Tasks',
-  notes:     'Notes',
-  data:      'Data',
-  pipeline:  'Pipeline',
+  overview:    'Overview',
+  card:        'Card',
+  communicate: 'Communicate',
+  checklist:   'Checklist',
+  activity:    'Activity',
+  tasks:       'Tasks',
+  notes:       'Notes',
+  data:        'Data',
+  pipeline:    'Pipeline',
 }
 
-export const WORKSPACE_TABS: WorkspaceTabKey[] = ['overview', 'card', 'checklist', 'activity', 'tasks', 'notes', 'data', 'pipeline']
+export const WORKSPACE_TABS: WorkspaceTabKey[] = ['overview', 'card', 'communicate', 'checklist', 'activity', 'tasks', 'notes', 'data', 'pipeline']
 
 export const MAX_OPEN_WORKSPACES = 10

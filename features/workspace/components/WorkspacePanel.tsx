@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   X, Maximize2, FileText, Activity, ListChecks, StickyNote, Database, Columns3,
-  ArrowRightLeft, CheckSquare, IdCard,
+  ArrowRightLeft, CheckSquare, IdCard, MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MoveToBoardDialog } from '@/features/boards/components/MoveToBoardDialog'
@@ -14,6 +14,7 @@ import { useWorkspaceTabs } from '../providers/WorkspaceTabsProvider'
 import { ActivityTimeline } from '../timeline/ActivityTimeline'
 import { ChecklistView } from '../checklist/ChecklistView'
 import { PersonCard } from '@/features/person-card/PersonCard'
+import { CommunicateView } from '@/features/communications/components/CommunicateView'
 import { NoteList } from '../notes/NoteList'
 import { NextActionCard } from './NextActionCard'
 import { WorkspaceTasks } from './WorkspaceTasks'
@@ -34,14 +35,15 @@ import type { WorkspaceTabKey, NoteRow, TimelineItem } from '../types'
 import { WORKSPACE_TABS, WORKSPACE_TAB_LABELS } from '../types'
 
 const TAB_ICONS: Record<WorkspaceTabKey, React.ElementType> = {
-  overview:  FileText,
-  card:      IdCard,
-  checklist: CheckSquare,
-  activity:  Activity,
-  tasks:     ListChecks,
-  notes:     StickyNote,
-  data:      Database,
-  pipeline:  Columns3,
+  overview:    FileText,
+  card:        IdCard,
+  communicate: MessageSquare,
+  checklist:   CheckSquare,
+  activity:    Activity,
+  tasks:       ListChecks,
+  notes:       StickyNote,
+  data:        Database,
+  pipeline:    Columns3,
 }
 
 type Loaded = {
@@ -445,6 +447,9 @@ function WorkspaceContent({
                 )}
                 {activeSubTab === 'card' && (
                   <PersonCard recordId={recordId} />
+                )}
+                {activeSubTab === 'communicate' && (
+                  <CommunicateView recordId={recordId} organizationId={data.record.organization_id} />
                 )}
                 {activeSubTab === 'checklist' && (
                   <ChecklistView
