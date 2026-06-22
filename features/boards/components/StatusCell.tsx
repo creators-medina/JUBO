@@ -30,7 +30,7 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<'pick' | 'edit'>('pick')
-  const [pos, setPos] = useState<{ top: number; left: number; minWidth: number } | null>(null)
+  const [pos, setPos] = useState<{ openUp: boolean; top?: number; bottom?: number; left: number; minWidth: number; maxHeight: number } | null>(null)
   const [saving, setSaving] = useState(false)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
@@ -41,10 +41,37 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
   const currentLabel = fieldValue?.value_text ?? ''
   const currentOpt = options.find((o) => o.label === currentLabel)
 
+  // Phase 38D-2 — collision-aware placement. Portal + position:fixed already
+  // escapes parent overflow; this adds vertical flip + height/left clamping so a
+  // dropdown near the bottom (or right) edge stays fully on-screen. Recomputed on
+  // scroll/resize (capture=true catches the table container's own scroll).
   useEffect(() => {
-    if (!open || !triggerRef.current) return
-    const r = triggerRef.current.getBoundingClientRect()
-    setPos({ top: r.bottom + 4, left: r.left, minWidth: Math.max(200, r.width) })
+    if (!open) return
+    const compute = () => {
+      const el = triggerRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const margin = 8
+      const vh = window.innerHeight
+      const vw = window.innerWidth
+      const spaceBelow = vh - r.bottom - margin
+      const spaceAbove = r.top - margin
+      const openUp = spaceBelow < 240 && spaceAbove > spaceBelow
+      const maxHeight = Math.max(160, Math.min(360, openUp ? spaceAbove : spaceBelow))
+      const minWidth = Math.max(220, r.width)
+      let left = r.left
+      if (left + minWidth > vw - margin) left = Math.max(margin, vw - margin - minWidth)
+      setPos(openUp
+        ? { openUp, bottom: vh - r.top + 4, left, minWidth, maxHeight }
+        : { openUp, top: r.bottom + 4, left, minWidth, maxHeight })
+    }
+    compute()
+    window.addEventListener('resize', compute)
+    window.addEventListener('scroll', compute, true)
+    return () => {
+      window.removeEventListener('resize', compute)
+      window.removeEventListener('scroll', compute, true)
+    }
   }, [open])
 
   useEffect(() => {
@@ -167,12 +194,12 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
       {open && pos && typeof document !== 'undefined' && createPortal(
         <div
           data-status-popover
-          style={{ position: 'fixed', top: pos.top, left: pos.left, minWidth: pos.minWidth }}
-          className="z-50 rounded-lg border border-border bg-card shadow-xl"
+          style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, minWidth: pos.minWidth, maxHeight: pos.maxHeight }}
+          className="z-50 flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-xl"
         >
           {mode === 'pick' ? (
             <>
-              <div className="max-h-60 overflow-y-auto py-1">
+              <div className="min-h-0 flex-1 overflow-y-auto py-1">
                 {options.length === 0 && !adding && (
                   <p className="px-3 py-2 text-2xs text-muted-foreground">No labels yet — add one below.</p>
                 )}
@@ -189,7 +216,7 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-1 border-t border-border p-2">
+              <div className="flex flex-shrink-0 items-center gap-1 border-t border-border p-2">
                 {adding ? (
                   <div className="flex flex-1 items-center gap-1.5">
                     <input
@@ -213,11 +240,11 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
             </>
           ) : (
             <>
-              <div className="flex items-center justify-between border-b border-border px-3 py-2">
+              <div className="flex flex-shrink-0 items-center justify-between border-b border-border px-3 py-2">
                 <span className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Edit labels</span>
                 <button onClick={() => setMode('pick')} className="text-muted-foreground hover:text-foreground"><X className="h-3.5 w-3.5" /></button>
               </div>
-              <div className="max-h-64 overflow-y-auto py-1">
+              <div className="min-h-0 flex-1 overflow-y-auto py-1">
                 {withIds(options).map((o) => (
                   <div key={o.id} className="flex items-center gap-2 px-2 py-1">
                     <button onClick={() => recolor(o.id!)} title="Recolor" className="h-4 w-4 flex-shrink-0 rounded-sm border border-border" style={{ backgroundColor: o.color ?? 'transparent' }} />
@@ -231,7 +258,7 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
                   </div>
                 ))}
               </div>
-              <div className="border-t border-border p-2">
+              <div className="flex-shrink-0 border-t border-border p-2">
                 {adding ? (
                   <div className="flex items-center gap-1.5">
                     <input
