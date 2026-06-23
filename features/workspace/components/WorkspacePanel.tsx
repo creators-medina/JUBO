@@ -30,6 +30,7 @@ import { StatusRail, type StatusTile } from '../command/StatusRail'
 import { CommunicationsLog } from '../command/CommunicationsLog'
 import { NotesInline } from '../command/NotesInline'
 import { QualificationSnapshot } from '../command/QualificationSnapshot'
+import { MissingDocuments } from '../command/MissingDocuments'
 import { CommunicationActions } from '@/features/communications/components/CommunicationActions'
 import { LastContactCard } from '@/features/communications/components/LastContactCard'
 import { getLastContactedAt, daysSince, getContactHealth } from '@/features/communications/metrics'
@@ -464,6 +465,12 @@ function WorkspaceContent({
                   hasMortgageTemplate(data)
                     ? <MortgageWorkspace data={data} onChanged={load} />
                     : <OverviewView data={data} />
+                )}
+                {/* Missing Documents / Checklist intelligence (Overview only). */}
+                {activeSubTab === 'overview' && (
+                  <div className="mt-4">
+                    <MissingDocuments data={data as any} onOpenChecklist={() => onSubTabChange('checklist')} />
+                  </div>
                 )}
                 {/* Notes — first-class on Overview (summary + quick add + recent). */}
                 {activeSubTab === 'overview' && (
