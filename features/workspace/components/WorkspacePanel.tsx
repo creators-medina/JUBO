@@ -29,8 +29,7 @@ import { StatusRail, type StatusTile } from '../command/StatusRail'
 import { StageTracker } from '../command/StageTracker'
 import { LoanSnapshot } from '../command/LoanSnapshot'
 import { PropertyCard } from '../command/PropertyCard'
-import { CommunicationsLog } from '../command/CommunicationsLog'
-import { NotesInline } from '../command/NotesInline'
+import { UnifiedTimeline } from '../command/UnifiedTimeline'
 import { QualificationSnapshot } from '../command/QualificationSnapshot'
 import { MissingDocuments } from '../command/MissingDocuments'
 import { CommunicationActions } from '@/features/communications/components/CommunicationActions'
@@ -470,22 +469,19 @@ function WorkspaceContent({
                     </section>
                   )}
                 </div>
-                {/* CENTER — activity (UnifiedTimeline arrives in 10.3) */}
+                {/* CENTER — the borrower story: unified timeline + composer (10.3),
+                    then the deeper file detail below. */}
                 <div className="space-y-4">
-                  <CommunicationsLog
-                    logs={data.communications}
-                    notes={data.notes}
+                  <UnifiedTimeline
                     timeline={timeline}
-                    onFullHistory={() => onSubTabChange('activity')}
-                  />
-                  <NotesInline
-                    organizationId={data.record.organization_id}
-                    recordId={recordId}
+                    communications={data.communications}
                     notes={data.notes}
-                    currentUserId={data.currentUserId}
                     profiles={data.profiles}
-                    onViewAll={() => onSubTabChange('notes')}
-                    onChanged={load}
+                    name={(data.record.title ?? '').trim().split(/\s+/)[0] || null}
+                    onCompose={(kind) =>
+                      onSubTabChange(kind === 'note' ? 'notes' : kind === 'task' ? 'tasks' : 'communicate')
+                    }
+                    onFullHistory={() => onSubTabChange('activity')}
                   />
                   {hasMortgageTemplate(data) ? <MortgageWorkspace data={data} onChanged={load} /> : <OverviewView data={data} />}
                 </div>
