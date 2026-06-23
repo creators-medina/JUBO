@@ -117,7 +117,7 @@ export function ChecklistView({ recordId, boardId, groupId, fieldValues, onChang
               ) : (
                 <Square className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
               )}
-              <span className={cn('flex-1 text-xs', complete ? 'text-foreground' : 'text-muted-foreground')}>
+              <span className={cn('flex-1 text-xs', complete ? 'text-muted-foreground line-through' : 'text-foreground')}>
                 {field.name}
               </span>
             </button>

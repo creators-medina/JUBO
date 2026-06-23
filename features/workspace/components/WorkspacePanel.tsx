@@ -27,6 +27,8 @@ import { isChecklistFieldType, isChecklistChecked } from '@/features/fields/chec
 import { formatRelativeTime } from '@/features/boards/components/KanbanCardFace'
 import { StatusRail, type StatusTile } from '../command/StatusRail'
 import { StageTracker } from '../command/StageTracker'
+import { LoanSnapshot } from '../command/LoanSnapshot'
+import { PropertyCard } from '../command/PropertyCard'
 import { CommunicationsLog } from '../command/CommunicationsLog'
 import { NotesInline } from '../command/NotesInline'
 import { QualificationSnapshot } from '../command/QualificationSnapshot'
@@ -294,7 +296,12 @@ function WorkspaceContent({
   }, [data, contactHealth, lastContactDays, groupName, timeline])
 
   // Phase 10.1 — header identity bits (role label + phone) from loaded data only.
-  const roleLabel = data ? resolveWorkspaceTemplate(data as any).label : ''
+  const template = data ? resolveWorkspaceTemplate(data as any) : null
+  const roleLabel = template?.label ?? ''
+  // Phase 10.2 — left-column gating: loan-like records get the LoanSnapshot;
+  // checklist sections show only when the board actually has checklist fields.
+  const isLoanLike = template?.key === 'loan' || template?.key === 'lead'
+  const hasChecklistFields = !!data && data.fields.some((f: any) => isChecklistFieldType(f.field_type))
   const phone = useMemo(() => {
     if (!data) return null
     const f = data.fields.find((x: any) => x.slug === 'phone')
@@ -441,10 +448,27 @@ function WorkspaceContent({
                 <StatusRail tiles={statusTiles} />
               </div>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-[20rem_minmax(0,1fr)_20rem] items-start">
-                {/* LEFT — file snapshot */}
+                {/* LEFT — borrower file summary (Phase 10.2):
+                    Loan Snapshot → Property → Checklist Progress → Conditions. */}
                 <div className="space-y-4">
-                  <QualificationSnapshot data={data as any} />
+                  {isLoanLike ? <LoanSnapshot data={data as any} /> : <QualificationSnapshot data={data as any} />}
+                  <PropertyCard data={data as any} />
                   <MissingDocuments data={data as any} onOpenChecklist={() => onSubTabChange('checklist')} />
+                  {hasChecklistFields && (
+                    <section className="rounded-xl border border-border/60 bg-surface-1/30 p-3.5">
+                      <div className="mb-2.5 flex items-center gap-1.5">
+                        <ListChecks className="h-3.5 w-3.5 text-muted-foreground" />
+                        <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Conditions</p>
+                      </div>
+                      <ChecklistView
+                        recordId={recordId}
+                        boardId={data.record.board_id}
+                        groupId={data.record.group_id ?? null}
+                        fieldValues={data.fieldValues}
+                        onChanged={load}
+                      />
+                    </section>
+                  )}
                 </div>
                 {/* CENTER — activity (UnifiedTimeline arrives in 10.3) */}
                 <div className="space-y-4">
