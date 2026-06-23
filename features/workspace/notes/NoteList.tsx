@@ -17,15 +17,20 @@ interface Props {
   defaultDrafting?: boolean
   /** Phase 36E-1 — org members for @mention autocomplete (optional, additive). */
   members?: { id: string; name: string }[]
+  /** Phase 5 — optional refetch hook so client-loaded surfaces (Overview) can
+      refresh after create/edit/delete, in addition to router.refresh(). */
+  onChanged?: () => void
 }
 
 const AUTOSAVE_DELAY_MS = 800
 
-export function NoteList({ organizationId, recordId, notes, currentUserId, defaultDrafting = false, members }: Props) {
+export function NoteList({ organizationId, recordId, notes, currentUserId, defaultDrafting = false, members, onChanged }: Props) {
   const router = useRouter()
   const [drafting, setDrafting] = useState(defaultDrafting)
   const [newDraft, setNewDraft] = useState('')
   const [, startTransition] = useTransition()
+
+  const afterChange = () => { router.refresh(); onChanged?.() }
 
   const handleCreate = () => {
     if (!newDraft.trim()) { setDrafting(false); setNewDraft(''); return }
@@ -38,7 +43,7 @@ export function NoteList({ organizationId, recordId, notes, currentUserId, defau
         })
         setNewDraft('')
         setDrafting(false)
-        router.refresh()
+        afterChange()
       } catch {}
     })
   }
@@ -78,7 +83,7 @@ export function NoteList({ organizationId, recordId, notes, currentUserId, defau
               key={n.id}
               note={n}
               canEdit={!!currentUserId && n.author_user_id === currentUserId}
-              onAfter={() => router.refresh()}
+              onAfter={afterChange}
             />
           ))}
         </div>

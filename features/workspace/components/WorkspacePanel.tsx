@@ -28,6 +28,7 @@ import { isChecklistFieldType, isChecklistChecked } from '@/features/fields/chec
 import { formatRelativeTime } from '@/features/boards/components/KanbanCardFace'
 import { StatusRail, type StatusTile } from '../command/StatusRail'
 import { CommunicationsLog } from '../command/CommunicationsLog'
+import { NotesInline } from '../command/NotesInline'
 import { CommunicationActions } from '@/features/communications/components/CommunicationActions'
 import { LastContactCard } from '@/features/communications/components/LastContactCard'
 import { getLastContactedAt, daysSince, getContactHealth } from '@/features/communications/metrics'
@@ -456,6 +457,20 @@ function WorkspaceContent({
                   hasMortgageTemplate(data)
                     ? <MortgageWorkspace data={data} onChanged={load} />
                     : <OverviewView data={data} />
+                )}
+                {/* Notes — first-class on Overview (summary + quick add + recent). */}
+                {activeSubTab === 'overview' && (
+                  <div className="mt-4">
+                    <NotesInline
+                      organizationId={data.record.organization_id}
+                      recordId={recordId}
+                      notes={data.notes}
+                      currentUserId={data.currentUserId}
+                      profiles={data.profiles}
+                      onViewAll={() => onSubTabChange('notes')}
+                      onChanged={load}
+                    />
+                  </div>
                 )}
                 {activeSubTab === 'card' && (
                   <PersonCard recordId={recordId} />
