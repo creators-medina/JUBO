@@ -27,6 +27,7 @@ import { resolveTemplateKey } from '@/features/mortgage/templates/resolve'
 import { isChecklistFieldType, isChecklistChecked } from '@/features/fields/checklist'
 import { formatRelativeTime } from '@/features/boards/components/KanbanCardFace'
 import { StatusRail, type StatusTile } from '../command/StatusRail'
+import { CommunicationsLog } from '../command/CommunicationsLog'
 import { CommunicationActions } from '@/features/communications/components/CommunicationActions'
 import { LastContactCard } from '@/features/communications/components/LastContactCard'
 import { getLastContactedAt, daysSince, getContactHealth } from '@/features/communications/metrics'
@@ -440,6 +441,17 @@ function WorkspaceContent({
                     onChanged={load}
                   />
                 </div>
+                {/* Communications Mission Log — last per channel (Overview only). */}
+                {activeSubTab === 'overview' && (
+                  <div className="mb-4">
+                    <CommunicationsLog
+                      logs={data.communications}
+                      notes={data.notes}
+                      timeline={timeline}
+                      onFullHistory={() => onSubTabChange('activity')}
+                    />
+                  </div>
+                )}
                 {activeSubTab === 'overview' && (
                   hasMortgageTemplate(data)
                     ? <MortgageWorkspace data={data} onChanged={load} />
