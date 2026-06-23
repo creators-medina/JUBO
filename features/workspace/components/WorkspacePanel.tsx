@@ -29,6 +29,7 @@ import { formatRelativeTime } from '@/features/boards/components/KanbanCardFace'
 import { StatusRail, type StatusTile } from '../command/StatusRail'
 import { CommunicationsLog } from '../command/CommunicationsLog'
 import { NotesInline } from '../command/NotesInline'
+import { QualificationSnapshot } from '../command/QualificationSnapshot'
 import { CommunicationActions } from '@/features/communications/components/CommunicationActions'
 import { LastContactCard } from '@/features/communications/components/LastContactCard'
 import { getLastContactedAt, daysSince, getContactHealth } from '@/features/communications/metrics'
@@ -442,6 +443,12 @@ function WorkspaceContent({
                     onChanged={load}
                   />
                 </div>
+                {/* Qualification Snapshot — KPI band, above Communications. */}
+                {activeSubTab === 'overview' && (
+                  <div className="mb-4">
+                    <QualificationSnapshot data={data as any} />
+                  </div>
+                )}
                 {/* Communications Mission Log — last per channel (Overview only). */}
                 {activeSubTab === 'overview' && (
                   <div className="mb-4">
