@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo, Fragment } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   X, Maximize2, FileText, Activity, ListChecks, StickyNote, Database, Columns3,
-  ArrowRightLeft, CheckSquare, IdCard, MessageSquare,
+  ArrowRightLeft, CheckSquare, IdCard, MessageSquare, Phone, Mail, CalendarDays,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { MoveToBoardDialog } from '@/features/boards/components/MoveToBoardDialog'
@@ -20,13 +20,13 @@ import { NextActionCard } from './NextActionCard'
 import { WorkspaceTasks } from './WorkspaceTasks'
 import { useWorkspaceKeyboard } from '../hooks/useWorkspaceKeyboard'
 import { MortgageWorkspace, hasMortgageTemplate } from '@/features/mortgage/workspaces/MortgageWorkspace'
-import { WorkspaceHeaderMeta } from '@/features/mortgage/workspaces/WorkspaceHeaderMeta'
 import { computeOpportunitySignals } from '@/features/mortgage/scoring/opportunities'
 import { OpportunitySignals } from '@/features/mortgage/sections'
-import { resolveTemplateKey } from '@/features/mortgage/templates/resolve'
+import { resolveWorkspaceTemplate } from '@/features/mortgage/templates/resolve'
 import { isChecklistFieldType, isChecklistChecked } from '@/features/fields/checklist'
 import { formatRelativeTime } from '@/features/boards/components/KanbanCardFace'
 import { StatusRail, type StatusTile } from '../command/StatusRail'
+import { StageTracker } from '../command/StageTracker'
 import { CommunicationsLog } from '../command/CommunicationsLog'
 import { NotesInline } from '../command/NotesInline'
 import { QualificationSnapshot } from '../command/QualificationSnapshot'
@@ -48,26 +48,6 @@ const TAB_ICONS: Record<WorkspaceTabKey, React.ElementType> = {
   notes:       StickyNote,
   data:        Database,
   pipeline:    Columns3,
-}
-
-// Phase 8 — Entity Adaptation. The Overview's command bands are reordered (and
-// self-collapse) per template so each record type feels tailored. Visibility is
-// handled by the bands themselves (Qualification/Missing return null when not
-// relevant); this only controls ORDER + emphasis. Next Action / Last Contact
-// live in the Command Rail (unchanged) and stay top for every entity.
-type OverviewBand = 'detail' | 'qualification' | 'communications' | 'missing' | 'notes'
-
-const OVERVIEW_BAND_ORDER: Record<string, OverviewBand[]> = {
-  // Loan file: stage → qualification → missing docs → comms → notes.
-  loan:        ['detail', 'qualification', 'missing', 'communications', 'notes'],
-  // Lead/prospect: speed-to-contact first — comms → notes → lead detail → qual.
-  lead:        ['communications', 'notes', 'detail', 'qualification', 'missing'],
-  // Past client: recapture — refi/equity snapshot → comms → notes → detail.
-  past_client: ['qualification', 'communications', 'notes', 'detail', 'missing'],
-  // Partner/realtor: relationship → production snapshot → comms → notes.
-  partner:     ['detail', 'qualification', 'communications', 'notes', 'missing'],
-  // Generic: neutral — detail then comms/notes (qual/missing self-collapse).
-  generic:     ['detail', 'communications', 'notes', 'qualification', 'missing'],
 }
 
 type Loaded = {
@@ -105,19 +85,17 @@ export function WorkspacePanel() {
       activeSubTab={activeTab.activeSubTab}
       onSubTabChange={(t) => setActiveSubTab(activeTab.recordId, t)}
       onClose={() => closeWorkspace(activeTab.recordId)}
-      tabs={tabs.length}
     />
   )
 }
 
 function WorkspaceContent({
-  recordId, activeSubTab, onSubTabChange, onClose, tabs,
+  recordId, activeSubTab, onSubTabChange, onClose,
 }: {
   recordId: string
   activeSubTab: WorkspaceTabKey
   onSubTabChange: (t: WorkspaceTabKey) => void
   onClose: () => void
-  tabs: number
 }) {
   const router = useRouter()
   const { openWorkspace } = useWorkspaceTabs()
@@ -250,7 +228,7 @@ function WorkspaceContent({
   // is a later phase). Pure: reads loaded data, no query.
   const signals = useMemo(() => {
     if (!data || !isMortgage) return []
-    return computeOpportunitySignals(data as any, resolveTemplateKey(data as any))
+    return computeOpportunitySignals(data as any, resolveWorkspaceTemplate(data as any).key)
   }, [data, isMortgage])
 
   // Phase 2 — Status Rail tiles, computed from already-loaded data only.
@@ -315,122 +293,96 @@ function WorkspaceContent({
     ]
   }, [data, contactHealth, lastContactDays, groupName, timeline])
 
-  // Phase 8 — entity-driven Overview band order (bands self-collapse when N/A).
-  const overviewBandOrder = data
-    ? (OVERVIEW_BAND_ORDER[resolveTemplateKey(data as any)] ?? OVERVIEW_BAND_ORDER.generic)
-    : OVERVIEW_BAND_ORDER.generic
-
-  const renderOverviewBand = (band: OverviewBand) => {
+  // Phase 10.1 — header identity bits (role label + phone) from loaded data only.
+  const roleLabel = data ? resolveWorkspaceTemplate(data as any).label : ''
+  const phone = useMemo(() => {
     if (!data) return null
-    switch (band) {
-      case 'detail':
-        return hasMortgageTemplate(data) ? <MortgageWorkspace data={data} onChanged={load} /> : <OverviewView data={data} />
-      case 'qualification':
-        return <QualificationSnapshot data={data as any} />
-      case 'communications':
-        return (
-          <CommunicationsLog
-            logs={data.communications}
-            notes={data.notes}
-            timeline={timeline}
-            onFullHistory={() => onSubTabChange('activity')}
-          />
-        )
-      case 'missing':
-        return <MissingDocuments data={data as any} onOpenChecklist={() => onSubTabChange('checklist')} />
-      case 'notes':
-        return (
-          <NotesInline
-            organizationId={data.record.organization_id}
-            recordId={recordId}
-            notes={data.notes}
-            currentUserId={data.currentUserId}
-            profiles={data.profiles}
-            onViewAll={() => onSubTabChange('notes')}
-            onChanged={load}
-          />
-        )
-    }
-  }
+    const f = data.fields.find((x: any) => x.slug === 'phone')
+    if (!f) return null
+    return data.fieldValues.find((v: any) => v.field_id === f.id)?.value_text ?? null
+  }, [data])
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full md:max-w-[min(72rem,92vw)] bg-background border-l border-border flex flex-col h-full shadow-2xl">
-        {/* Header — identity + context + quick actions */}
-        <header className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border bg-gradient-to-b from-surface-1/50 to-background flex-shrink-0">
-          <div className="flex items-start gap-3 min-w-0">
+        {/* Header — borrower identity (left) + quick actions (right). Phase 10.1
+            command-center bar; the stage tracker lives in its own bar below. */}
+        <header className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border bg-gradient-to-r from-surface-2/60 via-surface-1/60 to-surface-0 flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
             {loading ? (
-              <div className="h-9 w-9 rounded-lg bg-surface-2 animate-pulse flex-shrink-0" />
+              <div className="h-10 w-10 rounded-lg bg-surface-2 animate-pulse flex-shrink-0" />
             ) : (
-              <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-semibold text-primary">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-semibold text-primary">
                 {initials(data?.record?.title)}
               </div>
             )}
             <div className="min-w-0">
               {loading ? (
-                <div className="h-6 w-64 bg-surface-2 rounded animate-pulse" />
+                <div className="h-6 w-56 bg-surface-2 rounded animate-pulse" />
               ) : (
                 <h2 className="text-lg font-semibold tracking-tight text-foreground truncate">{data?.record?.title ?? 'Record'}</h2>
               )}
               {data && (
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  {data.record?.board_id && (
-                    <Link
-                      href={`/boards/${data.record.board_id}`}
-                      className="inline-flex items-center gap-1 rounded-md bg-surface-2 px-1.5 py-0.5 text-2xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <Columns3 className="h-2.5 w-2.5" />
-                      {data.board?.name ?? 'Board'}
-                    </Link>
-                  )}
-                  {!isMortgage && groupName !== '—' && (
-                    <span className="inline-flex items-center rounded-md bg-surface-2 px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">{groupName}</span>
-                  )}
-                  {lastContactDays != null && (
-                    <span className="inline-flex items-center gap-1 text-2xs text-muted-foreground">
-                      <span className={cn('h-1.5 w-1.5 rounded-full', HEALTH_DOT[contactHealth])} />
-                      Last contact {lastContactDays === 0 ? 'today' : `${lastContactDays}d ago`}
-                    </span>
-                  )}
-                </div>
+                <p className="mt-0.5 truncate text-2xs text-muted-foreground">
+                  {roleLabel}{phone ? <> · <span className="tabular-nums text-foreground/80">{phone}</span></> : null}
+                </p>
               )}
-              {/* Mortgage-template badges (stage / amount / next action / stale). Null for generic. */}
-              {data && isMortgage && <WorkspaceHeaderMeta data={data} />}
             </div>
           </div>
 
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {tabs > 1 && (
-              <span className="hidden sm:inline text-2xs text-muted-foreground mr-2">⌘⇧] next · ⌘⇧[ prev</span>
-            )}
-            {data?.record?.board_id && (
-              <button
-                onClick={() => setShowMove(true)}
-                className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
-                title="Move to another board"
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            {/* Quick actions — reuse existing surfaces (no new comm logic). */}
+            {phone && (
+              <a
+                href={`tel:${phone}`}
+                title="Call"
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
               >
-                <ArrowRightLeft className="w-3.5 h-3.5" />
+                <Phone className="h-4 w-4" />
+              </a>
+            )}
+            <button onClick={() => onSubTabChange('communicate')} title="Message"
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+              <MessageSquare className="h-4 w-4" />
+            </button>
+            <button onClick={() => onSubTabChange('communicate')} title="Email"
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+              <Mail className="h-4 w-4" />
+            </button>
+            <button onClick={() => onSubTabChange('tasks')} title="Tasks & follow-up"
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+              <CalendarDays className="h-4 w-4" />
+            </button>
+
+            <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+
+            {/* Overflow — existing move / open-in-board / close. */}
+            {data?.record?.board_id && (
+              <button onClick={() => setShowMove(true)} title="Move to another board"
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+                <ArrowRightLeft className="h-4 w-4" />
               </button>
             )}
             {data?.record?.board_id && (
-              <Link
-                href={`/boards/${data.record.board_id}`}
-                className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
-                title="Open in board"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
+              <Link href={`/boards/${data.record.board_id}`} title="Open in board"
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+                <Maximize2 className="h-4 w-4" />
               </Link>
             )}
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
-              title="Close (esc)"
-            >
-              <X className="w-4 h-4" />
+            <button onClick={onClose} title="Close (esc)"
+              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+              <X className="h-4 w-4" />
             </button>
           </div>
         </header>
+
+        {/* Stage tracker bar — the loan lifecycle, prominent + always near top. */}
+        {data && (
+          <div className="flex-shrink-0 border-b border-border bg-surface-0/40 px-5 py-2.5">
+            <StageTracker groups={data.groups} currentGroupId={data.record.group_id ?? null} />
+          </div>
+        )}
 
         {showMove && data?.record?.board_id && (
           <MoveToBoardDialog
@@ -475,25 +427,46 @@ function WorkspaceContent({
         </div>
 
         {/* Body: content + right sidebar */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_18rem] overflow-hidden">
-          <div className="overflow-y-auto p-5">
-            {loading || !data ? (
-              <div className="space-y-3">
-                {[0, 1, 2, 3].map(i => (
-                  <div key={i} className="h-8 bg-surface-1 rounded animate-pulse" style={{ opacity: 1 - i * 0.15 }} />
-                ))}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {loading || !data ? (
+            <div className="space-y-3 p-5">
+              {[0, 1, 2, 3].map(i => (
+                <div key={i} className="h-8 bg-surface-1 rounded animate-pulse" style={{ opacity: 1 - i * 0.15 }} />
+              ))}
+            </div>
+          ) : activeSubTab === 'overview' ? (
+            // Phase 10.1 — three-column Borrower Command Center (Overview).
+            <div className="h-full overflow-y-auto p-5">
+              <div className="mb-4">
+                <StatusRail tiles={statusTiles} />
               </div>
-            ) : (
-              <>
-                {/* Status Rail — top of the Command Center (Overview only). */}
-                {activeSubTab === 'overview' && (
-                  <div className="mb-4">
-                    <StatusRail tiles={statusTiles} />
-                  </div>
-                )}
-                {/* Command Rail reflowed inline on mobile (sidebar is hidden < lg)
-                    so Next Action + Needs Attention stay high. */}
-                <div className="lg:hidden mb-4">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-[20rem_minmax(0,1fr)_20rem] items-start">
+                {/* LEFT — file snapshot */}
+                <div className="space-y-4">
+                  <QualificationSnapshot data={data as any} />
+                  <MissingDocuments data={data as any} onOpenChecklist={() => onSubTabChange('checklist')} />
+                </div>
+                {/* CENTER — activity (UnifiedTimeline arrives in 10.3) */}
+                <div className="space-y-4">
+                  <CommunicationsLog
+                    logs={data.communications}
+                    notes={data.notes}
+                    timeline={timeline}
+                    onFullHistory={() => onSubTabChange('activity')}
+                  />
+                  <NotesInline
+                    organizationId={data.record.organization_id}
+                    recordId={recordId}
+                    notes={data.notes}
+                    currentUserId={data.currentUserId}
+                    profiles={data.profiles}
+                    onViewAll={() => onSubTabChange('notes')}
+                    onChanged={load}
+                  />
+                  {hasMortgageTemplate(data) ? <MortgageWorkspace data={data} onChanged={load} /> : <OverviewView data={data} />}
+                </div>
+                {/* RIGHT — control rail (NextAction prioritized on mobile via order) */}
+                <div className="space-y-4 order-first lg:order-last lg:col-span-2 xl:order-none xl:col-span-1">
                   <CommandRail
                     recordId={recordId}
                     data={data}
@@ -502,15 +475,12 @@ function WorkspaceContent({
                     onChanged={load}
                   />
                 </div>
-                {/* Entity-adapted Overview bands — ordered per template; each
-                    band self-collapses when it has no useful data. */}
-                {activeSubTab === 'overview' && (
-                  <div className="space-y-4">
-                    {overviewBandOrder.map((band) => (
-                      <Fragment key={band}>{renderOverviewBand(band)}</Fragment>
-                    ))}
-                  </div>
-                )}
+              </div>
+            </div>
+          ) : (
+            // Non-overview tabs keep main content + the command rail (desktop).
+            <div className="grid h-full grid-cols-1 lg:grid-cols-[1fr_18rem] overflow-hidden">
+              <div className="overflow-y-auto p-5">
                 {activeSubTab === 'card' && (
                   <PersonCard recordId={recordId} />
                 )}
@@ -552,23 +522,19 @@ function WorkspaceContent({
                 {activeSubTab === 'data' && (
                   <DataView data={data} />
                 )}
-              </>
-            )}
-          </div>
+              </div>
 
-          {/* Command Rail (desktop) — the control panel: Next Action hero,
-              Needs Attention, quick log, last contact, tasks, recent activity. */}
-          <aside className="hidden lg:flex flex-col overflow-y-auto border-l border-border bg-surface-1/30 p-4 gap-4">
-            {data && (
-              <CommandRail
-                recordId={recordId}
-                data={data}
-                timeline={timeline}
-                signals={signals}
-                onChanged={load}
-              />
-            )}
-          </aside>
+              <aside className="hidden lg:flex flex-col overflow-y-auto border-l border-border bg-surface-1/30 p-4 gap-4">
+                <CommandRail
+                  recordId={recordId}
+                  data={data}
+                  timeline={timeline}
+                  signals={signals}
+                  onChanged={load}
+                />
+              </aside>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -576,13 +542,6 @@ function WorkspaceContent({
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-const HEALTH_DOT: Record<ContactHealth, string> = {
-  healthy: 'bg-emerald-400',
-  warming: 'bg-amber-400',
-  stale:   'bg-red-400',
-  unknown: 'bg-surface-3',
-}
 
 /** Up to two initials from a record title for the header avatar. */
 function initials(title?: string | null): string {
