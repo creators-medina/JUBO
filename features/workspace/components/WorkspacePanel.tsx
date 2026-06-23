@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, Fragment } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -48,6 +48,26 @@ const TAB_ICONS: Record<WorkspaceTabKey, React.ElementType> = {
   notes:       StickyNote,
   data:        Database,
   pipeline:    Columns3,
+}
+
+// Phase 8 — Entity Adaptation. The Overview's command bands are reordered (and
+// self-collapse) per template so each record type feels tailored. Visibility is
+// handled by the bands themselves (Qualification/Missing return null when not
+// relevant); this only controls ORDER + emphasis. Next Action / Last Contact
+// live in the Command Rail (unchanged) and stay top for every entity.
+type OverviewBand = 'detail' | 'qualification' | 'communications' | 'missing' | 'notes'
+
+const OVERVIEW_BAND_ORDER: Record<string, OverviewBand[]> = {
+  // Loan file: stage → qualification → missing docs → comms → notes.
+  loan:        ['detail', 'qualification', 'missing', 'communications', 'notes'],
+  // Lead/prospect: speed-to-contact first — comms → notes → lead detail → qual.
+  lead:        ['communications', 'notes', 'detail', 'qualification', 'missing'],
+  // Past client: recapture — refi/equity snapshot → comms → notes → detail.
+  past_client: ['qualification', 'communications', 'notes', 'detail', 'missing'],
+  // Partner/realtor: relationship → production snapshot → comms → notes.
+  partner:     ['detail', 'qualification', 'communications', 'notes', 'missing'],
+  // Generic: neutral — detail then comms/notes (qual/missing self-collapse).
+  generic:     ['detail', 'communications', 'notes', 'qualification', 'missing'],
 }
 
 type Loaded = {
@@ -295,6 +315,44 @@ function WorkspaceContent({
     ]
   }, [data, contactHealth, lastContactDays, groupName, timeline])
 
+  // Phase 8 — entity-driven Overview band order (bands self-collapse when N/A).
+  const overviewBandOrder = data
+    ? (OVERVIEW_BAND_ORDER[resolveTemplateKey(data as any)] ?? OVERVIEW_BAND_ORDER.generic)
+    : OVERVIEW_BAND_ORDER.generic
+
+  const renderOverviewBand = (band: OverviewBand) => {
+    if (!data) return null
+    switch (band) {
+      case 'detail':
+        return hasMortgageTemplate(data) ? <MortgageWorkspace data={data} onChanged={load} /> : <OverviewView data={data} />
+      case 'qualification':
+        return <QualificationSnapshot data={data as any} />
+      case 'communications':
+        return (
+          <CommunicationsLog
+            logs={data.communications}
+            notes={data.notes}
+            timeline={timeline}
+            onFullHistory={() => onSubTabChange('activity')}
+          />
+        )
+      case 'missing':
+        return <MissingDocuments data={data as any} onOpenChecklist={() => onSubTabChange('checklist')} />
+      case 'notes':
+        return (
+          <NotesInline
+            organizationId={data.record.organization_id}
+            recordId={recordId}
+            notes={data.notes}
+            currentUserId={data.currentUserId}
+            profiles={data.profiles}
+            onViewAll={() => onSubTabChange('notes')}
+            onChanged={load}
+          />
+        )
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -444,46 +502,13 @@ function WorkspaceContent({
                     onChanged={load}
                   />
                 </div>
-                {/* Qualification Snapshot — KPI band, above Communications. */}
+                {/* Entity-adapted Overview bands — ordered per template; each
+                    band self-collapses when it has no useful data. */}
                 {activeSubTab === 'overview' && (
-                  <div className="mb-4">
-                    <QualificationSnapshot data={data as any} />
-                  </div>
-                )}
-                {/* Communications Mission Log — last per channel (Overview only). */}
-                {activeSubTab === 'overview' && (
-                  <div className="mb-4">
-                    <CommunicationsLog
-                      logs={data.communications}
-                      notes={data.notes}
-                      timeline={timeline}
-                      onFullHistory={() => onSubTabChange('activity')}
-                    />
-                  </div>
-                )}
-                {activeSubTab === 'overview' && (
-                  hasMortgageTemplate(data)
-                    ? <MortgageWorkspace data={data} onChanged={load} />
-                    : <OverviewView data={data} />
-                )}
-                {/* Missing Documents / Checklist intelligence (Overview only). */}
-                {activeSubTab === 'overview' && (
-                  <div className="mt-4">
-                    <MissingDocuments data={data as any} onOpenChecklist={() => onSubTabChange('checklist')} />
-                  </div>
-                )}
-                {/* Notes — first-class on Overview (summary + quick add + recent). */}
-                {activeSubTab === 'overview' && (
-                  <div className="mt-4">
-                    <NotesInline
-                      organizationId={data.record.organization_id}
-                      recordId={recordId}
-                      notes={data.notes}
-                      currentUserId={data.currentUserId}
-                      profiles={data.profiles}
-                      onViewAll={() => onSubTabChange('notes')}
-                      onChanged={load}
-                    />
+                  <div className="space-y-4">
+                    {overviewBandOrder.map((band) => (
+                      <Fragment key={band}>{renderOverviewBand(band)}</Fragment>
+                    ))}
                   </div>
                 )}
                 {activeSubTab === 'card' && (
