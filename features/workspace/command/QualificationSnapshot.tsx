@@ -92,15 +92,16 @@ export function QualificationSnapshot({ data }: { data: MortgageData }) {
   const { title, icon: Icon, accent, tiles } = built
 
   return (
-    <section className="premium-card rounded-xl p-3">
-      <div className="mb-2 flex items-center gap-1.5">
+    <section className="premium-card relative overflow-hidden rounded-xl p-3.5">
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-0.5" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
+      <div className="mb-2.5 flex items-center gap-1.5">
         <Icon className="h-3.5 w-3.5" style={{ color: accent }} />
         <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</p>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {tiles.map((t) => (
-          <div key={t.label} className="rounded-lg bg-surface-1/70 px-3 py-2">
-            <p className="text-2xs uppercase tracking-wider text-muted-foreground">{t.label}</p>
+          <div key={t.label} className="rounded-lg bg-surface-1/70 px-3 py-2.5">
+            <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">{t.label}</p>
             <p
               className="mt-0.5 truncate text-sm font-semibold tabular-nums"
               style={{ color: t.accent ?? 'var(--foreground)' }}

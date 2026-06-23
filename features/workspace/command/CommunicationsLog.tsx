@@ -14,7 +14,7 @@
 
 import {
   Phone, Mail, MessageSquare, Calendar, StickyNote, Activity as ActivityIcon,
-  ArrowUpRight, ArrowDownLeft, ChevronRight,
+  ArrowUpRight, ArrowDownLeft, ChevronRight, Radio,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatRelativeTime } from '@/features/boards/components/KanbanCardFace'
@@ -109,13 +109,14 @@ export function CommunicationsLog({
   }
 
   return (
-    <section className="premium-card rounded-xl p-3">
-      <div className="mb-2 flex items-center gap-2">
+    <section className="rounded-xl border border-border/60 bg-surface-1/30 p-3.5">
+      <div className="mb-2.5 flex items-center gap-1.5">
+        <Radio className="h-3.5 w-3.5 text-muted-foreground" />
         <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Communications</p>
         <button
           type="button"
           onClick={onFullHistory}
-          className="ml-auto inline-flex items-center gap-0.5 rounded text-2xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="ml-auto -my-0.5 inline-flex items-center gap-0.5 rounded py-0.5 text-2xs font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           Full history <ChevronRight className="h-3 w-3" />
         </button>
@@ -124,12 +125,12 @@ export function CommunicationsLog({
       {entries.length === 0 ? (
         <p className="py-2 text-2xs text-muted-foreground italic">No communications logged yet.</p>
       ) : (
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           {entries.map((e) => {
             const Icon = e.icon
             const DirIcon = e.direction === 'inbound' ? ArrowDownLeft : e.direction === 'outbound' ? ArrowUpRight : null
             return (
-              <div key={e.key} className="flex items-center gap-2.5 rounded-lg px-1 py-1.5">
+              <div key={e.key} className="flex items-center gap-2.5 rounded-lg py-1">
                 <span
                   aria-hidden
                   className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg"

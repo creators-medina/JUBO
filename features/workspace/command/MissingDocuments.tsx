@@ -56,8 +56,9 @@ export function MissingDocuments({
   const accent = isComplete ? 'var(--accent-green)' : 'var(--accent-amber)'
 
   return (
-    <section className="premium-card rounded-xl p-3">
-      <div className="mb-2 flex items-center gap-1.5">
+    <section className="premium-card relative overflow-hidden rounded-xl p-3.5">
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-0.5" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
+      <div className="mb-2.5 flex items-center gap-1.5">
         {isComplete
           ? <CheckCircle2 className="h-3.5 w-3.5" style={{ color: accent }} />
           : <FileWarning className="h-3.5 w-3.5" style={{ color: accent }} />}

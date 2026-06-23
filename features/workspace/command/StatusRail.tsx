@@ -32,7 +32,7 @@ export function StatusRail({ tiles }: { tiles: StatusTile[] }) {
       {tiles.map((t) => (
         <div
           key={t.key}
-          className="premium-card relative overflow-hidden rounded-xl px-3 py-2.5"
+          className="premium-card relative overflow-hidden rounded-xl px-3.5 py-3"
         >
           {/* Colored top hairline — the tile's "channel". */}
           <span

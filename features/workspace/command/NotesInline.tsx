@@ -34,8 +34,8 @@ export function NotesInline({
   const isRecent = last ? Date.now() - new Date(last.created_at).getTime() < 86_400_000 : false
 
   return (
-    <section className="premium-card rounded-xl p-3">
-      <div className="mb-2 flex items-center gap-2">
+    <section className="rounded-xl border border-border/60 bg-surface-1/30 p-3.5">
+      <div className="mb-2.5 flex items-center gap-1.5">
         <StickyNote className="h-3.5 w-3.5 text-muted-foreground" />
         <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Notes</p>
         {count > 0 && (
@@ -47,7 +47,7 @@ export function NotesInline({
           <button
             type="button"
             onClick={onViewAll}
-            className="ml-auto inline-flex items-center gap-0.5 rounded text-2xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="ml-auto -my-0.5 inline-flex items-center gap-0.5 rounded py-0.5 text-2xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             View all <ChevronRight className="h-3 w-3" />
           </button>
