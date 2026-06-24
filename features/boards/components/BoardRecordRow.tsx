@@ -206,10 +206,10 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
           <DropdownMenuTrigger className="opacity-0 group-hover:opacity-100 p-1 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-all">
             <MoreHorizontal className="w-3.5 h-3.5" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-card border-border">
+          <DropdownMenuContent className="jubo-los-scope bg-card border-border">
             <DropdownMenuSub>
               <DropdownMenuSubTrigger className="text-xs">Move to group</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="bg-card border-border">
+              <DropdownMenuSubContent className="jubo-los-scope bg-card border-border">
                 {groups.filter(g => g.id !== record.group_id).map(g => (
                   <DropdownMenuItem key={g.id} className="text-xs cursor-pointer" onClick={() => handleMove(g.id)}>
                     {g.name}

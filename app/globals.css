@@ -477,3 +477,37 @@
   transition: background-color 0.15s ease;
 }
 .jubo-los-primary-action:hover { background-color: var(--jubo-red-dark); }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Jubo LOS scope (board cream conversion) — locally remaps the core semantic
+   tokens to the warm LOS-light palette for an entire subtree. Apply to a page
+   content root (e.g. the board) to re-theme everything inside (tables, cards,
+   menus, kanban) at once, while the surrounding dark app shell stays as the
+   navy frame. Decorative dark-tuned glows fade harmlessly on cream.
+   ─────────────────────────────────────────────────────────────────────────── */
+.jubo-los-scope {
+  --background: var(--jubo-cream-bg);
+  --foreground: var(--jubo-text);
+  --card: var(--jubo-card);
+  --card-foreground: var(--jubo-text);
+  --popover: var(--jubo-card);
+  --popover-foreground: var(--jubo-text);
+  --primary: var(--jubo-red);
+  --primary-foreground: #fffdfa;
+  --secondary: var(--jubo-card-soft);
+  --secondary-foreground: var(--jubo-text);
+  --muted: var(--jubo-card-soft);
+  --muted-foreground: var(--jubo-muted);
+  --accent: var(--jubo-card-soft);
+  --accent-foreground: var(--jubo-text);
+  --destructive: var(--jubo-red);
+  --border: var(--jubo-border);
+  --input: var(--jubo-border);
+  --ring: var(--jubo-red);
+  --surface-0: var(--jubo-cream-bg);
+  --surface-1: var(--jubo-card);
+  --surface-2: var(--jubo-card-soft);
+  --surface-3: var(--jubo-border);
+  background-color: var(--jubo-cream-bg);
+  color: var(--jubo-text);
+}

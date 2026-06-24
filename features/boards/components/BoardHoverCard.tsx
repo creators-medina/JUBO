@@ -158,7 +158,7 @@ export function BorrowerPreviewPanel({
       {...panelProps}
       role="dialog"
       aria-label={`${record.title} preview`}
-      className="fixed z-[100] rounded-xl border border-border bg-popover p-3 shadow-2xl"
+      className="jubo-los-scope fixed z-[100] rounded-xl border border-border bg-popover p-3 shadow-2xl"
       style={style}
     >
       {/* Stage / status at top */}

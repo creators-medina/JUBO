@@ -425,7 +425,10 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex flex-col h-full min-h-0">
+      {/* jubo-los-scope: re-themes the board subtree to the warm LOS-light
+          palette (cream surfaces / tan borders / dusty-red primary) via scoped
+          token overrides; the dark app shell remains the navy frame. */}
+      <div className="jubo-los-scope flex flex-col h-full min-h-0">
         {/* Board header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border flex-shrink-0">
           <Link href="/boards" className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
@@ -740,7 +743,7 @@ function DragPreview({ data }: { data: any }) {
     return (
       <div
         style={{ width: kanbanWidth }}
-        className="relative block origin-center scale-[1.02] overflow-hidden rounded-xl border border-primary bg-card py-3 pl-4 pr-3.5 shadow-2xl cursor-grabbing"
+        className="jubo-los-scope relative block origin-center scale-[1.02] overflow-hidden rounded-xl border border-primary bg-card py-3 pl-4 pr-3.5 shadow-2xl cursor-grabbing"
       >
         <KanbanCardFace {...data.face} />
       </div>
@@ -750,5 +753,5 @@ function DragPreview({ data }: { data: any }) {
   const fields = (data.fields ?? []) as any[]
   const fvMap = (data.fieldValueMap ?? {}) as Record<string, any>
   const cells = fields.map((f) => ({ name: f.name, value: formatCellValue(f, fvMap[f.id]) }))
-  return <DragOverlayRow title={data.title} cells={cells} widthStyle={widthStyle} />
+  return <div className="jubo-los-scope"><DragOverlayRow title={data.title} cells={cells} widthStyle={widthStyle} /></div>
 }
