@@ -21,17 +21,16 @@ import { WorkspaceTasks } from './WorkspaceTasks'
 import { useWorkspaceKeyboard } from '../hooks/useWorkspaceKeyboard'
 import { MortgageWorkspace, hasMortgageTemplate } from '@/features/mortgage/workspaces/MortgageWorkspace'
 import { computeOpportunitySignals } from '@/features/mortgage/scoring/opportunities'
-import { OpportunitySignals } from '@/features/mortgage/sections'
 import { resolveWorkspaceTemplate } from '@/features/mortgage/templates/resolve'
 import { isChecklistFieldType } from '@/features/fields/checklist'
 import { StageTracker } from '../command/StageTracker'
-import { BorrowerIntelligenceHeader } from '../command/BorrowerIntelligenceHeader'
 import { ParticipantRibbon } from '../command/ParticipantRibbon'
 import { UnifiedTimeline } from '../command/UnifiedTimeline'
 import { QualificationSnapshot } from '../command/QualificationSnapshot'
-import { MissingDocuments } from '../command/MissingDocuments'
+import { LoanSnapshot } from '../command/LoanSnapshot'
+import { PropertyCard } from '../command/PropertyCard'
 import { moveRecord } from '@/features/records/actions'
-import { getLastContactedAt, daysSince, getContactHealth } from '@/features/communications/metrics'
+import { getContactHealth } from '@/features/communications/metrics'
 import type { ContactHealth } from '@/features/communications/types'
 import type { WorkspaceTabKey, NoteRow, TimelineItem } from '../types'
 import { WORKSPACE_TABS, WORKSPACE_TAB_LABELS } from '../types'
@@ -218,7 +217,6 @@ function WorkspaceContent({
   }, [data])
 
   const isMortgage = data ? hasMortgageTemplate(data) : false
-  const lastContactDays = data ? daysSince(getLastContactedAt(data.communications)) : null
   const contactHealth: ContactHealth = data ? getContactHealth(data.communications) : 'unknown'
 
   // Phase 3 — Needs Attention signals (mortgage templates only; generic parity
@@ -231,8 +229,8 @@ function WorkspaceContent({
   // Phase 10.1 — header identity bits (role label + phone) from loaded data only.
   const template = data ? resolveWorkspaceTemplate(data as any) : null
   const roleLabel = template?.label ?? ''
-  // Phase 10.5 — loan-like records surface loan facts in the intelligence header;
-  // non-loan entities keep their Qualification snapshot in the left column.
+  // Loan-like records get the Loan Snapshot in the left column; non-loan entities
+  // get their Qualification (Refi/Production) snapshot instead.
   const isLoanLike = template?.key === 'loan' || template?.key === 'lead'
   const hasChecklistFields = !!data && data.fields.some((f: any) => isChecklistFieldType(f.field_type))
   const phone = useMemo(() => {
@@ -261,7 +259,17 @@ function WorkspaceContent({
               {loading ? (
                 <div className="h-6 w-56 bg-surface-2 rounded animate-pulse" />
               ) : (
-                <h2 className="text-xl font-bold tracking-tight text-foreground truncate">{data?.record?.title ?? 'Record'}</h2>
+                <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-foreground">
+                  {data && (
+                    <span
+                      className="h-2 w-2 flex-shrink-0 rounded-full"
+                      style={{ backgroundColor: contactHealth === 'healthy' ? 'var(--accent-green)' : contactHealth === 'warming' ? 'var(--accent-amber)' : contactHealth === 'stale' ? 'var(--accent-rose)' : 'var(--surface-3)' }}
+                      title={`Contact health: ${contactHealth}`}
+                      aria-hidden
+                    />
+                  )}
+                  <span className="truncate">{data?.record?.title ?? 'Record'}</span>
+                </h2>
               )}
               {data && (
                 <p className="mt-0.5 truncate text-2xs text-muted-foreground">
@@ -336,7 +344,7 @@ function WorkspaceContent({
 
         {/* Tabs nav — horizontally scrollable on small screens */}
         <div className="flex items-center gap-0.5 px-3 border-b border-border flex-shrink-0 overflow-x-auto">
-          {WORKSPACE_TABS.filter(t => t !== 'pipeline').map(t => {
+          {WORKSPACE_TABS.filter(t => t !== 'pipeline' && t !== 'data').map(t => {
             const Icon = TAB_ICONS[t]
             const active = activeSubTab === t
             return (
@@ -378,28 +386,11 @@ function WorkspaceContent({
           ) : activeSubTab === 'overview' ? (
             // Phase 10.1 — three-column Borrower Command Center (Overview).
             <div className="h-full overflow-y-auto p-5">
-              {/* Borrower Intelligence Header — the 3-second loan-file summary
-                  (Phase 10.5). Subsumes the old Status Rail + left Loan/Property. */}
-              <div className="mb-4">
-                <BorrowerIntelligenceHeader
-                  data={data as any}
-                  signals={signals}
-                  isMortgage={isMortgage}
-                  contactHealth={contactHealth}
-                  lastContactDays={lastContactDays}
-                  roleLabel={roleLabel}
-                />
-              </div>
-              {/* Participant / relationship ribbon — collapses when no team data. */}
-              <div className="mb-4">
-                <ParticipantRibbon data={data as any} />
-              </div>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-[20rem_minmax(0,1fr)_20rem] items-start">
-                {/* LEFT — checklist (loan/property/facts now live in the header).
-                    Non-loan entities keep their Qualification snapshot here. */}
+                {/* LEFT — the loan file: Loan Snapshot, Property, Conditions. */}
                 <div className="space-y-4">
-                  {!isLoanLike && <QualificationSnapshot data={data as any} />}
-                  <MissingDocuments data={data as any} onOpenChecklist={() => onSubTabChange('checklist')} />
+                  {isLoanLike ? <LoanSnapshot data={data as any} /> : <QualificationSnapshot data={data as any} />}
+                  <PropertyCard data={data as any} />
                   {hasChecklistFields && (
                     <section className="rounded-xl border border-border/60 bg-surface-1/30 p-3.5">
                       <div className="mb-2.5 flex items-center gap-1.5">
@@ -516,11 +507,10 @@ function initials(title?: string | null): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-// ── Command Rail (Phase 3) ─────────────────────────────────────────────────
-// The control panel: Next Action as the dominant hero, then Needs Attention,
-// quick log, last contact, tasks, and recent activity. Rendered in the desktop
-// sidebar AND inline on mobile (the reflow) so the next move is never hidden.
-// Pure composition over already-loaded data + existing components.
+// ── Command Rail ────────────────────────────────────────────────────────────
+// The control panel: Next Step (dominant) with a compact signals subsection
+// beneath it, then Tasks, Related (file team), and Move To. Rendered in the
+// desktop rail AND inline on mobile. Pure composition over loaded data.
 function CommandRail({
   recordId, data, signals, onChanged,
 }: {
@@ -531,26 +521,42 @@ function CommandRail({
 }) {
   const isMort = hasMortgageTemplate(data)
   const openTaskCount = data.tasks.filter((t: any) => !t.completed_at).length
+  const topSignals = isMort ? signals.slice(0, 3) : []
   return (
     <div className="flex flex-col gap-4">
-      {/* Next Step — the dominant element. A subtle premium frame lifts it
-          above the rest without competing with its own state border. */}
-      <div className="premium-surface rounded-xl">
+      {/* Next Step — the dominant element, with a compact signals subsection
+          directly beneath so attention supports (not competes with) it. */}
+      <div className="premium-surface overflow-hidden rounded-xl">
         <NextActionCard
           recordId={recordId}
           nextAction={data.record.next_action ?? null}
           nextActionDueAt={data.record.next_action_due_at ?? null}
           nextActionCompletedAt={data.record.next_action_completed_at ?? null}
         />
+        {topSignals.length > 0 && (
+          <div className="space-y-1 border-t border-border/60 px-3 py-2">
+            {topSignals.map((s: any) => (
+              <div key={s.key} className="flex items-center gap-1.5 text-2xs">
+                <span
+                  className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                  style={{ backgroundColor: s.level === 'urgent' ? 'var(--accent-rose)' : s.level === 'warning' ? 'var(--accent-amber)' : s.level === 'positive' ? 'var(--accent-green)' : 'var(--muted-foreground)' }}
+                  aria-hidden
+                />
+                <span className="truncate text-foreground">{s.label}</span>
+                {s.detail && <span className="ml-auto flex-shrink-0 text-muted-foreground">{s.detail}</span>}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-
-      {/* Needs Attention — ranked signals (mortgage templates only for now). */}
-      {isMort && <OpportunitySignals signals={signals} />}
 
       {/* Tasks — open task preview (full management in the Tasks tab). */}
       <SidebarSection title={`Tasks${openTaskCount > 0 ? ` · ${openTaskCount}` : ''}`}>
         <UpcomingTasks tasks={data.tasks} />
       </SidebarSection>
+
+      {/* Related / File team — collapses when no participant data exists. */}
+      <ParticipantRibbon data={data as any} />
 
       {/* Move To — stage selector reusing existing move logic (RPC + workflows). */}
       <MoveToControl
