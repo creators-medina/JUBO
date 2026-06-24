@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -32,8 +32,7 @@ import { PropertyCard } from '../command/PropertyCard'
 import { UnifiedTimeline } from '../command/UnifiedTimeline'
 import { QualificationSnapshot } from '../command/QualificationSnapshot'
 import { MissingDocuments } from '../command/MissingDocuments'
-import { CommunicationActions } from '@/features/communications/components/CommunicationActions'
-import { LastContactCard } from '@/features/communications/components/LastContactCard'
+import { moveRecord } from '@/features/records/actions'
 import { getLastContactedAt, daysSince, getContactHealth } from '@/features/communications/metrics'
 import type { ContactHealth } from '@/features/communications/types'
 import type { WorkspaceTabKey, NoteRow, TimelineItem } from '../types'
@@ -490,7 +489,6 @@ function WorkspaceContent({
                   <CommandRail
                     recordId={recordId}
                     data={data}
-                    timeline={timeline}
                     signals={signals}
                     onChanged={load}
                   />
@@ -548,7 +546,6 @@ function WorkspaceContent({
                 <CommandRail
                   recordId={recordId}
                   data={data}
-                  timeline={timeline}
                   signals={signals}
                   onChanged={load}
                 />
@@ -577,18 +574,18 @@ function initials(title?: string | null): string {
 // sidebar AND inline on mobile (the reflow) so the next move is never hidden.
 // Pure composition over already-loaded data + existing components.
 function CommandRail({
-  recordId, data, timeline, signals, onChanged,
+  recordId, data, signals, onChanged,
 }: {
   recordId: string
   data: Loaded
-  timeline: TimelineItem[]
   signals: any[]
   onChanged: () => void
 }) {
   const isMort = hasMortgageTemplate(data)
+  const openTaskCount = data.tasks.filter((t: any) => !t.completed_at).length
   return (
     <div className="flex flex-col gap-4">
-      {/* Next Action — the dominant element. A subtle premium frame lifts it
+      {/* Next Step — the dominant element. A subtle premium frame lifts it
           above the rest without competing with its own state border. */}
       <div className="premium-surface rounded-xl">
         <NextActionCard
@@ -602,17 +599,93 @@ function CommandRail({
       {/* Needs Attention — ranked signals (mortgage templates only for now). */}
       {isMort && <OpportunitySignals signals={signals} />}
 
-      <CommunicationActions recordId={recordId} onChanged={onChanged} />
-      <LastContactCard logs={data.communications} />
-
-      <SidebarSection title="Upcoming Tasks">
+      {/* Tasks — open task preview (full management in the Tasks tab). */}
+      <SidebarSection title={`Tasks${openTaskCount > 0 ? ` · ${openTaskCount}` : ''}`}>
         <UpcomingTasks tasks={data.tasks} />
       </SidebarSection>
 
-      <SidebarSection title="Recent Activity">
-        <CompactTimeline items={timeline.slice(0, 5)} />
-      </SidebarSection>
+      {/* Related — only renders when the board carries relation/user fields. */}
+      <RelatedPanel data={data} />
+
+      {/* Move To — stage selector reusing existing move logic (RPC + workflows). */}
+      <MoveToControl
+        recordId={recordId}
+        boardId={data.record.board_id}
+        groups={data.groups}
+        currentGroupId={data.record.group_id ?? null}
+        onMoved={onChanged}
+      />
     </div>
+  )
+}
+
+// ── Related + Move To (Phase 10.4) ─────────────────────────────────────────
+// Related: surfaces relation/user-type FIELDS that already carry a readable
+// value — no participant engine exists, so it collapses when there's no such
+// data. Move To: a stage selector over the board's existing groups; selecting a
+// stage calls the existing moveRecord (move_record RPC + workflow dispatch).
+function RelatedPanel({ data }: { data: Loaded }) {
+  const related = (data.fields ?? [])
+    .filter((f: any) => f.field_type === 'relation' || f.field_type === 'user')
+    .map((f: any) => {
+      const fv = data.fieldValues.find((v: any) => v.field_id === f.id)
+      const value = (fv?.value_text ?? '').toString().trim()
+      return { name: f.name as string, value }
+    })
+    .filter((r) => r.value && !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(r.value)) // hide raw UUIDs
+
+  if (related.length === 0) return null
+  return (
+    <SidebarSection title="Related">
+      <div className="space-y-1">
+        {related.map((r) => (
+          <div key={r.name} className="flex items-center justify-between gap-2 text-xs">
+            <span className="flex-shrink-0 text-muted-foreground">{r.name}</span>
+            <span className="truncate text-foreground">{r.value}</span>
+          </div>
+        ))}
+      </div>
+    </SidebarSection>
+  )
+}
+
+function MoveToControl({
+  recordId, boardId, groups, currentGroupId, onMoved,
+}: {
+  recordId: string
+  boardId: string
+  groups: any[]
+  currentGroupId: string | null
+  onMoved: () => void
+}) {
+  const [pending, startTransition] = useTransition()
+  const sorted = useMemo(() => [...groups].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)), [groups])
+  if (sorted.length < 2) return null
+
+  const onSelect = (toGroupId: string) => {
+    if (!toGroupId || toGroupId === currentGroupId) return
+    startTransition(async () => {
+      try { await moveRecord(recordId, toGroupId, boardId) } catch {}
+      onMoved()
+    })
+  }
+
+  return (
+    <SidebarSection title="Move to stage">
+      <select
+        value={currentGroupId ?? ''}
+        onChange={(e) => onSelect(e.target.value)}
+        disabled={pending}
+        className="w-full rounded-lg border border-border bg-surface-1 px-2.5 py-1.5 text-xs text-foreground transition-colors hover:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+        aria-label="Move to stage"
+      >
+        {currentGroupId == null && <option value="">Select a stage…</option>}
+        {sorted.map((g) => (
+          <option key={g.id} value={g.id}>{g.name}</option>
+        ))}
+      </select>
+      {pending && <p className="mt-1 text-2xs text-muted-foreground">Moving…</p>}
+    </SidebarSection>
   )
 }
 
@@ -741,18 +814,3 @@ function UpcomingTasks({ tasks }: { tasks: any[] }) {
   )
 }
 
-function CompactTimeline({ items }: { items: TimelineItem[] }) {
-  if (items.length === 0) {
-    return <p className="text-2xs text-muted-foreground italic">No recent activity.</p>
-  }
-  return (
-    <div className="space-y-1">
-      {items.map(item => (
-        <div key={`${item.type}-${item.id}`} className="text-2xs text-muted-foreground">
-          <span className="text-foreground">{item.actor_name ?? 'System'}</span>{' '}
-          <span>{item.activity_type.replace('_', ' ')}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
