@@ -165,9 +165,19 @@ function TimelineRow({ item, los }: { item: TimelineItem; los?: boolean }) {
           </span>
         </div>
         {item.content && (
-          <p className={cn('text-xs line-clamp-3 whitespace-pre-wrap', los ? 'text-jubo-text-soft' : 'text-muted-foreground')}>
-            {item.content}
-          </p>
+          los && (item.activity_type === 'sms' || item.activity_type === 'email') ? (
+            // Warm chat bubble for messages — inbound tan, outbound light/cool.
+            <div className={cn('mt-1 inline-block max-w-[88%] rounded-2xl px-3 py-1.5 text-xs text-jubo-text',
+              meta?.direction === 'outbound'
+                ? 'rounded-tr-sm border border-jubo-border bg-jubo-card'
+                : 'rounded-tl-sm bg-jubo-card-soft')}>
+              {item.content}
+            </div>
+          ) : (
+            <p className={cn('text-xs line-clamp-3 whitespace-pre-wrap', los ? 'text-jubo-text-soft' : 'text-muted-foreground')}>
+              {item.content}
+            </p>
+          )
         )}
       </div>
     </div>

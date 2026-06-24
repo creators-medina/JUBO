@@ -34,7 +34,7 @@ export function CommunicateView({ recordId, organizationId }: { recordId: string
     <div className="space-y-4">
       {/* Contact identity */}
       <div className="rounded-xl border border-border bg-card p-3">
-        <p className="mb-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Contact</p>
+        <p className="mb-1.5 jubo-los-section-label">Contact</p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           <span className="flex items-center gap-1.5"><Phone className="h-3 w-3 text-muted-foreground" />{ctx.phone || <span className="text-muted-foreground">No phone</span>}</span>
           <span className="flex items-center gap-1.5"><Mail className="h-3 w-3 text-muted-foreground" />{ctx.email || <span className="text-muted-foreground">No email</span>}</span>
@@ -43,7 +43,7 @@ export function CommunicateView({ recordId, organizationId }: { recordId: string
 
       {/* SMS — the one real channel */}
       <div className="rounded-xl border border-border bg-card p-3">
-        <p className="mb-2 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <p className="mb-2 flex items-center gap-1.5 jubo-los-section-label">
           <MessageSquare className="h-3 w-3" /> Text messages
         </p>
 
@@ -61,7 +61,7 @@ export function CommunicateView({ recordId, organizationId }: { recordId: string
               ) : (
                 ctx.messages.map((m) => (
                   <div key={m.id} className={cn('flex', m.direction === 'outbound' ? 'justify-end' : 'justify-start')}>
-                    <div className={cn('max-w-[80%] rounded-lg px-2.5 py-1.5 text-xs', m.direction === 'outbound' ? 'bg-primary/15 text-foreground' : 'bg-surface-2 text-foreground')}>
+                    <div className={cn('max-w-[80%] rounded-2xl px-2.5 py-1.5 text-xs text-jubo-text', m.direction === 'outbound' ? 'rounded-tr-sm border border-jubo-border bg-jubo-card' : 'rounded-tl-sm bg-jubo-card-soft')}>
                       <span className="mb-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
                         {m.direction === 'outbound' ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownLeft className="h-2.5 w-2.5" />}
                         {m.occurred_at?.split('T')[0]}
@@ -80,13 +80,13 @@ export function CommunicateView({ recordId, organizationId }: { recordId: string
 
       {/* Notes + @mentions (real) */}
       <div className="rounded-xl border border-border bg-card p-3">
-        <p className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Notes</p>
+        <p className="mb-2 jubo-los-section-label">Notes</p>
         <NoteList organizationId={organizationId} recordId={recordId} notes={ctx.notes} currentUserId={ctx.currentUserId} members={ctx.members} />
       </div>
 
       {/* Call / Email — honest log-only */}
       <div className="rounded-xl border border-border bg-card p-3">
-        <p className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Log call / email</p>
+        <p className="mb-2 jubo-los-section-label">Log call / email</p>
         <div className="mb-2 flex flex-wrap gap-2 text-xs">
           {ctx.phone && <a href={`tel:${ctx.phone}`} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 hover:bg-surface-1"><Phone className="h-3 w-3" /> Call {ctx.phone}</a>}
           {ctx.email && <a href={`mailto:${ctx.email}`} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 hover:bg-surface-1"><Mail className="h-3 w-3" /> Email {ctx.email}</a>}

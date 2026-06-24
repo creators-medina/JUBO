@@ -106,7 +106,7 @@ export function UnifiedTimeline({
             className={cn(
               'rounded-full px-2.5 py-1 text-2xs font-medium transition-colors',
               filter === f.key
-                ? 'bg-jubo-red text-white'
+                ? 'bg-jubo-navy text-white'
                 : 'bg-jubo-card-soft text-jubo-text-soft hover:text-jubo-text',
             )}
           >
