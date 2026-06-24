@@ -38,6 +38,25 @@
   --color-surface-2: var(--surface-2);
   --color-surface-3: var(--surface-3);
 
+  /* Jubo LOS tokens (Phase 1) — usable as bg-jubo-navy, text-jubo-text,
+     border-jubo-border, etc. Additive; does not replace existing colors. */
+  --color-jubo-navy:          var(--jubo-navy);
+  --color-jubo-navy2:         var(--jubo-navy-2);
+  --color-jubo-cream-bg:      var(--jubo-cream-bg);
+  --color-jubo-card:          var(--jubo-card);
+  --color-jubo-card-soft:     var(--jubo-card-soft);
+  --color-jubo-border:        var(--jubo-border);
+  --color-jubo-border-strong: var(--jubo-border-strong);
+  --color-jubo-red:           var(--jubo-red);
+  --color-jubo-red-dark:      var(--jubo-red-dark);
+  --color-jubo-gold:          var(--jubo-gold);
+  --color-jubo-gold-soft:     var(--jubo-gold-soft);
+  --color-jubo-green:         var(--jubo-green);
+  --color-jubo-green-soft:    var(--jubo-green-soft);
+  --color-jubo-muted:         var(--jubo-muted);
+  --color-jubo-text:          var(--jubo-text);
+  --color-jubo-text-soft:     var(--jubo-text-soft);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -127,6 +146,28 @@
   --accent-green:  oklch(0.72 0.15 155);
   --accent-amber:  oklch(0.80 0.13 75);
   --accent-rose:   oklch(0.72 0.18 8);
+
+  /* ───────────────────────────────────────────────────────────────────────
+     Jubo LOS visual foundation (Phase 1) — warm mortgage-LOS palette. Added as
+     an ADDITIVE layer (raw hex), surfaced as Tailwind tokens (jubo-*) and a few
+     opt-in helper classes below. Nothing here is wired into the global theme
+     yet, so existing (dark) screens are unaffected; Phase 2 adopts these. */
+  --jubo-navy:          #0f1d3d;
+  --jubo-navy-2:        #13244a;
+  --jubo-cream-bg:      #fbf7ef;
+  --jubo-card:          #fffdfa;
+  --jubo-card-soft:     #f7efe3;
+  --jubo-border:        #eadcc6;
+  --jubo-border-strong: #d9c7aa;
+  --jubo-red:           #a64f4f;
+  --jubo-red-dark:      #873f3f;
+  --jubo-gold:          #c79243;
+  --jubo-gold-soft:     #f1dfbd;
+  --jubo-green:         #5f8a68;
+  --jubo-green-soft:    #e4efe5;
+  --jubo-muted:         #9a8269;
+  --jubo-text:          #1d1d1d;
+  --jubo-text-soft:     #66584a;
 
   /* Shadcn sidebar compat */
   --sidebar: oklch(0.13 0.018 255);
@@ -391,3 +432,48 @@
 @media (prefers-reduced-motion: reduce) {
   .premium-hover { transition: none; }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Jubo LOS helper classes (Phase 1) — OPT-IN building blocks for the warm
+   mortgage-LOS look. Not applied globally; Phase 2 components use them. Each is
+   self-contained (sets its own bg + text + border) so it reads correctly even
+   though the app's default theme is dark.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Warm cream page canvas (apply to a workspace/page root, not <body>). */
+.jubo-los-page {
+  background-color: var(--jubo-cream-bg);
+  color: var(--jubo-text);
+}
+
+/* Cream/white card with a muted tan border. */
+.jubo-los-card {
+  background-color: var(--jubo-card);
+  border: 1px solid var(--jubo-border);
+  border-radius: 0.75rem;
+  color: var(--jubo-text);
+}
+
+/* Muted-gold uppercase section label (e.g. "LOAN", "PROPERTY"). */
+.jubo-los-section-label {
+  color: var(--jubo-gold);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Deep navy command surface (header / hero panels). */
+.jubo-los-navy-panel {
+  background-color: var(--jubo-navy);
+  color: #fffdfa;
+}
+
+/* Dusty-red primary action. */
+.jubo-los-primary-action {
+  background-color: var(--jubo-red);
+  color: #fffdfa;
+  border: 1px solid var(--jubo-red);
+  transition: background-color 0.15s ease;
+}
+.jubo-los-primary-action:hover { background-color: var(--jubo-red-dark); }
