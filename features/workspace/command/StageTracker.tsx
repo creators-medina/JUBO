@@ -41,13 +41,13 @@ export function StageTracker({ groups, currentGroupId }: { groups: Stage[]; curr
                 {done ? <Check className="h-3.5 w-3.5" /> : i + 1}
               </span>
               {current && (
-                <span className="whitespace-nowrap text-sm font-semibold text-foreground">{g.name}</span>
+                <span className="whitespace-nowrap text-sm font-bold tracking-tight text-foreground">{g.name}</span>
               )}
             </div>
             {i < stages.length - 1 && (
               <span
                 aria-hidden
-                className={cn('h-0.5 w-6 flex-shrink-0 rounded-full', i < currentIdx ? 'bg-emerald-500/70' : 'bg-surface-2')}
+                className={cn('h-0.5 w-7 flex-shrink-0 rounded-full sm:w-9', i < currentIdx ? 'bg-emerald-500/70' : 'bg-surface-2')}
               />
             )}
           </Fragment>

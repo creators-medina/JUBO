@@ -248,12 +248,12 @@ function WorkspaceContent({
       <div className="relative w-full md:max-w-[min(72rem,92vw)] bg-background border-l border-border flex flex-col h-full shadow-2xl">
         {/* Header — borrower identity (left) + quick actions (right). Phase 10.1
             command-center bar; the stage tracker lives in its own bar below. */}
-        <header className="flex items-center justify-between gap-3 px-5 py-3 border-b border-border bg-gradient-to-r from-surface-2/60 via-surface-1/60 to-surface-0 flex-shrink-0">
+        <header className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-border bg-gradient-to-b from-surface-2 to-surface-1 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             {loading ? (
               <div className="h-10 w-10 rounded-lg bg-surface-2 animate-pulse flex-shrink-0" />
             ) : (
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-semibold text-primary">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground shadow-sm">
                 {initials(data?.record?.title)}
               </div>
             )}
@@ -261,7 +261,7 @@ function WorkspaceContent({
               {loading ? (
                 <div className="h-6 w-56 bg-surface-2 rounded animate-pulse" />
               ) : (
-                <h2 className="text-lg font-semibold tracking-tight text-foreground truncate">{data?.record?.title ?? 'Record'}</h2>
+                <h2 className="text-xl font-bold tracking-tight text-foreground truncate">{data?.record?.title ?? 'Record'}</h2>
               )}
               {data && (
                 <p className="mt-0.5 truncate text-2xs text-muted-foreground">
@@ -272,30 +272,31 @@ function WorkspaceContent({
           </div>
 
           <div className="flex items-center gap-0.5 flex-shrink-0">
-            {/* Quick actions — reuse existing surfaces (no new comm logic). */}
+            {/* Quick actions — defined cluster; call is the accented primary
+                action (reuses existing surfaces, no new comm logic). */}
             {phone && (
               <a
                 href={`tel:${phone}`}
                 title="Call"
-                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
+                className="rounded-lg bg-primary p-2 text-primary-foreground shadow-sm transition-[filter] hover:brightness-110"
               >
                 <Phone className="h-4 w-4" />
               </a>
             )}
             <button onClick={() => onSubTabChange('communicate')} title="Message"
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+              className="rounded-lg bg-surface-2/70 p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
               <MessageSquare className="h-4 w-4" />
             </button>
             <button onClick={() => onSubTabChange('communicate')} title="Email"
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+              className="rounded-lg bg-surface-2/70 p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
               <Mail className="h-4 w-4" />
             </button>
             <button onClick={() => onSubTabChange('tasks')} title="Tasks & follow-up"
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+              className="rounded-lg bg-surface-2/70 p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
               <CalendarDays className="h-4 w-4" />
             </button>
 
-            <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+            <span className="mx-1.5 h-5 w-px bg-border" aria-hidden />
 
             {/* Overflow — existing move / open-in-board / close. */}
             {data?.record?.board_id && (
@@ -319,7 +320,7 @@ function WorkspaceContent({
 
         {/* Stage tracker bar — the loan lifecycle, prominent + always near top. */}
         {data && (
-          <div className="flex-shrink-0 border-b border-border bg-surface-0/40 px-5 py-2.5">
+          <div className="flex flex-shrink-0 justify-start border-b border-border bg-surface-0/50 px-5 py-3 sm:justify-center">
             <StageTracker groups={data.groups} currentGroupId={data.record.group_id ?? null} />
           </div>
         )}
