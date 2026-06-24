@@ -10,7 +10,7 @@ interface TopHeaderProps {
 
 export function TopHeader({ title }: TopHeaderProps) {
   return (
-    <header className="flex items-center h-12 px-4 border-b border-border bg-background flex-shrink-0 gap-3">
+    <header className="jubo-navy-chrome flex items-center h-12 px-4 border-b border-border bg-background flex-shrink-0 gap-3">
       {title && (
         <h1 className="text-sm font-semibold text-foreground">{title}</h1>
       )}

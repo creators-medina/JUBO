@@ -90,53 +90,54 @@
   to { height: 0; }
 }
 
-/* Dark theme — always on (no light mode) */
+/* Jubo LOS — warm light theme app-wide. Surfaces/borders/neutral text use the
+   warm LOS palette; the sidebar/top-bar are re-themed navy via .jubo-navy-chrome.
+   (Raw --jubo-* values are defined further down in this same :root block and
+   resolve fine at use-time regardless of order.) */
 :root {
   /* Base */
-  --background: oklch(0.148 0.018 255);
-  --foreground: oklch(0.92 0.012 255);
+  --background: var(--jubo-cream-bg);
+  --foreground: var(--jubo-text);
 
   /* Card / popover */
-  --card: oklch(0.175 0.016 255);
-  --card-foreground: oklch(0.92 0.012 255);
-  --popover: oklch(0.165 0.016 255);
-  --popover-foreground: oklch(0.92 0.012 255);
+  --card: var(--jubo-card);
+  --card-foreground: var(--jubo-text);
+  --popover: var(--jubo-card);
+  --popover-foreground: var(--jubo-text);
 
   /* Brand */
-  --primary: oklch(0.65 0.19 260);
-  --primary-foreground: oklch(0.148 0.018 255);
+  --primary: var(--jubo-red);
+  --primary-foreground: #fffdfa;
 
   /* Neutrals */
-  --secondary: oklch(0.22 0.014 255);
-  --secondary-foreground: oklch(0.92 0.012 255);
-  --muted: oklch(0.205 0.014 255);
-  --muted-foreground: oklch(0.55 0.016 255);
-  --accent: oklch(0.22 0.014 255);
-  --accent-foreground: oklch(0.92 0.012 255);
+  --secondary: var(--jubo-card-soft);
+  --secondary-foreground: var(--jubo-text);
+  --muted: var(--jubo-card-soft);
+  --muted-foreground: var(--jubo-muted);
+  --accent: var(--jubo-card-soft);
+  --accent-foreground: var(--jubo-text);
 
   /* Semantic */
-  --destructive: oklch(0.58 0.22 25);
-  /* Phase 36C — borders carry a touch more light + blue chroma so surfaces read
-     as defined edges, not flat fills. Subtle, app-wide lift. */
-  --border: oklch(0.245 0.022 262);
-  --input: oklch(0.235 0.018 262);
-  --ring: oklch(0.65 0.19 260);
+  --destructive: var(--jubo-red);
+  --border: var(--jubo-border);
+  --input: var(--jubo-border);
+  --ring: var(--jubo-red);
 
   /* Radius */
   --radius: 0.5rem;
 
-  /* Sidebar */
-  --sidebar-bg: oklch(0.13 0.018 255);
-  --sidebar-border: oklch(0.195 0.014 255);
-  --sidebar-item: oklch(1 0 0);
-  --sidebar-item-hover: oklch(0.205 0.014 255);
-  --sidebar-item-active: oklch(0.235 0.014 255);
+  /* Sidebar — navy command frame (kept dark; text light). */
+  --sidebar-bg: var(--jubo-navy);
+  --sidebar-border: var(--jubo-navy-2);
+  --sidebar-item: #fffdfa;
+  --sidebar-item-hover: rgba(255, 255, 255, 0.08);
+  --sidebar-item-active: rgba(255, 255, 255, 0.12);
 
   /* Surfaces */
-  --surface-0: oklch(0.148 0.018 255);
-  --surface-1: oklch(0.175 0.016 255);
-  --surface-2: oklch(0.205 0.014 255);
-  --surface-3: oklch(0.22 0.014 255);
+  --surface-0: var(--jubo-cream-bg);
+  --surface-1: var(--jubo-card);
+  --surface-2: var(--jubo-card-soft);
+  --surface-3: var(--jubo-border);
 
   /* Phase 36C — shared accent palette. One source of truth for chips, soft
      glows, and stage/status accents so color isn't hardcoded per component. */
@@ -169,14 +170,14 @@
   --jubo-text:          #1d1d1d;
   --jubo-text-soft:     #66584a;
 
-  /* Shadcn sidebar compat */
-  --sidebar: oklch(0.13 0.018 255);
-  --sidebar-foreground: oklch(0.92 0.012 255);
-  --sidebar-primary: oklch(0.65 0.19 260);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.22 0.014 255);
-  --sidebar-accent-foreground: oklch(0.92 0.012 255);
-  --sidebar-ring: oklch(0.65 0.19 260);
+  /* Shadcn sidebar compat — navy frame. */
+  --sidebar: var(--jubo-navy);
+  --sidebar-foreground: #fffdfa;
+  --sidebar-primary: var(--jubo-red);
+  --sidebar-primary-foreground: #fffdfa;
+  --sidebar-accent: var(--jubo-navy-2);
+  --sidebar-accent-foreground: #fffdfa;
+  --sidebar-ring: var(--jubo-red);
 
   /* Chart placeholders */
   --chart-1: oklch(0.65 0.19 260);
@@ -193,13 +194,6 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
-    /* Phase 36C — ambient color wash: a faint violet (top-right) + blue
-       (bottom-left) glow over the flat base, so the whole app feels alive,
-       not dark-flat. Static, layered above the base background-color. */
-    background-image:
-      radial-gradient(115% 80% at 100% 0%, oklch(0.66 0.19 290 / 0.06), transparent 55%),
-      radial-gradient(115% 80% at 0% 100%, oklch(0.66 0.16 250 / 0.05), transparent 55%);
-    background-attachment: fixed;
   }
   html {
     @apply font-sans;
@@ -510,4 +504,35 @@
   --surface-3: var(--jubo-border);
   background-color: var(--jubo-cream-bg);
   color: var(--jubo-text);
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Jubo navy chrome — re-themes a subtree (sidebar / top bar) to the deep navy
+   command surface with light text, by overriding the same semantic tokens. Lets
+   the dark navy frame coexist with the warm cream content without per-component
+   edits.
+   ─────────────────────────────────────────────────────────────────────────── */
+.jubo-navy-chrome {
+  --background: var(--jubo-navy);
+  --foreground: #fffdfa;
+  --card: var(--jubo-navy-2);
+  --card-foreground: #fffdfa;
+  --popover: var(--jubo-navy-2);
+  --popover-foreground: #fffdfa;
+  --primary: var(--jubo-red);
+  --primary-foreground: #fffdfa;
+  --secondary: var(--jubo-navy-2);
+  --secondary-foreground: #fffdfa;
+  --muted: var(--jubo-navy-2);
+  --muted-foreground: rgba(255, 255, 255, 0.6);
+  --accent: var(--jubo-navy-2);
+  --accent-foreground: #fffdfa;
+  --border: rgba(255, 255, 255, 0.12);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: var(--jubo-red);
+  --surface-0: var(--jubo-navy);
+  --surface-1: var(--jubo-navy-2);
+  --surface-2: rgba(255, 255, 255, 0.06);
+  --surface-3: rgba(255, 255, 255, 0.12);
+  color: #fffdfa;
 }
