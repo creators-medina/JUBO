@@ -244,26 +244,26 @@ function WorkspaceContent({
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full md:max-w-[min(72rem,92vw)] bg-background border-l border-border flex flex-col h-full shadow-2xl">
-        {/* Header — borrower identity (left) + quick actions (right). Phase 10.1
-            command-center bar; the stage tracker lives in its own bar below. */}
-        <header className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-border bg-gradient-to-b from-surface-2 to-surface-1 flex-shrink-0">
+        {/* Header — borrower identity (left) + quick actions (right). Phase 2A:
+            deep-navy LOS command bar; the stage tracker continues it below. */}
+        <header className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-jubo-navy2 bg-jubo-navy flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             {loading ? (
-              <div className="h-10 w-10 rounded-lg bg-surface-2 animate-pulse flex-shrink-0" />
+              <div className="h-10 w-10 rounded-lg bg-white/10 animate-pulse flex-shrink-0" />
             ) : (
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground shadow-sm">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-jubo-red text-sm font-semibold text-white shadow-sm">
                 {initials(data?.record?.title)}
               </div>
             )}
             <div className="min-w-0">
               {loading ? (
-                <div className="h-6 w-56 bg-surface-2 rounded animate-pulse" />
+                <div className="h-6 w-56 bg-white/10 rounded animate-pulse" />
               ) : (
-                <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-foreground">
+                <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-white">
                   {data && (
                     <span
                       className="h-2 w-2 flex-shrink-0 rounded-full"
-                      style={{ backgroundColor: contactHealth === 'healthy' ? 'var(--accent-green)' : contactHealth === 'warming' ? 'var(--accent-amber)' : contactHealth === 'stale' ? 'var(--accent-rose)' : 'var(--surface-3)' }}
+                      style={{ backgroundColor: contactHealth === 'healthy' ? 'var(--jubo-green)' : contactHealth === 'warming' ? 'var(--jubo-gold)' : contactHealth === 'stale' ? 'var(--jubo-red)' : 'rgba(255,255,255,0.3)' }}
                       title={`Contact health: ${contactHealth}`}
                       aria-hidden
                     />
@@ -272,63 +272,63 @@ function WorkspaceContent({
                 </h2>
               )}
               {data && (
-                <p className="mt-0.5 truncate text-2xs text-muted-foreground">
-                  {roleLabel}{phone ? <> · <span className="tabular-nums text-foreground/80">{phone}</span></> : null}
+                <p className="mt-0.5 truncate text-2xs text-jubo-gold-soft/70">
+                  {roleLabel}{phone ? <> · <span className="tabular-nums text-white/80">{phone}</span></> : null}
                 </p>
               )}
             </div>
           </div>
 
           <div className="flex items-center gap-0.5 flex-shrink-0">
-            {/* Quick actions — defined cluster; call is the accented primary
-                action (reuses existing surfaces, no new comm logic). */}
+            {/* Quick actions — Call is the dusty-red primary; the rest are navy
+                surface buttons. Handlers/behaviour unchanged. */}
             {phone && (
               <a
                 href={`tel:${phone}`}
                 title="Call"
-                className="rounded-lg bg-primary p-2 text-primary-foreground shadow-sm transition-[filter] hover:brightness-110"
+                className="rounded-lg bg-jubo-red p-2 text-white shadow-sm transition-colors hover:bg-jubo-red-dark"
               >
                 <Phone className="h-4 w-4" />
               </a>
             )}
             <button onClick={() => onSubTabChange('communicate')} title="Message"
-              className="rounded-lg bg-surface-2/70 p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+              className="rounded-lg border border-white/10 bg-jubo-navy2 p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white">
               <MessageSquare className="h-4 w-4" />
             </button>
             <button onClick={() => onSubTabChange('communicate')} title="Email"
-              className="rounded-lg bg-surface-2/70 p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+              className="rounded-lg border border-white/10 bg-jubo-navy2 p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white">
               <Mail className="h-4 w-4" />
             </button>
             <button onClick={() => onSubTabChange('tasks')} title="Tasks & follow-up"
-              className="rounded-lg bg-surface-2/70 p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+              className="rounded-lg border border-white/10 bg-jubo-navy2 p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white">
               <CalendarDays className="h-4 w-4" />
             </button>
 
-            <span className="mx-1.5 h-5 w-px bg-border" aria-hidden />
+            <span className="mx-1.5 h-5 w-px bg-white/15" aria-hidden />
 
             {/* Overflow — existing move / open-in-board / close. */}
             {data?.record?.board_id && (
               <button onClick={() => setShowMove(true)} title="Move to another board"
-                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+                className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
                 <ArrowRightLeft className="h-4 w-4" />
               </button>
             )}
             {data?.record?.board_id && (
               <Link href={`/boards/${data.record.board_id}`} title="Open in board"
-                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+                className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
                 <Maximize2 className="h-4 w-4" />
               </Link>
             )}
             <button onClick={onClose} title="Close (esc)"
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+              className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
               <X className="h-4 w-4" />
             </button>
           </div>
         </header>
 
-        {/* Stage tracker bar — the loan lifecycle, prominent + always near top. */}
+        {/* Stage tracker bar — continues the navy LOS header. */}
         {data && (
-          <div className="flex flex-shrink-0 justify-start border-b border-border bg-surface-0/50 px-5 py-3 sm:justify-center">
+          <div className="flex flex-shrink-0 justify-start border-b border-jubo-navy2 bg-jubo-navy px-5 py-3 sm:justify-center">
             <StageTracker groups={data.groups} currentGroupId={data.record.group_id ?? null} />
           </div>
         )}
@@ -384,20 +384,23 @@ function WorkspaceContent({
               ))}
             </div>
           ) : activeSubTab === 'overview' ? (
-            // Phase 10.1 — three-column Borrower Command Center (Overview).
-            <div className="h-full overflow-y-auto p-5">
+            // Phase 2A — warm LOS loan-file workspace (Overview). The cream canvas
+            // + left LOS cards land now; center/right keep a dark backing until
+            // their own LOS pass (so their light text stays readable on cream).
+            <div className="jubo-los-page h-full overflow-y-auto p-5">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-[20rem_minmax(0,1fr)_20rem] items-start">
                 {/* LEFT — the loan file: Loan Snapshot, Property, Conditions. */}
                 <div className="space-y-4">
                   {isLoanLike ? <LoanSnapshot data={data as any} /> : <QualificationSnapshot data={data as any} />}
                   <PropertyCard data={data as any} />
                   {hasChecklistFields && (
-                    <section className="rounded-xl border border-border/60 bg-surface-1/30 p-3.5">
+                    <section className="jubo-los-card p-3.5">
                       <div className="mb-2.5 flex items-center gap-1.5">
-                        <ListChecks className="h-3.5 w-3.5 text-muted-foreground" />
-                        <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Conditions</p>
+                        <ListChecks className="h-3.5 w-3.5 text-jubo-gold" />
+                        <p className="jubo-los-section-label">Conditions</p>
                       </div>
                       <ChecklistView
+                        variant="los"
                         recordId={recordId}
                         boardId={data.record.board_id}
                         groupId={data.record.group_id ?? null}
@@ -407,9 +410,9 @@ function WorkspaceContent({
                     </section>
                   )}
                 </div>
-                {/* CENTER — the borrower story: unified timeline + composer (10.3),
-                    then the deeper file detail below. */}
-                <div className="space-y-4">
+                {/* CENTER — unified timeline (LOS pass is a later phase; dark
+                    backing keeps existing light text readable on cream). */}
+                <div className="space-y-4 rounded-xl bg-surface-0 p-3">
                   <UnifiedTimeline
                     timeline={timeline}
                     communications={data.communications}
@@ -423,8 +426,9 @@ function WorkspaceContent({
                   />
                   {hasMortgageTemplate(data) ? <MortgageWorkspace data={data} onChanged={load} /> : <OverviewView data={data} />}
                 </div>
-                {/* RIGHT — control rail (NextAction prioritized on mobile via order) */}
-                <div className="space-y-4 order-first lg:order-last lg:col-span-2 xl:order-none xl:col-span-1">
+                {/* RIGHT — control rail (LOS pass is a later phase; dark backing
+                    keeps existing light text readable on cream). */}
+                <div className="space-y-4 rounded-xl bg-surface-0 p-3 order-first lg:order-last lg:col-span-2 xl:order-none xl:col-span-1">
                   <CommandRail
                     recordId={recordId}
                     data={data}

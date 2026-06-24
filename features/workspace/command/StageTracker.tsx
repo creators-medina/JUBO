@@ -31,23 +31,23 @@ export function StageTracker({ groups, currentGroupId }: { groups: Stage[]; curr
                 className={cn(
                   'flex h-7 w-7 items-center justify-center rounded-full text-2xs font-semibold tabular-nums transition-colors',
                   done
-                    ? 'bg-emerald-500/90 text-white'
+                    ? 'bg-jubo-green text-white'
                     : current
-                      ? 'bg-primary text-primary-foreground ring-2 ring-primary/30'
-                      : 'bg-surface-2 text-muted-foreground',
+                      ? 'bg-jubo-red text-white ring-2 ring-jubo-red/30'
+                      : 'bg-jubo-navy2 text-white/45',
                 )}
                 aria-current={current ? 'step' : undefined}
               >
                 {done ? <Check className="h-3.5 w-3.5" /> : i + 1}
               </span>
               {current && (
-                <span className="whitespace-nowrap text-sm font-bold tracking-tight text-foreground">{g.name}</span>
+                <span className="whitespace-nowrap text-sm font-bold tracking-tight text-white">{g.name}</span>
               )}
             </div>
             {i < stages.length - 1 && (
               <span
                 aria-hidden
-                className={cn('h-0.5 w-7 flex-shrink-0 rounded-full sm:w-9', i < currentIdx ? 'bg-emerald-500/70' : 'bg-surface-2')}
+                className={cn('h-0.5 w-7 flex-shrink-0 rounded-full sm:w-9', i < currentIdx ? 'bg-jubo-green/70' : 'bg-white/15')}
               />
             )}
           </Fragment>

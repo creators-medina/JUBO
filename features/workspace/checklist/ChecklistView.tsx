@@ -14,6 +14,9 @@ interface Props {
   groupId: string | null
   fieldValues: FieldValue[]
   onChanged?: () => void
+  /** Phase 2A — 'los' renders the warm cream/tan styling for the left column;
+      'dark' (default) keeps the existing dark Checklist-tab styling. */
+  variant?: 'dark' | 'los'
 }
 
 /**
@@ -22,7 +25,8 @@ interface Props {
  * toggles the SAME field_values row the board grid uses, so both views stay in
  * sync. Completion = checked / total.
  */
-export function ChecklistView({ recordId, boardId, groupId, fieldValues, onChanged }: Props) {
+export function ChecklistView({ recordId, boardId, groupId, fieldValues, onChanged, variant = 'dark' }: Props) {
+  const los = variant === 'los'
   const [checklistFields, setChecklistFields] = useState<{ id: string; name: string }[] | null>(null)
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [, startTransition] = useTransition()
@@ -65,7 +69,7 @@ export function ChecklistView({ recordId, boardId, groupId, fieldValues, onChang
 
   if (checklistFields === null) {
     return (
-      <div className="flex items-center gap-2 py-6 text-xs text-muted-foreground">
+      <div className={cn('flex items-center gap-2 py-6 text-xs', los ? 'text-jubo-text-soft' : 'text-muted-foreground')}>
         <Loader2 className="h-4 w-4 animate-spin" /> Loading checklist…
       </div>
     )
@@ -73,11 +77,48 @@ export function ChecklistView({ recordId, boardId, groupId, fieldValues, onChang
 
   if (totalCount === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-border bg-card p-6 text-center">
-        <CheckSquare className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
-        <p className="text-xs text-muted-foreground">
+      <div className={cn('rounded-lg border border-dashed p-6 text-center', los ? 'border-jubo-border' : 'border-border bg-card')}>
+        <CheckSquare className={cn('mx-auto mb-2 h-5 w-5', los ? 'text-jubo-muted' : 'text-muted-foreground')} />
+        <p className={cn('text-xs', los ? 'text-jubo-text-soft' : 'text-muted-foreground')}>
           No checklist for this stage. Add a “Checklist item” field to this board to build one.
         </p>
+      </div>
+    )
+  }
+
+  // ── LOS variant — warm cream conditions list (left column). ──
+  if (los) {
+    const openCount = totalCount - completedCount
+    return (
+      <div>
+        <div className="mb-1 flex items-center justify-end">
+          <span className="rounded-full bg-jubo-gold-soft px-2 py-0.5 text-2xs font-semibold uppercase tracking-wider text-jubo-gold">
+            {openCount} open
+          </span>
+        </div>
+        <ul>
+          {items.map(({ field, complete }) => (
+            <li key={field.id} className="border-b border-jubo-border last:border-0">
+              <button
+                type="button"
+                onClick={() => toggle(field.id, complete)}
+                disabled={pendingId === field.id}
+                className="flex w-full items-center gap-2.5 py-2 text-left transition-colors hover:bg-jubo-card-soft disabled:opacity-60"
+              >
+                {pendingId === field.id ? (
+                  <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-jubo-muted" />
+                ) : complete ? (
+                  <CheckSquare className="h-4 w-4 flex-shrink-0 text-jubo-green" />
+                ) : (
+                  <Square className="h-4 w-4 flex-shrink-0 text-jubo-border-strong" />
+                )}
+                <span className={cn('flex-1 text-xs', complete ? 'text-jubo-muted line-through' : 'text-jubo-text')}>
+                  {field.name}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
     )
   }

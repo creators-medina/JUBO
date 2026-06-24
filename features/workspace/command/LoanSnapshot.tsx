@@ -12,10 +12,9 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { Landmark, Lock } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { textValue, numberValue, dateValue, formatCurrency, formatDate } from '@/features/mortgage/data'
 import type { MortgageData } from '@/features/mortgage/types'
-
-const ACCENT = 'var(--accent-violet)'
 
 function pct(data: MortgageData, slug: string): string | null {
   const n = numberValue(data, slug)
@@ -54,32 +53,38 @@ export function LoanSnapshot({ data }: { data: MortgageData }) {
   if (amount == null && !meta && tiles.length === 0 && !footer) return null
 
   return (
-    <section className="premium-card relative overflow-hidden rounded-xl p-3.5">
-      <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-0.5" style={{ background: `linear-gradient(90deg, ${ACCENT}, transparent)` }} />
+    <section className="jubo-los-card p-4">
       <div className="mb-2 flex items-center gap-1.5">
-        <Landmark className="h-3.5 w-3.5" style={{ color: ACCENT }} />
-        <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Loan</p>
+        <Landmark className="h-3.5 w-3.5 text-jubo-red" />
+        <p className="jubo-los-section-label">Loan</p>
       </div>
 
       {amount != null && (
-        <p className="text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground">{formatCurrency(amount)}</p>
+        <p className="text-3xl font-bold leading-none tracking-tight tabular-nums text-jubo-text">{formatCurrency(amount)}</p>
       )}
-      {meta && <p className="mt-1 text-xs text-muted-foreground">{meta}</p>}
+      {meta && <p className="mt-1.5 text-xs text-jubo-text-soft">{meta}</p>}
 
       {tiles.length > 0 && (
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {tiles.map((t) => (
-            <div key={t.label} className="rounded-lg bg-surface-1/70 px-3 py-2">
-              <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">{t.label}</p>
-              <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-foreground">{t.value}</p>
+        <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-lg border border-jubo-border">
+          {tiles.map((t, i) => (
+            <div
+              key={t.label}
+              className={cn(
+                'bg-jubo-card-soft px-3 py-2',
+                i % 2 === 0 && 'border-r border-jubo-border',
+                i >= 2 && 'border-t border-jubo-border',
+              )}
+            >
+              <p className="text-2xs font-medium uppercase tracking-wider text-jubo-muted">{t.label}</p>
+              <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-jubo-text">{t.value}</p>
             </div>
           ))}
         </div>
       )}
 
       {footer && (
-        <div className="mt-3 flex items-center gap-1.5 border-t border-border/60 pt-2.5 text-2xs text-muted-foreground">
-          <Lock className="h-3 w-3 flex-shrink-0" style={{ color: lock ? 'var(--accent-green)' : undefined }} />
+        <div className="mt-3 flex items-center gap-1.5 border-t border-jubo-border pt-2.5 text-2xs text-jubo-text-soft">
+          <Lock className="h-3 w-3 flex-shrink-0" style={{ color: lock ? 'var(--jubo-green)' : undefined }} />
           <span className="truncate">{footer}</span>
         </div>
       )}
