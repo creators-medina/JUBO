@@ -23,12 +23,9 @@ import { MortgageWorkspace, hasMortgageTemplate } from '@/features/mortgage/work
 import { computeOpportunitySignals } from '@/features/mortgage/scoring/opportunities'
 import { OpportunitySignals } from '@/features/mortgage/sections'
 import { resolveWorkspaceTemplate } from '@/features/mortgage/templates/resolve'
-import { isChecklistFieldType, isChecklistChecked } from '@/features/fields/checklist'
-import { formatRelativeTime } from '@/features/boards/components/KanbanCardFace'
-import { StatusRail, type StatusTile } from '../command/StatusRail'
+import { isChecklistFieldType } from '@/features/fields/checklist'
 import { StageTracker } from '../command/StageTracker'
-import { LoanSnapshot } from '../command/LoanSnapshot'
-import { PropertyCard } from '../command/PropertyCard'
+import { BorrowerIntelligenceHeader } from '../command/BorrowerIntelligenceHeader'
 import { UnifiedTimeline } from '../command/UnifiedTimeline'
 import { QualificationSnapshot } from '../command/QualificationSnapshot'
 import { MissingDocuments } from '../command/MissingDocuments'
@@ -219,7 +216,6 @@ function WorkspaceContent({
     return items.sort((a, b) => b.timestamp.localeCompare(a.timestamp))
   }, [data])
 
-  const groupName = data?.groups.find(g => g.id === data?.record?.group_id)?.name ?? '—'
   const isMortgage = data ? hasMortgageTemplate(data) : false
   const lastContactDays = data ? daysSince(getLastContactedAt(data.communications)) : null
   const contactHealth: ContactHealth = data ? getContactHealth(data.communications) : 'unknown'
@@ -231,73 +227,11 @@ function WorkspaceContent({
     return computeOpportunitySignals(data as any, resolveWorkspaceTemplate(data as any).key)
   }, [data, isMortgage])
 
-  // Phase 2 — Status Rail tiles, computed from already-loaded data only.
-  const statusTiles = useMemo<StatusTile[]>(() => {
-    if (!data) return []
-    const r = data.record
-
-    // STAGE — position of the record's group among the board's ordered groups.
-    const idx = data.groups.findIndex(g => g.id === r.group_id)
-    const stageValue = idx >= 0 ? `${idx + 1} / ${data.groups.length}` : '—'
-
-    // HEALTH — verdict word + recency, dot colored by contact health.
-    const healthVerdict = contactHealth === 'healthy' ? 'On track'
-      : contactHealth === 'warming' ? 'Cooling'
-      : contactHealth === 'stale' ? 'At risk'
-      : 'No contact'
-    const healthAccent = contactHealth === 'healthy' ? 'var(--accent-green)'
-      : contactHealth === 'warming' ? 'var(--accent-amber)'
-      : contactHealth === 'stale' ? 'var(--accent-rose)'
-      : 'var(--surface-3)'
-    const healthSub = lastContactDays == null ? 'no contact yet'
-      : lastContactDays === 0 ? 'today' : `${lastContactDays}d ago`
-
-    // NEXT — glance at the next-action due state (full hero lives in the rail).
-    const na = r.next_action as string | null
-    const due = r.next_action_due_at as string | null
-    const doneNa = r.next_action_completed_at as string | null
-    let nextValue = 'None', nextAccent = 'var(--surface-3)', nextSub: string | undefined
-    if (doneNa) { nextValue = 'Done'; nextAccent = 'var(--accent-green)'; nextSub = na ?? undefined }
-    else if (na) {
-      nextSub = na
-      if (due) {
-        const d = Math.ceil((new Date(due).getTime() - Date.now()) / 86400000)
-        if (d < 0) { nextValue = 'Overdue'; nextAccent = 'var(--accent-rose)' }
-        else if (d === 0) { nextValue = 'Today'; nextAccent = 'var(--accent-amber)' }
-        else if (d === 1) { nextValue = 'Tomorrow'; nextAccent = 'var(--primary)' }
-        else { nextValue = `${d}d`; nextAccent = 'var(--primary)' }
-      } else { nextValue = 'Scheduled'; nextAccent = 'var(--primary)' }
-    }
-
-    // MISSING — checklist completion from loaded fields/values (no new query).
-    const checklistFields = data.fields.filter((f: any) => isChecklistFieldType(f.field_type))
-    const fvByField = new Map<string, any>()
-    for (const fv of data.fieldValues) fvByField.set(fv.field_id, fv)
-    const total = checklistFields.length
-    const completed = checklistFields.filter((f: any) => isChecklistChecked(fvByField.get(f.id))).length
-    const missing = total - completed
-    const missingValue = total === 0 ? '—' : missing === 0 ? 'Complete' : `${missing} left`
-    const missingAccent = total === 0 ? 'var(--surface-3)' : missing === 0 ? 'var(--accent-green)' : 'var(--accent-amber)'
-    const missingSub = total === 0 ? 'No checklist' : `${completed}/${total} done`
-
-    // LAST ACTIVITY — freshness from the synthesized timeline.
-    const lastTs = timeline[0]?.timestamp
-    const lastValue = lastTs ? (formatRelativeTime(lastTs) || '—') : '—'
-
-    return [
-      { key: 'stage', label: 'Stage', value: stageValue, sub: groupName !== '—' ? groupName : undefined, accent: 'var(--accent-violet)' },
-      { key: 'health', label: 'Health', value: healthVerdict, sub: healthSub, accent: healthAccent, dot: true, pulse: true },
-      { key: 'next', label: 'Next', value: nextValue, sub: nextSub, accent: nextAccent },
-      { key: 'missing', label: 'Missing', value: missingValue, sub: missingSub, accent: missingAccent },
-      { key: 'activity', label: 'Last activity', value: lastValue, accent: 'var(--accent-cyan)' },
-    ]
-  }, [data, contactHealth, lastContactDays, groupName, timeline])
-
   // Phase 10.1 — header identity bits (role label + phone) from loaded data only.
   const template = data ? resolveWorkspaceTemplate(data as any) : null
   const roleLabel = template?.label ?? ''
-  // Phase 10.2 — left-column gating: loan-like records get the LoanSnapshot;
-  // checklist sections show only when the board actually has checklist fields.
+  // Phase 10.5 — loan-like records surface loan facts in the intelligence header;
+  // non-loan entities keep their Qualification snapshot in the left column.
   const isLoanLike = template?.key === 'loan' || template?.key === 'lead'
   const hasChecklistFields = !!data && data.fields.some((f: any) => isChecklistFieldType(f.field_type))
   const phone = useMemo(() => {
@@ -442,15 +376,23 @@ function WorkspaceContent({
           ) : activeSubTab === 'overview' ? (
             // Phase 10.1 — three-column Borrower Command Center (Overview).
             <div className="h-full overflow-y-auto p-5">
+              {/* Borrower Intelligence Header — the 3-second loan-file summary
+                  (Phase 10.5). Subsumes the old Status Rail + left Loan/Property. */}
               <div className="mb-4">
-                <StatusRail tiles={statusTiles} />
+                <BorrowerIntelligenceHeader
+                  data={data as any}
+                  signals={signals}
+                  isMortgage={isMortgage}
+                  contactHealth={contactHealth}
+                  lastContactDays={lastContactDays}
+                  roleLabel={roleLabel}
+                />
               </div>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-[20rem_minmax(0,1fr)_20rem] items-start">
-                {/* LEFT — borrower file summary (Phase 10.2):
-                    Loan Snapshot → Property → Checklist Progress → Conditions. */}
+                {/* LEFT — checklist (loan/property/facts now live in the header).
+                    Non-loan entities keep their Qualification snapshot here. */}
                 <div className="space-y-4">
-                  {isLoanLike ? <LoanSnapshot data={data as any} /> : <QualificationSnapshot data={data as any} />}
-                  <PropertyCard data={data as any} />
+                  {!isLoanLike && <QualificationSnapshot data={data as any} />}
                   <MissingDocuments data={data as any} onOpenChecklist={() => onSubTabChange('checklist')} />
                   {hasChecklistFields && (
                     <section className="rounded-xl border border-border/60 bg-surface-1/30 p-3.5">
