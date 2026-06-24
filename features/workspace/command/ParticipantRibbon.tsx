@@ -58,11 +58,11 @@ export function ParticipantRibbon({ data }: { data: MortgageData }) {
   ]
 
   return (
-    <section className="rounded-xl border border-border/60 bg-surface-1/30 p-3">
-      <p className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">File team</p>
+    <section className="jubo-los-card p-3.5">
+      <p className="jubo-los-section-label mb-2">File team</p>
       <div className="flex flex-wrap gap-2">
         {chips.map((c) => (
-          <div key={c.key} className="flex items-center gap-2 rounded-lg bg-surface-1/70 px-2.5 py-1.5">
+          <div key={c.key} className="flex items-center gap-2 rounded-lg bg-jubo-card-soft px-2.5 py-1.5">
             <span
               className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-2xs font-semibold text-white"
               style={{ backgroundColor: c.color }}
@@ -71,8 +71,8 @@ export function ParticipantRibbon({ data }: { data: MortgageData }) {
               {initials(c.name)}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-foreground">{c.name}</p>
-              <p className="truncate text-2xs text-muted-foreground">{c.role}{c.company ? ` · ${c.company}` : ''}</p>
+              <p className="truncate text-xs font-medium text-jubo-text">{c.name}</p>
+              <p className="truncate text-2xs text-jubo-text-soft">{c.role}{c.company ? ` · ${c.company}` : ''}</p>
             </div>
           </div>
         ))}

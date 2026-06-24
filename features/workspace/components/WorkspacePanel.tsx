@@ -426,9 +426,8 @@ function WorkspaceContent({
                   />
                   {hasMortgageTemplate(data) ? <MortgageWorkspace data={data} onChanged={load} /> : <OverviewView data={data} />}
                 </div>
-                {/* RIGHT — control rail (LOS pass is a later phase; dark backing
-                    keeps existing light text readable on cream). */}
-                <div className="space-y-4 rounded-xl bg-surface-0 p-3 order-first lg:order-last lg:col-span-2 xl:order-none xl:col-span-1">
+                {/* RIGHT — control rail (LOS): navy Next Step + cream sections. */}
+                <div className="space-y-4 order-first lg:order-last lg:col-span-2 xl:order-none xl:col-span-1">
                   <CommandRail
                     recordId={recordId}
                     data={data}
@@ -528,31 +527,28 @@ function CommandRail({
   const topSignals = isMort ? signals.slice(0, 3) : []
   return (
     <div className="flex flex-col gap-4">
-      {/* Next Step — the dominant element, with a compact signals subsection
-          directly beneath so attention supports (not competes with) it. */}
-      <div className="premium-surface overflow-hidden rounded-xl">
-        <NextActionCard
-          recordId={recordId}
-          nextAction={data.record.next_action ?? null}
-          nextActionDueAt={data.record.next_action_due_at ?? null}
-          nextActionCompletedAt={data.record.next_action_completed_at ?? null}
-        />
-        {topSignals.length > 0 && (
-          <div className="space-y-1 border-t border-border/60 px-3 py-2">
-            {topSignals.map((s: any) => (
-              <div key={s.key} className="flex items-center gap-1.5 text-2xs">
-                <span
-                  className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                  style={{ backgroundColor: s.level === 'urgent' ? 'var(--accent-rose)' : s.level === 'warning' ? 'var(--accent-amber)' : s.level === 'positive' ? 'var(--accent-green)' : 'var(--muted-foreground)' }}
-                  aria-hidden
-                />
-                <span className="truncate text-foreground">{s.label}</span>
-                {s.detail && <span className="ml-auto flex-shrink-0 text-muted-foreground">{s.detail}</span>}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Next Step — the dominant navy card; compact signals support it below. */}
+      <NextActionCard
+        recordId={recordId}
+        nextAction={data.record.next_action ?? null}
+        nextActionDueAt={data.record.next_action_due_at ?? null}
+        nextActionCompletedAt={data.record.next_action_completed_at ?? null}
+      />
+      {topSignals.length > 0 && (
+        <div className="jubo-los-card space-y-1 px-3 py-2.5">
+          {topSignals.map((s: any) => (
+            <div key={s.key} className="flex items-center gap-1.5 text-2xs">
+              <span
+                className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                style={{ backgroundColor: s.level === 'urgent' ? 'var(--jubo-red)' : s.level === 'warning' ? 'var(--jubo-gold)' : s.level === 'positive' ? 'var(--jubo-green)' : 'var(--jubo-muted)' }}
+                aria-hidden
+              />
+              <span className="truncate text-jubo-text">{s.label}</span>
+              {s.detail && <span className="ml-auto flex-shrink-0 text-jubo-muted">{s.detail}</span>}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Tasks — open task preview (full management in the Tasks tab). */}
       <SidebarSection title={`Tasks${openTaskCount > 0 ? ` · ${openTaskCount}` : ''}`}>
@@ -605,7 +601,7 @@ function MoveToControl({
         value={currentGroupId ?? ''}
         onChange={(e) => onSelect(e.target.value)}
         disabled={pending}
-        className="w-full rounded-lg border border-border bg-surface-1 px-2.5 py-1.5 text-xs text-foreground transition-colors hover:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+        className="w-full rounded-lg border border-jubo-border bg-jubo-card px-2.5 py-1.5 text-xs text-jubo-text transition-colors hover:border-jubo-border-strong focus:outline-none focus:ring-1 focus:ring-jubo-red disabled:opacity-60"
         aria-label="Move to stage"
       >
         {currentGroupId == null && <option value="">Select a stage…</option>}
@@ -613,7 +609,7 @@ function MoveToControl({
           <option key={g.id} value={g.id}>{g.name}</option>
         ))}
       </select>
-      {pending && <p className="mt-1 text-2xs text-muted-foreground">Moving…</p>}
+      {pending && <p className="mt-1 text-2xs text-jubo-muted">Moving…</p>}
     </SidebarSection>
   )
 }
@@ -701,8 +697,8 @@ function Stat({ label, value, capitalize }: { label: string; value: string; capi
 
 function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      <p className="text-2xs uppercase tracking-wider text-muted-foreground">{title}</p>
+    <div className="jubo-los-card space-y-1.5 p-3.5">
+      <p className="jubo-los-section-label">{title}</p>
       {children}
     </div>
   )
@@ -720,7 +716,7 @@ function UpcomingTasks({ tasks }: { tasks: any[] }) {
     .slice(0, 4)
 
   if (upcoming.length === 0) {
-    return <p className="text-2xs text-muted-foreground italic">No open tasks.</p>
+    return <p className="text-2xs text-jubo-muted italic">No open tasks.</p>
   }
 
   const now = new Date()
@@ -729,10 +725,10 @@ function UpcomingTasks({ tasks }: { tasks: any[] }) {
       {upcoming.map(t => {
         const overdue = t.due_date && new Date(t.due_date) < now
         return (
-          <div key={t.id} className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-surface-2 transition-colors">
-            <span className="flex-1 text-xs text-foreground truncate">{t.title}</span>
+          <div key={t.id} className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-jubo-card-soft transition-colors">
+            <span className="flex-1 text-xs text-jubo-text truncate">{t.title}</span>
             {t.due_date && (
-              <span className={cn('text-2xs tabular-nums', overdue ? 'text-red-400' : 'text-muted-foreground')}>
+              <span className={cn('text-2xs tabular-nums', overdue ? 'text-jubo-red' : 'text-jubo-muted')}>
                 {new Date(t.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
               </span>
             )}

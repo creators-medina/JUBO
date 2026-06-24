@@ -97,16 +97,16 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
 
   return (
     <div className={cn(
-      'rounded-xl border bg-card p-3 space-y-2',
-      overdue ? 'border-red-500/40' : completed ? 'border-emerald-500/30' : 'border-border',
+      'rounded-xl border bg-jubo-navy p-3 space-y-2 text-white',
+      overdue ? 'border-jubo-red/50' : completed ? 'border-jubo-green/40' : 'border-jubo-navy2',
       compact && 'p-2.5 space-y-1.5',
     )}>
       <div className="flex items-center gap-1.5">
-        <Zap className={cn('w-3.5 h-3.5', overdue ? 'text-red-400' : completed ? 'text-emerald-400' : 'text-primary')} />
-        <p className="text-2xs uppercase tracking-wider text-muted-foreground flex-1">Next Action</p>
+        <Zap className={cn('w-3.5 h-3.5', overdue ? 'text-red-300' : completed ? 'text-jubo-green' : 'text-jubo-gold')} />
+        <p className="text-2xs font-semibold uppercase tracking-wider text-jubo-gold flex-1">Next Step</p>
         {nextAction && !editing && !completed && (
           <button onClick={() => setEditing(true)} title="Edit"
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2">
+            className="p-0.5 rounded text-white/50 hover:text-white hover:bg-white/10">
             <Edit2 className="w-3 h-3" />
           </button>
         )}
@@ -121,29 +121,29 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
             onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setEditing(!!nextAction ? false : true); setText(nextAction ?? '') } }}
             placeholder="Set a next action…"
             autoFocus
-            className="w-full px-2.5 py-1.5 rounded-md bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full px-2.5 py-1.5 rounded-md bg-jubo-navy2 border border-white/15 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-jubo-red"
           />
           <div className="flex items-center gap-1.5">
-            <Calendar className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+            <Calendar className="w-3 h-3 text-white/50 flex-shrink-0" />
             <input
               type="datetime-local"
               value={dueLocal}
               onChange={e => setDueLocal(e.target.value)}
-              className="flex-1 px-2 py-1 rounded bg-surface-1 border border-border text-2xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="flex-1 px-2 py-1 rounded bg-jubo-navy2 border border-white/15 text-2xs text-white focus:outline-none focus:ring-1 focus:ring-jubo-red"
             />
           </div>
           <div className="flex items-center gap-1">
             <button
               onClick={save}
               disabled={!text.trim() || isPending}
-              className="flex-1 px-2 py-1 rounded-md bg-primary text-primary-foreground text-2xs font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              className="flex-1 px-2 py-1 rounded-md bg-jubo-red text-white text-2xs font-medium hover:bg-jubo-red-dark disabled:opacity-50 transition-colors"
             >
               {isPending ? 'Saving…' : 'Save'}
             </button>
             {nextAction && (
               <button
                 onClick={() => { setEditing(false); setText(nextAction); setDueLocal(isoToLocal(nextActionDueAt)) }}
-                className="px-2 py-1 rounded-md text-2xs text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors"
+                className="px-2 py-1 rounded-md text-2xs text-white/60 hover:text-white hover:bg-white/10 transition-colors"
               >
                 Cancel
               </button>
@@ -152,12 +152,12 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
         </div>
       ) : (
         <>
-          <p className={cn('text-sm font-medium', completed ? 'line-through text-muted-foreground' : 'text-foreground')}>
+          <p className={cn('text-sm font-medium', completed ? 'line-through text-white/50' : 'text-white')}>
             {nextAction}
           </p>
           {nextActionDueAt && (
             <div className={cn('flex items-center gap-1 text-2xs',
-              overdue ? 'text-red-400' : 'text-muted-foreground'
+              overdue ? 'text-red-300' : 'text-jubo-gold-soft/70'
             )}>
               <Clock className="w-2.5 h-2.5" />
               <span className="tabular-nums">
@@ -170,26 +170,26 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
           {!completed && (
             <div className="flex items-center gap-1 pt-1">
               <button onClick={complete} disabled={isPending}
-                className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/15 text-emerald-400 text-2xs font-medium hover:bg-emerald-500/25 disabled:opacity-50 transition-colors">
+                className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-jubo-red text-white text-2xs font-medium hover:bg-jubo-red-dark disabled:opacity-50 transition-colors">
                 <Check className="w-2.5 h-2.5" />
                 Complete
               </button>
               <button onClick={() => snooze(1)} disabled={isPending} title="Snooze 1 day"
-                className="px-2 py-1 rounded-md text-2xs text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors">
+                className="px-2 py-1 rounded-md text-2xs text-white/70 hover:text-white hover:bg-white/10 transition-colors">
                 +1d
               </button>
               <button onClick={() => snooze(3)} disabled={isPending} title="Snooze 3 days"
-                className="px-2 py-1 rounded-md text-2xs text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors">
+                className="px-2 py-1 rounded-md text-2xs text-white/70 hover:text-white hover:bg-white/10 transition-colors">
                 +3d
               </button>
               <button onClick={clear} disabled={isPending} title="Clear"
-                className="ml-auto p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-surface-2 transition-colors">
+                className="ml-auto p-1 rounded text-white/50 hover:text-red-300 hover:bg-white/10 transition-colors">
                 <X className="w-3 h-3" />
               </button>
             </div>
           )}
           {completed && (
-            <p className="text-2xs text-muted-foreground">
+            <p className="text-2xs text-white/50">
               Completed {new Date(nextActionCompletedAt!).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
             </p>
           )}
