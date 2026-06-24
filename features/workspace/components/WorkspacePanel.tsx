@@ -26,6 +26,7 @@ import { resolveWorkspaceTemplate } from '@/features/mortgage/templates/resolve'
 import { isChecklistFieldType } from '@/features/fields/checklist'
 import { StageTracker } from '../command/StageTracker'
 import { BorrowerIntelligenceHeader } from '../command/BorrowerIntelligenceHeader'
+import { ParticipantRibbon } from '../command/ParticipantRibbon'
 import { UnifiedTimeline } from '../command/UnifiedTimeline'
 import { QualificationSnapshot } from '../command/QualificationSnapshot'
 import { MissingDocuments } from '../command/MissingDocuments'
@@ -388,6 +389,10 @@ function WorkspaceContent({
                   roleLabel={roleLabel}
                 />
               </div>
+              {/* Participant / relationship ribbon — collapses when no team data. */}
+              <div className="mb-4">
+                <ParticipantRibbon data={data as any} />
+              </div>
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-[20rem_minmax(0,1fr)_20rem] items-start">
                 {/* LEFT — checklist (loan/property/facts now live in the header).
                     Non-loan entities keep their Qualification snapshot here. */}
@@ -546,9 +551,6 @@ function CommandRail({
         <UpcomingTasks tasks={data.tasks} />
       </SidebarSection>
 
-      {/* Related — only renders when the board carries relation/user fields. */}
-      <RelatedPanel data={data} />
-
       {/* Move To — stage selector reusing existing move logic (RPC + workflows). */}
       <MoveToControl
         recordId={recordId}
@@ -561,36 +563,10 @@ function CommandRail({
   )
 }
 
-// ── Related + Move To (Phase 10.4) ─────────────────────────────────────────
-// Related: surfaces relation/user-type FIELDS that already carry a readable
-// value — no participant engine exists, so it collapses when there's no such
-// data. Move To: a stage selector over the board's existing groups; selecting a
-// stage calls the existing moveRecord (move_record RPC + workflow dispatch).
-function RelatedPanel({ data }: { data: Loaded }) {
-  const related = (data.fields ?? [])
-    .filter((f: any) => f.field_type === 'relation' || f.field_type === 'user')
-    .map((f: any) => {
-      const fv = data.fieldValues.find((v: any) => v.field_id === f.id)
-      const value = (fv?.value_text ?? '').toString().trim()
-      return { name: f.name as string, value }
-    })
-    .filter((r) => r.value && !/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(r.value)) // hide raw UUIDs
-
-  if (related.length === 0) return null
-  return (
-    <SidebarSection title="Related">
-      <div className="space-y-1">
-        {related.map((r) => (
-          <div key={r.name} className="flex items-center justify-between gap-2 text-xs">
-            <span className="flex-shrink-0 text-muted-foreground">{r.name}</span>
-            <span className="truncate text-foreground">{r.value}</span>
-          </div>
-        ))}
-      </div>
-    </SidebarSection>
-  )
-}
-
+// ── Move To (Phase 10.4) ───────────────────────────────────────────────────
+// A stage selector over the board's existing groups; selecting a stage calls the
+// existing moveRecord (move_record RPC + workflow dispatch). Participants moved
+// to the top "File team" ribbon in Phase 10.6.
 function MoveToControl({
   recordId, boardId, groups, currentGroupId, onMoved,
 }: {
