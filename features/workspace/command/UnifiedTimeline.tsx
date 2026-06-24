@@ -83,14 +83,14 @@ export function UnifiedTimeline({
   }), [items, filter])
 
   return (
-    <section className="flex flex-col rounded-xl border border-border/60 bg-surface-1/30 p-3.5">
+    <section className="jubo-los-card flex flex-col p-3.5">
       <div className="mb-2.5 flex items-center gap-1.5">
-        <ActivityIcon className="h-3.5 w-3.5 text-muted-foreground" />
-        <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Activity</p>
+        <ActivityIcon className="h-3.5 w-3.5 text-jubo-gold" />
+        <p className="jubo-los-section-label">Activity</p>
         <button
           type="button"
           onClick={onFullHistory}
-          className="ml-auto -my-0.5 inline-flex items-center gap-0.5 rounded py-0.5 text-2xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="ml-auto -my-0.5 inline-flex items-center gap-0.5 rounded py-0.5 text-2xs font-medium text-jubo-text-soft transition-colors hover:text-jubo-text"
         >
           Full history <ChevronRight className="h-3 w-3" />
         </button>
@@ -106,8 +106,8 @@ export function UnifiedTimeline({
             className={cn(
               'rounded-full px-2.5 py-1 text-2xs font-medium transition-colors',
               filter === f.key
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-surface-2 text-muted-foreground hover:text-foreground',
+                ? 'bg-jubo-red text-white'
+                : 'bg-jubo-card-soft text-jubo-text-soft hover:text-jubo-text',
             )}
           >
             {f.label}
@@ -115,10 +115,10 @@ export function UnifiedTimeline({
         ))}
       </div>
 
-      <ActivityTimeline items={filtered} emptyHint="Nothing here yet." />
+      <ActivityTimeline items={filtered} emptyHint="Nothing here yet." variant="los" />
 
       {/* Composer launcher — opens existing composers (no new send logic). */}
-      <div className="mt-3 border-t border-border/60 pt-3">
+      <div className="mt-3 border-t border-jubo-border pt-3">
         <div className="mb-2 flex flex-wrap gap-1.5">
           {COMPOSE.map((c) => {
             const Icon = c.icon
@@ -127,7 +127,7 @@ export function UnifiedTimeline({
                 key={c.kind}
                 type="button"
                 onClick={() => onCompose(c.kind)}
-                className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-2xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-surface-1"
+                className="inline-flex items-center gap-1 rounded-lg border border-jubo-border bg-jubo-card px-2.5 py-1 text-2xs font-medium text-jubo-text transition-colors hover:border-jubo-border-strong hover:bg-jubo-card-soft"
               >
                 <Icon className="h-3 w-3" /> {c.label}
               </button>
@@ -137,7 +137,7 @@ export function UnifiedTimeline({
         <button
           type="button"
           onClick={() => onCompose('sms')}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40"
+          className="w-full rounded-lg border border-jubo-border bg-jubo-card px-3 py-2 text-left text-xs text-jubo-text-soft transition-colors hover:border-jubo-border-strong"
         >
           Message{name ? ` ${name}` : ''}…
         </button>

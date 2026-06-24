@@ -66,6 +66,9 @@ const ACTIVITY_VERB: Record<string, string> = {
 interface Props {
   items: TimelineItem[]
   emptyHint?: string
+  /** Phase 2B — 'los' renders warm cream styling (workspace center); 'dark'
+      (default) keeps the existing dark Activity-tab styling. */
+  variant?: 'dark' | 'los'
 }
 
 function groupByDay(items: TimelineItem[]): Array<{ label: string; items: TimelineItem[] }> {
@@ -95,13 +98,14 @@ function groupByDay(items: TimelineItem[]): Array<{ label: string; items: Timeli
   })
 }
 
-export function ActivityTimeline({ items, emptyHint = 'No activity yet.' }: Props) {
+export function ActivityTimeline({ items, emptyHint = 'No activity yet.', variant = 'dark' }: Props) {
   const groups = useMemo(() => groupByDay(items), [items])
+  const los = variant === 'los'
 
   if (groups.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-border bg-card p-6 text-center">
-        <p className="text-xs text-muted-foreground">{emptyHint}</p>
+      <div className={cn('rounded-lg border border-dashed p-6 text-center', los ? 'border-jubo-border' : 'border-border bg-card')}>
+        <p className={cn('text-xs', los ? 'text-jubo-text-soft' : 'text-muted-foreground')}>{emptyHint}</p>
       </div>
     )
   }
@@ -110,13 +114,13 @@ export function ActivityTimeline({ items, emptyHint = 'No activity yet.' }: Prop
     <div className="space-y-5">
       {groups.map(group => (
         <div key={group.label} className="space-y-2">
-          <p className="text-2xs uppercase tracking-wider text-muted-foreground sticky top-0 bg-card/95 backdrop-blur-sm py-1 z-[1]">
+          <p className={cn('text-2xs uppercase tracking-wider sticky top-0 backdrop-blur-sm py-1 z-[1]', los ? 'text-jubo-muted bg-jubo-card/95' : 'text-muted-foreground bg-card/95')}>
             {group.label}
           </p>
           {/* Connecting rail behind the icon chips for a clean event sequence. */}
           <div className="relative space-y-1">
-            <div className="pointer-events-none absolute left-[9px] top-2 bottom-2 w-px bg-border" aria-hidden />
-            {group.items.map(item => <TimelineRow key={`${item.type}-${item.id}`} item={item} />)}
+            <div className={cn('pointer-events-none absolute left-[9px] top-2 bottom-2 w-px', los ? 'bg-jubo-border' : 'bg-border')} aria-hidden />
+            {group.items.map(item => <TimelineRow key={`${item.type}-${item.id}`} item={item} los={los} />)}
           </div>
         </div>
       ))}
@@ -124,7 +128,7 @@ export function ActivityTimeline({ items, emptyHint = 'No activity yet.' }: Prop
   )
 }
 
-function TimelineRow({ item }: { item: TimelineItem }) {
+function TimelineRow({ item, los }: { item: TimelineItem; los?: boolean }) {
   const Icon = ACTIVITY_ICONS[item.activity_type] ?? Circle
   const accent = ACTIVITY_COLOR[item.activity_type] ?? 'text-muted-foreground bg-surface-2'
   const verb = ACTIVITY_VERB[item.activity_type] ?? item.activity_type.replace('_', ' ')
@@ -135,33 +139,33 @@ function TimelineRow({ item }: { item: TimelineItem }) {
 
   return (
     <div className="relative flex gap-3 py-1.5 group">
-      <span className={cn('relative z-[1] mt-0.5 w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 ring-2 ring-card', accent)}>
+      <span className={cn('relative z-[1] mt-0.5 w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 ring-2', los ? 'ring-jubo-card' : 'ring-card', accent)}>
         <Icon className="w-2.5 h-2.5" />
       </span>
       <div className="flex-1 min-w-0 space-y-0.5">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-medium text-foreground">
+          <span className={cn('text-xs font-medium', los ? 'text-jubo-text' : 'text-foreground')}>
             {item.actor_name ?? 'System'}
           </span>
-          <span className="text-xs text-muted-foreground">{verb}</span>
+          <span className={cn('text-xs', los ? 'text-jubo-text-soft' : 'text-muted-foreground')}>{verb}</span>
           {meta?.direction && (
-            <span className="rounded bg-surface-2 px-1 py-0 text-2xs capitalize text-muted-foreground">{meta.direction}</span>
+            <span className={cn('rounded px-1 py-0 text-2xs capitalize', los ? 'bg-jubo-card-soft text-jubo-text-soft' : 'bg-surface-2 text-muted-foreground')}>{meta.direction}</span>
           )}
           {outcome && (
             <span className={cn('rounded px-1 py-0 text-2xs',
-              outcome === 'connected' || outcome === 'completed' ? 'bg-emerald-500/15 text-emerald-300'
-              : outcome === 'follow_up_needed' ? 'bg-amber-500/15 text-amber-300'
-              : 'bg-surface-2 text-muted-foreground')}>
+              outcome === 'connected' || outcome === 'completed' ? (los ? 'bg-jubo-green-soft text-jubo-green' : 'bg-emerald-500/15 text-emerald-300')
+              : outcome === 'follow_up_needed' ? (los ? 'bg-jubo-gold-soft text-jubo-gold' : 'bg-amber-500/15 text-amber-300')
+              : (los ? 'bg-jubo-card-soft text-jubo-text-soft' : 'bg-surface-2 text-muted-foreground'))}>
               {outcome.replace(/_/g, ' ')}
             </span>
           )}
-          {meta?.follow_up_at && <span className="text-2xs text-amber-400">· follow-up set</span>}
-          <span className="text-2xs text-muted-foreground/70 ml-auto tabular-nums">
+          {meta?.follow_up_at && <span className={cn('text-2xs', los ? 'text-jubo-gold' : 'text-amber-400')}>· follow-up set</span>}
+          <span className={cn('text-2xs ml-auto tabular-nums', los ? 'text-jubo-muted' : 'text-muted-foreground/70')}>
             {formatDistanceToNow(item.timestamp)}
           </span>
         </div>
         {item.content && (
-          <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">
+          <p className={cn('text-xs line-clamp-3 whitespace-pre-wrap', los ? 'text-jubo-text-soft' : 'text-muted-foreground')}>
             {item.content}
           </p>
         )}

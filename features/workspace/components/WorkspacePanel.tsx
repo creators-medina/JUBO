@@ -410,9 +410,9 @@ function WorkspaceContent({
                     </section>
                   )}
                 </div>
-                {/* CENTER — unified timeline (LOS pass is a later phase; dark
-                    backing keeps existing light text readable on cream). */}
-                <div className="space-y-4 rounded-xl bg-surface-0 p-3">
+                {/* CENTER — unified timeline + composer (LOS). Any entity-detail
+                    panels below are solid dark cards that read fine on cream. */}
+                <div className="space-y-4">
                   <UnifiedTimeline
                     timeline={timeline}
                     communications={data.communications}
