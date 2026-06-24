@@ -8,6 +8,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { EditableCell } from './EditableCell'
 import { NotesCell } from './NotesCell'
+import { useHoverCard, BorrowerPreviewPanel } from './BoardHoverCard'
 import { isNotesField } from '../notes'
 import { moveRecord, createSubitem } from '@/features/records/actions'
 import { parseOptions } from '@/features/fields/status'
@@ -61,6 +62,10 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
     // computation) so the overlay can render a full-width row shell without recompute.
     data: { type: 'record', recordId: record.id, fromGroupId: record.group_id, boardId, record, view: 'table', title: record.title, fields, fieldValueMap },
   })
+
+  // Phase 10.7 — borrower hover-intelligence preview (table only; closes while
+  // dragging so it never interferes with drag/drop).
+  const hover = useHoverCard({ disabled: isDragging })
 
   const style = transform
     ? { transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.4 : 1 }
@@ -151,11 +156,22 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
           {record.priority !== 'none' && PRIORITY_COLORS[record.priority] && (
             <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', PRIORITY_COLORS[record.priority])} />
           )}
-          <span className="text-sm font-medium text-foreground truncate">{record.title}</span>
+          <span ref={hover.ref} {...hover.triggerProps} className="text-sm font-medium text-foreground truncate outline-none">{record.title}</span>
           {hasSubitems && (
             <span className="ml-1 rounded-full bg-surface-2 px-1.5 text-2xs text-muted-foreground">{subitems.length}</span>
           )}
         </div>
+        {hover.open && hover.rect && (
+          <BorrowerPreviewPanel
+            rect={hover.rect}
+            panelProps={hover.panelProps}
+            record={record}
+            fields={fields}
+            fieldValueMap={fieldValueMap}
+            groups={groups}
+            notesCount={notesSummary?.count}
+          />
+        )}
       </td>
 
       {/* Internal records.status/priority/value are not board columns anymore
