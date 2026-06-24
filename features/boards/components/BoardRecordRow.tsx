@@ -142,7 +142,13 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
         className="sticky left-0 z-10 bg-card group-hover:bg-surface-1 transition-colors px-3 py-2 min-w-[200px] max-w-[280px]"
         onClick={onClick}
       >
-        <div className="flex items-center gap-2">
+        {/* Phase 10.7/fix — hover trigger on the whole title-cell content (a large,
+            stable target; moving across its children never fires mouseleave). */}
+        <div
+          ref={hover.ref}
+          {...hover.triggerProps}
+          className="flex items-center gap-2 rounded outline-none focus-visible:ring-1 focus-visible:ring-primary"
+        >
           <button
             onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v) }}
             className={cn(
@@ -156,7 +162,7 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
           {record.priority !== 'none' && PRIORITY_COLORS[record.priority] && (
             <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', PRIORITY_COLORS[record.priority])} />
           )}
-          <span ref={hover.ref} {...hover.triggerProps} className="text-sm font-medium text-foreground truncate outline-none">{record.title}</span>
+          <span className="text-sm font-medium text-foreground truncate">{record.title}</span>
           {hasSubitems && (
             <span className="ml-1 rounded-full bg-surface-2 px-1.5 text-2xs text-muted-foreground">{subitems.length}</span>
           )}

@@ -20,14 +20,14 @@ import { CheckSquare, StickyNote, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const OPEN_DELAY = 850
-const CLOSE_DELAY = 180
+const CLOSE_DELAY = 260
 
 type Rect = { left: number; top: number; bottom: number }
 
 export function useHoverCard({ disabled }: { disabled?: boolean } = {}) {
   const [open, setOpen] = useState(false)
   const [rect, setRect] = useState<Rect | null>(null)
-  const ref = useRef<HTMLSpanElement>(null)
+  const ref = useRef<HTMLDivElement>(null)
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // True briefly after a pointer interaction, so a tap/click-induced focus does
@@ -147,10 +147,10 @@ export function BorrowerPreviewPanel({
 
   // Placement — below the trigger, flipped above if not enough room, clamped.
   const left = Math.max(8, Math.min(rect.left, window.innerWidth - W - 8))
-  const below = rect.bottom + 6
+  const below = rect.bottom + 4
   const flipAbove = below + 240 > window.innerHeight
   const style: React.CSSProperties = flipAbove
-    ? { left, bottom: window.innerHeight - rect.top + 6, width: W }
+    ? { left, bottom: window.innerHeight - rect.top + 4, width: W }
     : { left, top: below, width: W }
 
   return createPortal(
@@ -158,7 +158,7 @@ export function BorrowerPreviewPanel({
       {...panelProps}
       role="dialog"
       aria-label={`${record.title} preview`}
-      className="fixed z-[70] rounded-xl border border-border bg-popover p-3 shadow-2xl"
+      className="fixed z-[100] rounded-xl border border-border bg-popover p-3 shadow-2xl"
       style={style}
     >
       {/* Stage / status at top */}
