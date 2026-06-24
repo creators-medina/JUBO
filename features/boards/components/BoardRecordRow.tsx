@@ -104,9 +104,9 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
       ref={setDragRef}
       style={style}
       className={cn(
-        'group border-b border-border cursor-pointer transition-colors',
-        'hover:bg-surface-1',
-        isSelected && 'bg-primary/5',
+        'group border-b border-jubo-border cursor-pointer transition-colors',
+        'hover:bg-jubo-card-soft',
+        isSelected && 'bg-jubo-navy/[0.06]',
         isDragging && 'opacity-40',
         isPending && 'opacity-60'
       )}
@@ -139,7 +139,7 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
 
       {/* Title column (with subitem expand toggle) */}
       <td
-        className="sticky left-0 z-10 bg-card group-hover:bg-surface-1 transition-colors px-3 py-2 min-w-[200px] max-w-[280px]"
+        className="sticky left-0 z-10 bg-jubo-card group-hover:bg-jubo-card-soft transition-colors px-3 py-2 min-w-[200px] max-w-[280px]"
         onClick={onClick}
       >
         {/* Phase 10.7/fix — hover trigger on the whole title-cell content (a large,

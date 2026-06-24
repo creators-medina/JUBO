@@ -488,7 +488,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search records…"
-              className="pl-8 pr-8 py-1.5 text-xs bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary w-48"
+              className="pl-8 pr-8 py-1.5 text-xs bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-jubo-navy w-48"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -498,12 +498,12 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
           </div>
           <Button
             size="sm" variant="ghost"
-            className={cn('h-7 text-xs gap-1.5', (filterPriority || filterStatus) && 'text-primary')}
+            className={cn('h-7 text-xs gap-1.5', (filterPriority || filterStatus) && 'text-jubo-navy')}
             onClick={() => setShowFilters(f => !f)}
           >
             <SlidersHorizontal className="w-3 h-3" />
             Filters
-            {(filterPriority || filterStatus) && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+            {(filterPriority || filterStatus) && <span className="w-1.5 h-1.5 rounded-full bg-jubo-navy" />}
           </Button>
           {hasActiveFilters && <button onClick={clearFilters} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Clear</button>}
           {(filterPriority || filterStatus) && !showSaveView && (
@@ -523,7 +523,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                 onChange={e => setSaveViewName(e.target.value)}
                 placeholder="View name…"
                 autoFocus
-                className="h-7 px-2 text-xs bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary w-32"
+                className="h-7 px-2 text-xs bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-jubo-navy w-32"
               />
               <label className="inline-flex items-center gap-1 text-2xs text-muted-foreground cursor-pointer select-none">
                 <input
@@ -538,7 +538,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                 <select
                   value={attentionPriority}
                   onChange={e => setAttentionPriority(e.target.value as 'urgent' | 'high' | 'medium' | 'low')}
-                  className="h-7 px-1.5 text-2xs bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:border-primary capitalize"
+                  className="h-7 px-1.5 text-2xs bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:border-jubo-navy capitalize"
                 >
                   <option value="urgent">Urgent</option>
                   <option value="high">High</option>
@@ -561,27 +561,27 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
           )}
           {showFilters && (
             <>
-              <select value={filterPriority} onChange={e => setFilterPriority(e.target.value as RecordPriority | '')} className="h-7 px-2 text-xs bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:border-primary">
+              <select value={filterPriority} onChange={e => setFilterPriority(e.target.value as RecordPriority | '')} className="h-7 px-2 text-xs bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:border-jubo-navy">
                 {PRIORITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as RecordStatus | '')} className="h-7 px-2 text-xs bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:border-primary">
+              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as RecordStatus | '')} className="h-7 px-2 text-xs bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:border-jubo-navy">
                 {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </>
           )}
 
           {/* Table | Kanban toggle (Phase 37B-1, client-only, no persistence) */}
-          <div className="ml-auto inline-flex items-center rounded-md border border-border bg-surface-1 p-0.5">
+          <div className="ml-auto inline-flex items-center rounded-md border border-border bg-jubo-card-soft p-0.5">
             <button
               onClick={() => setViewMode('table')}
-              className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs', viewMode === 'table' ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground')}
+              className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs transition-colors', viewMode === 'table' ? 'bg-jubo-navy text-white' : 'text-jubo-text-soft hover:text-jubo-text')}
               title="Table view"
             >
               <Rows3 className="w-3 h-3" /> Table
             </button>
             <button
               onClick={() => setViewMode('kanban')}
-              className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs', viewMode === 'kanban' ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground')}
+              className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs transition-colors', viewMode === 'kanban' ? 'bg-jubo-navy text-white' : 'text-jubo-text-soft hover:text-jubo-text')}
               title="Kanban view"
             >
               <LayoutGrid className="w-3 h-3" /> Kanban
