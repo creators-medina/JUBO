@@ -536,3 +536,27 @@
   --surface-3: rgba(255, 255, 255, 0.12);
   color: #fffdfa;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Jubo LOS accent-text contrast fix (global sweep). The app was built dark, so
+   many components use bright *-300/*-400 accent TEXT that reads low-contrast on
+   the warm cream theme. Remap those text utilities to readable LOS-toned values
+   app-wide; re-lighten them inside .jubo-navy-chrome so navy surfaces stay
+   vivid. Backgrounds/borders are untouched. Reversible in one block.
+   ─────────────────────────────────────────────────────────────────────────── */
+.text-amber-400, .text-amber-300, .text-yellow-400, .text-yellow-300 { color: #b07d2e; }
+.text-emerald-400, .text-emerald-300, .text-green-400, .text-green-300 { color: #4f7a59; }
+.text-teal-400, .text-teal-300, .text-cyan-400, .text-cyan-300 { color: #2f7d77; }
+.text-red-400, .text-red-300, .text-rose-400, .text-rose-300 { color: #a64f4f; }
+.text-orange-400, .text-orange-300 { color: #b5642e; }
+.text-blue-400, .text-blue-300, .text-sky-400, .text-sky-300 { color: #3b6ea5; }
+.text-indigo-400, .text-indigo-300, .text-violet-400, .text-violet-300, .text-purple-400, .text-purple-300 { color: #6b4fa3; }
+
+/* Navy chrome / navy cards keep the brighter accents for contrast on dark. */
+.jubo-navy-chrome .text-amber-400, .jubo-navy-chrome .text-amber-300, .jubo-navy-chrome .text-yellow-400, .jubo-navy-chrome .text-yellow-300 { color: #e6c478; }
+.jubo-navy-chrome .text-emerald-400, .jubo-navy-chrome .text-emerald-300, .jubo-navy-chrome .text-green-400, .jubo-navy-chrome .text-green-300 { color: #86c79a; }
+.jubo-navy-chrome .text-teal-400, .jubo-navy-chrome .text-teal-300, .jubo-navy-chrome .text-cyan-400, .jubo-navy-chrome .text-cyan-300 { color: #79c2bc; }
+.jubo-navy-chrome .text-red-400, .jubo-navy-chrome .text-red-300, .jubo-navy-chrome .text-rose-400, .jubo-navy-chrome .text-rose-300 { color: #e08a8a; }
+.jubo-navy-chrome .text-orange-400, .jubo-navy-chrome .text-orange-300 { color: #e0a06a; }
+.jubo-navy-chrome .text-blue-400, .jubo-navy-chrome .text-blue-300, .jubo-navy-chrome .text-sky-400, .jubo-navy-chrome .text-sky-300 { color: #93b8e6; }
+.jubo-navy-chrome .text-indigo-400, .jubo-navy-chrome .text-indigo-300, .jubo-navy-chrome .text-violet-400, .jubo-navy-chrome .text-violet-300, .jubo-navy-chrome .text-purple-400, .jubo-navy-chrome .text-purple-300 { color: #b6a6ec; }

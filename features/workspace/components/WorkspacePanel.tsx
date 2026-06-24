@@ -354,7 +354,7 @@ function WorkspaceContent({
                 className={cn(
                   'flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
                   active
-                    ? 'border-primary text-foreground'
+                    ? 'border-jubo-navy text-jubo-text'
                     : 'border-transparent text-muted-foreground hover:text-foreground',
                 )}
               >
