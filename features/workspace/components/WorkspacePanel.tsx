@@ -630,16 +630,16 @@ function OverviewView({ data }: { data: Loaded }) {
       </div>
 
       {r.description && (
-        <div className="rounded-lg border border-border bg-card p-3">
-          <p className="text-2xs uppercase tracking-wider text-muted-foreground mb-1">Description</p>
-          <p className="text-sm text-foreground whitespace-pre-wrap">{r.description}</p>
+        <div className="jubo-los-card p-3">
+          <p className="jubo-los-section-label mb-1">Description</p>
+          <p className="text-sm text-jubo-text whitespace-pre-wrap">{r.description}</p>
         </div>
       )}
 
-      <div className="rounded-lg border border-border bg-card p-3">
-        <p className="text-2xs uppercase tracking-wider text-muted-foreground mb-2">Fields</p>
+      <div className="jubo-los-card p-3">
+        <p className="jubo-los-section-label mb-2">Fields</p>
         {data.fields.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No custom fields on this board.</p>
+          <p className="text-xs text-jubo-text-soft">No custom fields on this board.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {data.fields.map((f: any) => {
@@ -647,8 +647,8 @@ function OverviewView({ data }: { data: Loaded }) {
               const value = fv?.value_text ?? fv?.value_number ?? fv?.value_date ?? fv?.value_bool
               return (
                 <div key={f.id} className="space-y-0.5 text-xs">
-                  <p className="text-muted-foreground">{f.name}</p>
-                  <p className="text-foreground">{String(value ?? '—')}</p>
+                  <p className="text-jubo-muted">{f.name}</p>
+                  <p className="text-jubo-text">{String(value ?? '—')}</p>
                 </div>
               )
             })}
@@ -686,9 +686,9 @@ function DataView({ data }: { data: Loaded }) {
 
 function Stat({ label, value, capitalize }: { label: string; value: string; capitalize?: boolean }) {
   return (
-    <div className="rounded-md bg-surface-1 px-2.5 py-1.5">
-      <p className="text-2xs uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={cn('text-sm font-medium text-foreground truncate', capitalize && 'capitalize')}>
+    <div className="rounded-md bg-jubo-card-soft px-2.5 py-1.5">
+      <p className="text-2xs uppercase tracking-wider text-jubo-muted">{label}</p>
+      <p className={cn('text-sm font-medium text-jubo-text truncate', capitalize && 'capitalize')}>
         {value}
       </p>
     </div>

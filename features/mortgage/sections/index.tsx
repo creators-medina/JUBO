@@ -15,10 +15,10 @@ function Icon({ name, className }: { name: string; className?: string }) {
 
 export function SectionCard({ title, icon, children, accent }: { title: string; icon?: string; accent?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-4">
+    <section className="jubo-los-card p-4">
       <div className="mb-3 flex items-center gap-2">
-        {icon && <Icon name={icon} className={cn('h-4 w-4', accent ?? 'text-muted-foreground')} />}
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
+        {icon && <Icon name={icon} className={cn('h-4 w-4', accent ?? 'text-jubo-gold')} />}
+        <h3 className="jubo-los-section-label">{title}</h3>
       </div>
       {children}
     </section>
@@ -28,8 +28,8 @@ export function SectionCard({ title, icon, children, accent }: { title: string; 
 function Fact({ label, value, emphasis }: { label: string; value: React.ReactNode; emphasis?: boolean }) {
   return (
     <div className="space-y-0.5">
-      <p className="text-2xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={cn('truncate', emphasis ? 'text-base font-semibold text-foreground' : 'text-sm text-foreground')}>{value ?? '—'}</p>
+      <p className="text-2xs uppercase tracking-wide text-jubo-muted">{label}</p>
+      <p className={cn('truncate text-jubo-text', emphasis ? 'text-base font-semibold' : 'text-sm')}>{value ?? '—'}</p>
     </div>
   )
 }
@@ -37,15 +37,15 @@ function Fact({ label, value, emphasis }: { label: string; value: React.ReactNod
 function PhoneFact({ label, phone }: { label: string; phone: string | null | undefined }) {
   return (
     <div className="space-y-0.5">
-      <p className="text-2xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-2xs uppercase tracking-wide text-jubo-muted">{label}</p>
       {phone ? (
         <div className="flex items-center gap-2">
-          <a href={`tel:${phone}`} className="truncate text-sm font-medium text-primary hover:underline">{phone}</a>
-          <button onClick={() => navigator.clipboard?.writeText(phone)} title="Copy number" className="flex-shrink-0 text-muted-foreground transition-colors hover:text-foreground">
+          <a href={`tel:${phone}`} className="truncate text-sm font-medium text-jubo-red hover:underline">{phone}</a>
+          <button onClick={() => navigator.clipboard?.writeText(phone)} title="Copy number" className="flex-shrink-0 text-jubo-muted transition-colors hover:text-jubo-text">
             <Icons.Copy className="h-3.5 w-3.5" />
           </button>
         </div>
-      ) : <p className="text-sm text-muted-foreground">—</p>}
+      ) : <p className="text-sm text-jubo-text-soft">—</p>}
     </div>
   )
 }
