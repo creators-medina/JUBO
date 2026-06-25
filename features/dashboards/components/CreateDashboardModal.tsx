@@ -51,7 +51,7 @@ export function CreateDashboardModal({ organizationId, onClose, onSuccess }: Cre
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-jubo-navy/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md bg-card border border-border rounded-xl shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -71,7 +71,7 @@ export function CreateDashboardModal({ organizationId, onClose, onSuccess }: Cre
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="e.g. Sales Dashboard"
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
               autoFocus
             />
           </div>
@@ -84,7 +84,7 @@ export function CreateDashboardModal({ organizationId, onClose, onSuccess }: Cre
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="Optional description"
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
             />
           </div>
 
@@ -98,7 +98,7 @@ export function CreateDashboardModal({ organizationId, onClose, onSuccess }: Cre
                   type="button"
                   onClick={() => setIcon(ic)}
                   className={`w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-colors ${
-                    icon === ic ? 'bg-primary/20 ring-1 ring-primary' : 'bg-surface-1 hover:bg-surface-2'
+                    icon === ic ? 'bg-jubo-navy/10 ring-1 ring-jubo-navy' : 'bg-surface-1 hover:bg-surface-2'
                   }`}
                 >
                   {ic}
@@ -125,7 +125,7 @@ export function CreateDashboardModal({ organizationId, onClose, onSuccess }: Cre
             </div>
           </div>
 
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-jubo-red">{error}</p>}
 
           {/* Footer */}
           <div className="flex gap-2 pt-2">

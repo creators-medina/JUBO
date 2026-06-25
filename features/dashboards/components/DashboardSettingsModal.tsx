@@ -72,7 +72,7 @@ export function DashboardSettingsModal({ dashboard, onClose }: DashboardSettings
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-jubo-navy/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md bg-card border border-border rounded-xl shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-sm font-semibold text-foreground">Dashboard Settings</h2>
@@ -88,7 +88,7 @@ export function DashboardSettingsModal({ dashboard, onClose }: DashboardSettings
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
               autoFocus
             />
           </div>
@@ -99,7 +99,7 @@ export function DashboardSettingsModal({ dashboard, onClose }: DashboardSettings
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy resize-none"
             />
           </div>
 
@@ -109,7 +109,7 @@ export function DashboardSettingsModal({ dashboard, onClose }: DashboardSettings
               <button
                 type="button"
                 onClick={() => setIcon('')}
-                className={`w-8 h-8 rounded-lg border text-xs transition-colors ${!icon ? 'bg-primary/20 border-primary' : 'border-border text-muted-foreground hover:border-border/80'}`}
+                className={`w-8 h-8 rounded-lg border text-xs transition-colors ${!icon ? 'bg-jubo-navy/10 border-jubo-navy' : 'border-border text-muted-foreground hover:border-border/80'}`}
               >
                 —
               </button>
@@ -118,7 +118,7 @@ export function DashboardSettingsModal({ dashboard, onClose }: DashboardSettings
                   key={emoji}
                   type="button"
                   onClick={() => setIcon(emoji)}
-                  className={`w-8 h-8 rounded-lg border text-base transition-colors ${icon === emoji ? 'bg-primary/20 border-primary' : 'border-border hover:border-border/80'}`}
+                  className={`w-8 h-8 rounded-lg border text-base transition-colors ${icon === emoji ? 'bg-jubo-navy/10 border-jubo-navy' : 'border-border hover:border-border/80'}`}
                 >
                   {emoji}
                 </button>
@@ -148,7 +148,7 @@ export function DashboardSettingsModal({ dashboard, onClose }: DashboardSettings
             </div>
           </div>
 
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-jubo-red">{error}</p>}
 
           <div className="flex gap-2 pt-2">
             <button
@@ -169,7 +169,7 @@ export function DashboardSettingsModal({ dashboard, onClose }: DashboardSettings
         </form>
 
         <div className="px-5 pb-5 border-t border-border pt-4">
-          {archiveError && <p className="text-xs text-red-400 mb-3">{archiveError}</p>}
+          {archiveError && <p className="text-xs text-jubo-red mb-3">{archiveError}</p>}
           {showArchiveConfirm ? (
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
@@ -185,7 +185,7 @@ export function DashboardSettingsModal({ dashboard, onClose }: DashboardSettings
                 <button
                   onClick={handleArchive}
                   disabled={isArchiving}
-                  className="flex-1 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30 text-xs text-red-400 hover:bg-red-500/25 disabled:opacity-50 transition-colors"
+                  className="flex-1 px-3 py-1.5 rounded-lg bg-jubo-red/10 border border-jubo-red/30 text-xs text-jubo-red hover:bg-jubo-red/20 disabled:opacity-50 transition-colors"
                 >
                   {isArchiving ? 'Archiving…' : 'Archive dashboard'}
                 </button>
@@ -194,7 +194,7 @@ export function DashboardSettingsModal({ dashboard, onClose }: DashboardSettings
           ) : (
             <button
               onClick={() => setShowArchiveConfirm(true)}
-              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-red-400 transition-colors"
+              className="flex items-center gap-2 text-xs text-muted-foreground hover:text-jubo-red transition-colors"
             >
               <Archive className="w-3.5 h-3.5" />
               Archive dashboard

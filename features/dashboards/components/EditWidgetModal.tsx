@@ -68,7 +68,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-jubo-navy/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h2 className="text-sm font-semibold text-foreground">Edit {WIDGET_META[type].label}</h2>
@@ -85,7 +85,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
               value={title}
               onChange={e => setTitle(e.target.value)}
               autoFocus
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
             />
           </div>
 
@@ -99,7 +99,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
                   onClick={() => setWidth(opt.value)}
                   className={`px-2 py-1.5 rounded-lg border text-xs transition-colors ${
                     width === opt.value
-                      ? 'bg-primary/20 border-primary text-primary'
+                      ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                       : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80'
                   }`}
                 >
@@ -115,7 +115,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
               <select
                 value={(config.board_id as string) ?? ''}
                 onChange={e => setConfigField('board_id', e.target.value || null)}
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
               >
                 <option value="">All boards</option>
                 {boards.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -132,7 +132,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
                     <button key={agg} type="button" onClick={() => setConfigField('aggregation', agg)}
                       className={`flex-1 px-3 py-2 rounded-lg border text-sm transition-colors ${
                         (config as MetricWidgetConfig).aggregation === agg
-                          ? 'bg-primary/20 border-primary text-primary'
+                          ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                           : 'border-border text-muted-foreground hover:text-foreground'
                       }`}
                     >
@@ -149,7 +149,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
                     <button key={ic} type="button" onClick={() => setConfigField('icon', ic)}
                       className={`px-2 py-1 rounded text-xs border transition-colors ${
                         (config as MetricWidgetConfig).icon === ic
-                          ? 'bg-primary/20 border-primary text-primary'
+                          ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                           : 'border-border text-muted-foreground hover:text-foreground'
                       }`}
                     >
@@ -166,7 +166,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
                     <button key={c} type="button" onClick={() => setConfigField('color', c)} title={c}
                       className={`px-3 py-1.5 rounded-lg border text-xs capitalize transition-colors ${
                         (config as MetricWidgetConfig).color === c
-                          ? 'bg-primary/20 border-primary text-primary'
+                          ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                           : 'border-border text-muted-foreground hover:text-foreground'
                       }`}
                     >
@@ -185,7 +185,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
                 <select
                   value={(config as ListWidgetConfig).sort_field ?? 'updated_at'}
                   onChange={e => setConfigField('sort_field', e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
                 >
                   {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
@@ -195,7 +195,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
                 <select
                   value={(config as ListWidgetConfig).max_records ?? 10}
                   onChange={e => setConfigField('max_records', Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
                 >
                   {[5, 10, 15, 20].map(n => <option key={n} value={n}>{n} records</option>)}
                 </select>
@@ -211,7 +211,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
                   <button key={g} type="button" onClick={() => setConfigField('group_by', g)}
                     className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
                       (config as { group_by: string }).group_by === g
-                        ? 'bg-primary/20 border-primary text-primary'
+                        ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                         : 'border-border text-muted-foreground hover:text-foreground'
                     }`}
                   >
@@ -228,7 +228,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
               <select
                 value={(config as ActivityFeedWidgetConfig).max_items ?? 10}
                 onChange={e => setConfigField('max_items', Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
               >
                 {[5, 10, 20, 30].map(n => <option key={n} value={n}>{n} items</option>)}
               </select>
@@ -245,7 +245,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
                     <button key={m} type="button" onClick={() => setConfigField('metric', m)}
                       className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
                         (config as GoalProgressWidgetConfig).metric === m
-                          ? 'bg-primary/20 border-primary text-primary'
+                          ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                           : 'border-border text-muted-foreground hover:text-foreground'
                       }`}
                     >{m}</button>
@@ -259,7 +259,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
                     <button key={d} type="button" onClick={() => setConfigField('display', d)}
                       className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
                         (config as GoalProgressWidgetConfig).display === d
-                          ? 'bg-primary/20 border-primary text-primary'
+                          ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                           : 'border-border text-muted-foreground hover:text-foreground'
                       }`}
                     >{d}</button>
@@ -290,7 +290,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
                 <select
                   value={(config.max_items as number) ?? 5}
                   onChange={e => setConfigField('max_items', Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
                 >
                   {[3, 5, 8, 10, 15].map(n => <option key={n} value={n}>{n} actions</option>)}
                 </select>
@@ -315,7 +315,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
               <select
                 value={(config.max_items as number) ?? (type === 'hot_leads' ? 5 : 6)}
                 onChange={e => setConfigField('max_items', Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
               >
                 {[3, 5, 6, 8, 10].map(n => <option key={n} value={n}>{n} items</option>)}
               </select>
@@ -329,7 +329,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
                 {(['daily', 'weekly'] as const).map(c => (
                   <button key={c} type="button" onClick={() => setConfigField('cadence', c)}
                     className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
-                      (config.cadence ?? 'daily') === c ? 'bg-primary/20 border-primary text-primary' : 'border-border text-muted-foreground hover:text-foreground'
+                      (config.cadence ?? 'daily') === c ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy' : 'border-border text-muted-foreground hover:text-foreground'
                     }`}
                   >{c}</button>
                 ))}
@@ -343,7 +343,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
               <select
                 value={(config.top_n as number) ?? 5}
                 onChange={e => setConfigField('top_n', Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
               >
                 {[3, 5, 8, 10].map(n => <option key={n} value={n}>{n} partners</option>)}
               </select>
@@ -356,7 +356,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
               <select
                 value={(config.saved_view_id as string) ?? ''}
                 onChange={e => setConfigField('saved_view_id', e.target.value || null)}
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
               >
                 <option value="">Select a saved view…</option>
                 {savedViews.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
@@ -367,7 +367,7 @@ export function EditWidgetModal({ widget, boards, savedViews, productionGoals, o
             </div>
           )}
 
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-jubo-red">{error}</p>}
 
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose}
@@ -394,7 +394,7 @@ function GoalSelect({ value, onChange, goals }: { value: string; onChange: (v: s
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
       >
         <option value="">Select a goal…</option>
         {goals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -415,7 +415,7 @@ function CadenceSelect({ value, onChange }: { value: string; onChange: (v: strin
           <button key={c} type="button" onClick={() => onChange(c)}
             className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
               value === c
-                ? 'bg-primary/20 border-primary text-primary'
+                ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                 : 'border-border text-muted-foreground hover:text-foreground'
             }`}
           >{c}</button>

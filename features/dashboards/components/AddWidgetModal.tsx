@@ -114,7 +114,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-jubo-navy/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -146,10 +146,10 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                 <button
                   key={type}
                   onClick={() => handleSelectType(type)}
-                  className="flex items-start gap-4 p-4 rounded-lg border border-border hover:border-primary/50 hover:bg-surface-1 text-left transition-all group"
+                  className="flex items-start gap-4 p-4 rounded-lg border border-border hover:border-jubo-navy/40 hover:bg-surface-1 text-left transition-all group"
                 >
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
-                    <Icon className="w-4.5 h-4.5 text-primary" />
+                  <div className="w-9 h-9 rounded-lg bg-jubo-navy/10 flex items-center justify-center flex-shrink-0 group-hover:bg-jubo-navy/15 transition-colors">
+                    <Icon className="w-4.5 h-4.5 text-jubo-navy" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">{meta.label}</p>
@@ -171,7 +171,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                 type="text"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
                 autoFocus
               />
             </div>
@@ -187,7 +187,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                     onClick={() => setWidth(opt.value)}
                     className={`px-2 py-1.5 rounded-lg border text-xs transition-colors ${
                       width === opt.value
-                        ? 'bg-primary/20 border-primary text-primary'
+                        ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                         : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80'
                     }`}
                   >
@@ -206,7 +206,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                 <select
                   value={(config.board_id as string) ?? ''}
                   onChange={e => setConfigField('board_id', e.target.value || null)}
-                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
                 >
                   <option value="">All boards</option>
                   {boards.map(b => (
@@ -229,7 +229,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                         onClick={() => setConfigField('aggregation', agg)}
                         className={`flex-1 px-3 py-2 rounded-lg border text-sm transition-colors ${
                           (config as MetricWidgetConfig).aggregation === agg
-                            ? 'bg-primary/20 border-primary text-primary'
+                            ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                             : 'border-border text-muted-foreground hover:text-foreground'
                         }`}
                       >
@@ -249,7 +249,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                         onClick={() => setConfigField('icon', ic)}
                         className={`px-2 py-1 rounded text-xs border transition-colors ${
                           (config as MetricWidgetConfig).icon === ic
-                            ? 'bg-primary/20 border-primary text-primary'
+                            ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                             : 'border-border text-muted-foreground hover:text-foreground'
                         }`}
                       >
@@ -270,7 +270,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                         title={c}
                         className={`px-3 py-1.5 rounded-lg border text-xs capitalize transition-colors ${
                           (config as MetricWidgetConfig).color === c
-                            ? 'bg-primary/20 border-primary text-primary'
+                            ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                             : 'border-border text-muted-foreground hover:text-foreground'
                         }`}
                       >
@@ -290,7 +290,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                   <select
                     value={(config as ListWidgetConfig).sort_field ?? 'updated_at'}
                     onChange={e => setConfigField('sort_field', e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
                   >
                     {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -301,7 +301,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                   <select
                     value={(config as ListWidgetConfig).max_records ?? 10}
                     onChange={e => setConfigField('max_records', Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
                   >
                     {[5, 10, 15, 20].map(n => <option key={n} value={n}>{n} records</option>)}
                   </select>
@@ -321,7 +321,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                       onClick={() => setConfigField('group_by', g)}
                       className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
                         (config as BoardSummaryWidgetConfig).group_by === g
-                          ? 'bg-primary/20 border-primary text-primary'
+                          ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                           : 'border-border text-muted-foreground hover:text-foreground'
                       }`}
                     >
@@ -339,7 +339,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                 <select
                   value={(config as ActivityFeedWidgetConfig).max_items ?? 10}
                   onChange={e => setConfigField('max_items', Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
                 >
                   {[5, 10, 20, 30].map(n => <option key={n} value={n}>{n} items</option>)}
                 </select>
@@ -357,7 +357,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                       <button key={m} type="button" onClick={() => setConfigField('metric', m)}
                         className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
                           (config as GoalProgressWidgetConfig).metric === m
-                            ? 'bg-primary/20 border-primary text-primary'
+                            ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                             : 'border-border text-muted-foreground hover:text-foreground'
                         }`}
                       >{m}</button>
@@ -371,7 +371,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                       <button key={d} type="button" onClick={() => setConfigField('display', d)}
                         className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
                           (config as GoalProgressWidgetConfig).display === d
-                            ? 'bg-primary/20 border-primary text-primary'
+                            ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                             : 'border-border text-muted-foreground hover:text-foreground'
                         }`}
                       >{d}</button>
@@ -405,7 +405,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                   <select
                     value={(config.max_items as number) ?? 5}
                     onChange={e => setConfigField('max_items', Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
                   >
                     {[3, 5, 8, 10, 15].map(n => <option key={n} value={n}>{n} actions</option>)}
                   </select>
@@ -431,7 +431,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                 <select
                   value={(config.max_items as number) ?? (selectedType === 'hot_leads' ? 5 : 6)}
                   onChange={e => setConfigField('max_items', Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
                 >
                   {[3, 5, 6, 8, 10].map(n => <option key={n} value={n}>{n} items</option>)}
                 </select>
@@ -446,7 +446,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                   {(['daily', 'weekly'] as const).map(c => (
                     <button key={c} type="button" onClick={() => setConfigField('cadence', c)}
                       className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
-                        (config.cadence ?? 'daily') === c ? 'bg-primary/20 border-primary text-primary' : 'border-border text-muted-foreground hover:text-foreground'
+                        (config.cadence ?? 'daily') === c ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy' : 'border-border text-muted-foreground hover:text-foreground'
                       }`}
                     >{c}</button>
                   ))}
@@ -461,7 +461,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                 <select
                   value={(config.top_n as number) ?? 5}
                   onChange={e => setConfigField('top_n', Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
                 >
                   {[3, 5, 8, 10].map(n => <option key={n} value={n}>{n} partners</option>)}
                 </select>
@@ -475,7 +475,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
                 <select
                   value={(config.saved_view_id as string) ?? ''}
                   onChange={e => setConfigField('saved_view_id', e.target.value || null)}
-                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
                 >
                   <option value="">Select a saved view…</option>
                   {savedViews.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
@@ -486,7 +486,7 @@ export function AddWidgetModal({ dashboardId, boards, savedViews, productionGoal
               </div>
             )}
 
-            {error && <p className="text-xs text-red-400">{error}</p>}
+            {error && <p className="text-xs text-jubo-red">{error}</p>}
 
             <div className="flex gap-2 pt-2">
               <button
@@ -518,7 +518,7 @@ function GoalSelect({ value, onChange, goals }: { value: string; onChange: (v: s
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
       >
         <option value="">Select a goal…</option>
         {goals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -539,7 +539,7 @@ function CadenceSelect({ value, onChange }: { value: string; onChange: (v: strin
           <button key={c} type="button" onClick={() => onChange(c)}
             className={`flex-1 px-3 py-2 rounded-lg border text-sm capitalize transition-colors ${
               value === c
-                ? 'bg-primary/20 border-primary text-primary'
+                ? 'bg-jubo-navy/10 border-jubo-navy text-jubo-navy'
                 : 'border-border text-muted-foreground hover:text-foreground'
             }`}
           >{c}</button>
