@@ -41,7 +41,7 @@ export default function LoginPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="flex items-center justify-center gap-2 mb-8">
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+        <div className="w-8 h-8 rounded-lg bg-jubo-navy flex items-center justify-center">
           <Command className="w-4 h-4 text-primary-foreground" />
         </div>
         <span className="text-lg font-semibold text-foreground">Jubo</span>
@@ -63,7 +63,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
               placeholder="you@example.com"
               required
             />
@@ -77,7 +77,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
               placeholder="••••••••"
               required
             />
@@ -92,7 +92,7 @@ export default function LoginPage() {
 
         <p className="text-xs text-center text-muted-foreground mt-4">
           No account?{" "}
-          <Link href="/signup" className="text-primary hover:underline">
+          <Link href="/signup" className="text-jubo-navy hover:underline">
             Sign up
           </Link>
         </p>

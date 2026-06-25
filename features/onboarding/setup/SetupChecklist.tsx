@@ -70,8 +70,8 @@ export function SetupChecklist({
               className={cn(
                 'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border transition-colors',
                 item.completed
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-border text-transparent hover:border-primary',
+                  ? 'border-jubo-green bg-jubo-green text-white'
+                  : 'border-border text-transparent hover:border-jubo-navy',
               )}
               aria-label={item.completed ? 'Mark incomplete' : 'Mark complete'}
             >
@@ -96,7 +96,7 @@ export function SetupChecklist({
             {item.action_href && !item.completed && (
               <Link
                 href={item.action_href}
-                className="flex-shrink-0 rounded-md px-2 py-1 text-xs font-medium text-primary opacity-0 transition-opacity hover:underline group-hover:opacity-100"
+                className="flex-shrink-0 rounded-md px-2 py-1 text-xs font-medium text-jubo-navy opacity-0 transition-opacity hover:underline group-hover:opacity-100"
               >
                 Do it
               </Link>

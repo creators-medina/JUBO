@@ -107,7 +107,7 @@ function UploadRow({
     <div
       className={cn(
         'flex items-center justify-between gap-4 rounded-lg border px-4 py-3 transition-colors',
-        uploadedName ? 'border-primary/50 bg-primary/5' : 'border-border bg-surface-1',
+        uploadedName ? 'border-jubo-navy/50 bg-jubo-navy/5' : 'border-border bg-surface-1',
       )}
     >
       <div className="flex min-w-0 items-center gap-3">
@@ -116,7 +116,7 @@ function UploadRow({
         </div>
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">{label}</p>
-          <p className={cn('truncate text-xs', errorMessage ? 'text-amber-300' : 'text-muted-foreground')}>
+          <p className={cn('truncate text-xs', errorMessage ? 'text-jubo-gold' : 'text-muted-foreground')}>
             {errorMessage ?? uploadedName ?? hint}
           </p>
         </div>
@@ -138,7 +138,7 @@ function UploadRow({
         className={cn(
           'inline-flex flex-shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors disabled:opacity-50',
           uploadedName
-            ? 'text-primary'
+            ? 'text-jubo-navy'
             : 'bg-surface-2 text-foreground hover:bg-surface-3',
         )}
       >

@@ -52,7 +52,7 @@ export function PlanRevealClient({
     <div className="mx-auto flex min-h-screen w-full max-w-4xl flex-col px-6 py-10 sm:py-14">
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <section className="text-center">
-        <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+        <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-jubo-navy/10 text-jubo-navy">
           <Trophy className="h-6 w-6" />
         </div>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
@@ -86,14 +86,14 @@ export function PlanRevealClient({
 
       {/* ── Needs-review banner — files we held for manual mapping ──────── */}
       {data.uploadsNeedingReview.length > 0 && (
-        <section className="mt-8 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+        <section className="mt-8 rounded-2xl border border-jubo-gold/40 bg-jubo-gold-soft p-4">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-300" />
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-jubo-gold" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-amber-200">
+              <p className="text-sm font-medium text-jubo-gold">
                 {data.uploadsNeedingReview.length} file{data.uploadsNeedingReview.length === 1 ? ' needs' : 's need'} a quick review
               </p>
-              <p className="mt-0.5 text-xs text-amber-200/80">
+              <p className="mt-0.5 text-xs text-jubo-gold">
                 We couldn&apos;t confidently match every column ({data.uploadsNeedingReview.map((u) => u.file_name).join(', ')}).
                 Map the columns yourself in the importer.
               </p>
@@ -107,14 +107,14 @@ export function PlanRevealClient({
 
       {/* ── Failed-upload banner — surfaced loudly (Phase 30B follow-up fix) ─ */}
       {data.uploadsFailed.length > 0 && (
-        <section className="mt-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
+        <section className="mt-3 rounded-2xl border border-jubo-red/30 bg-jubo-red/10 p-4">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-300" />
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-jubo-red" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-red-200">
+              <p className="text-sm font-medium text-jubo-red">
                 {data.uploadsFailed.length} file{data.uploadsFailed.length === 1 ? '' : 's'} couldn&apos;t be imported
               </p>
-              <p className="mt-0.5 text-xs text-red-200/80">
+              <p className="mt-0.5 text-xs text-jubo-red">
                 {data.uploadsFailed.map((u) => u.file_name).join(', ')} — try again from the importer.
               </p>
               <Button variant="outline" size="sm" className="mt-3 gap-1.5" onClick={() => router.push('/imports/new')}>
@@ -172,7 +172,7 @@ export function PlanRevealClient({
       {data.uploadsCount === 0 && (
         <section className="mt-10 rounded-2xl border border-border bg-card p-6">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-300">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-jubo-gold-soft text-jubo-gold">
               <Upload className="h-5 w-5" />
             </div>
             <div className="flex-1">
@@ -217,7 +217,7 @@ function CreatedCard({ icon, title, items, extraCount }: {
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-jubo-green-soft text-jubo-green">
           <CheckCircle2 className="h-3.5 w-3.5" />
         </div>
         <div className="flex items-center gap-1.5 text-muted-foreground">{icon}</div>

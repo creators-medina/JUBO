@@ -73,7 +73,7 @@ export function InviteAcceptClient({
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 flex items-center justify-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary"><Command className="h-4 w-4 text-primary-foreground" /></div>
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-jubo-navy"><Command className="h-4 w-4 text-primary-foreground" /></div>
         <span className="text-lg font-semibold text-foreground">Jubo</span>
       </div>
 

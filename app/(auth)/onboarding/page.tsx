@@ -36,7 +36,7 @@ export default function OnboardingPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="flex items-center justify-center gap-2 mb-8">
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+        <div className="w-8 h-8 rounded-lg bg-jubo-navy flex items-center justify-center">
           <Command className="w-4 h-4 text-primary-foreground" />
         </div>
         <span className="text-lg font-semibold text-foreground">Jubo</span>
@@ -55,7 +55,7 @@ export default function OnboardingPage() {
               type="text"
               value={name}
               onChange={e => handleNameChange(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
               placeholder="Medina Mortgage"
               required
             />

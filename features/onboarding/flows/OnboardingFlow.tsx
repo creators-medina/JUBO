@@ -76,7 +76,7 @@ function WelcomeStep() {
   return (
     <div className="flex h-full items-center justify-center p-6">
       <div className="max-w-lg text-center animate-in fade-in slide-in-from-bottom-3 duration-500">
-        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-jubo-navy/10 text-jubo-navy">
           <Sparkles className="h-7 w-7" />
         </div>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">{def.title}</h1>
@@ -185,7 +185,7 @@ function GeneratingStep() {
     <div className="flex h-full items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-jubo-navy/10 text-jubo-navy">
             <Loader2 className="h-7 w-7 animate-spin" />
           </div>
           <h1 className="text-xl font-semibold text-foreground">Assembling your operating system</h1>
@@ -200,9 +200,9 @@ function GeneratingStep() {
                 <div
                   className={`flex h-5 w-5 items-center justify-center rounded-full border transition-colors ${
                     complete
-                      ? 'border-primary bg-primary text-primary-foreground'
+                      ? 'border-jubo-green bg-jubo-green text-white'
                       : active
-                        ? 'border-primary text-primary'
+                        ? 'border-jubo-navy text-jubo-navy'
                         : 'border-border text-transparent'
                   }`}
                 >
@@ -226,9 +226,9 @@ function GeneratingStep() {
                     {UPLOAD_LABELS[kind]} · <span className="text-muted-foreground">{evt.fileName}</span>
                   </span>
                   <span className={
-                    evt.phase === 'done' ? 'text-emerald-400'
-                      : evt.phase === 'needs_review' ? 'text-amber-300'
-                      : evt.phase === 'failed' ? 'text-red-400'
+                    evt.phase === 'done' ? 'text-jubo-green'
+                      : evt.phase === 'needs_review' ? 'text-jubo-gold'
+                      : evt.phase === 'failed' ? 'text-jubo-red'
                       : 'text-muted-foreground'
                   }>
                     {evt.phase === 'parsing' ? 'Reading…'
@@ -273,7 +273,7 @@ function DoneStep() {
   return (
     <div className="flex h-full items-center justify-center p-6">
       <div className="w-full max-w-lg text-center animate-in fade-in slide-in-from-bottom-3 duration-500">
-        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-jubo-navy/10 text-jubo-navy">
           <Rocket className="h-7 w-7" />
         </div>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Your operating system is ready</h1>

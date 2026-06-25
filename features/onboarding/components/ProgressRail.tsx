@@ -15,7 +15,7 @@ export function ProgressRail() {
   return (
     <aside className="hidden w-64 flex-shrink-0 flex-col border-r border-border bg-surface-1/40 p-6 lg:flex">
       <div className="mb-8 flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-jubo-navy">
           <Command className="h-4 w-4 text-primary-foreground" />
         </div>
         <span className="text-sm font-semibold text-foreground">Jubo setup</span>
@@ -30,8 +30,8 @@ export function ProgressRail() {
               <div
                 className={cn(
                   'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border text-2xs font-semibold transition-colors',
-                  done && 'border-primary bg-primary text-primary-foreground',
-                  active && !done && 'border-primary bg-primary/10 text-primary',
+                  done && 'border-jubo-green bg-jubo-green text-white',
+                  active && !done && 'border-jubo-navy bg-jubo-navy/10 text-jubo-navy',
                   !active && !done && 'border-border bg-surface-2 text-muted-foreground',
                 )}
               >

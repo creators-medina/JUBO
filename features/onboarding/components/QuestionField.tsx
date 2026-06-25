@@ -65,7 +65,7 @@ export function QuestionField({ q }: { q: Question }) {
         onClick={() => setAnswer(key, (!on) as never)}
         className={cn(
           'flex w-full items-center justify-between gap-4 rounded-lg border px-4 py-3 text-left transition-colors',
-          on ? 'border-primary/60 bg-primary/10' : 'border-border bg-surface-1 hover:bg-surface-2',
+          on ? 'border-jubo-navy/60 bg-jubo-navy/10' : 'border-border bg-surface-1 hover:bg-surface-2',
         )}
       >
         <span className="text-sm font-medium text-foreground">{q.label}</span>
@@ -97,7 +97,7 @@ export function QuestionField({ q }: { q: Question }) {
                 className={cn(
                   'rounded-lg border px-3 py-1.5 text-sm transition-colors',
                   selected
-                    ? 'border-primary/60 bg-primary/10 text-foreground'
+                    ? 'border-jubo-navy/60 bg-jubo-navy/10 text-foreground'
                     : 'border-border bg-surface-1 text-muted-foreground hover:text-foreground hover:bg-surface-2',
                 )}
               >
