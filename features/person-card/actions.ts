@@ -16,6 +16,9 @@ import { createClient } from '@/lib/supabase/server'
 import { getGroupChecklistFields } from '@/features/fields/actions'
 import { valueIsEmpty } from '@/features/fields/conversion'
 import { resolveTemplateKey } from '@/features/mortgage/templates/resolve'
+import { getTwilioConfig, getThreadForRecord } from '@/features/conversations/queries'
+import { loadThreadMessages } from '@/features/conversations/actions'
+import type { CommunicateContext } from '@/features/communications/communicate'
 import type { MortgageData, WorkspaceTemplateKey } from '@/features/mortgage/types'
 
 type FieldValueRow = {
@@ -127,6 +130,26 @@ export async function getPersonCardData(recordId: string): Promise<PersonCardDat
     // Reuse the existing checklist engine with explicit current-group context.
     getGroupChecklistFields(rec.board_id as string, rec.group_id as string | null),
   ])
+  return assemblePersonCardData({ rec, fieldRows, fieldsById, boardsById, group, keys, owner, tasks, activities, checklist })
+}
+
+// Pure assembler — turns the already-fetched rows into the PersonCardData shape.
+// Extracted (Phase C4) so getPersonCardData AND the consolidated getFileCardData
+// produce byte-identical output from ONE set of queries.
+function assemblePersonCardData({
+  rec, fieldRows, fieldsById, boardsById, group, keys, owner, tasks, activities, checklist,
+}: {
+  rec: any
+  fieldRows: FieldValueRow[]
+  fieldsById: Map<string, any>
+  boardsById: Map<string, any>
+  group: any | null
+  keys: any[] | null
+  owner: any | null
+  tasks: any[] | null
+  activities: any[] | null
+  checklist: { fields: { id: string; name: string }[] } | null
+}): PersonCardData {
   const keysById = new Map((keys ?? []).map((k: any) => [k.id, k]))
 
   // ── Common-field resolution (display-only; conflicts surfaced, never resolved) ──
@@ -293,4 +316,139 @@ export async function getLoanCommandData(recordId: string): Promise<LoanCommandD
     communications: cRes.data ?? [],
     profiles,
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Phase C4 — ONE resolver for the File Card open.
+//
+// Opening a loan record used to fire three overlapping resolvers
+// (getPersonCardData + getCommunicateContext + getLoanCommandData), re-reading
+// record / fields / field_values / activities / tasks / notes / communications
+// 2–3× each. getFileCardData reads every underlying table ONCE and returns the
+// same three shapes the card already consumes ({ card, comms, loan }), so the
+// rendered output is byte-identical — this only changes HOW data is fetched.
+// (The legacy resolvers above are kept for their other callers, e.g.
+// CommunicateView; the card now calls only this one.)
+// ─────────────────────────────────────────────────────────────────────────
+
+type CommsBundle = NonNullable<CommunicateContext>
+export type FileCardData = { card: PersonCardData; comms: CommsBundle; loan: LoanCommandData }
+
+export async function getFileCardData(recordId: string): Promise<FileCardData | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  // Record once — the full row covers every consumer (ids, owner, status,
+  // next_action*, record_type).
+  const { data: rec } = await supabase.from('records').select('*').eq('id', recordId).maybeSingle()
+  if (!rec) return null
+  const orgId = rec.organization_id as string
+  const boardId = rec.board_id as string | null
+
+  // Every field value the record holds (current + stranded), once.
+  const { data: fvs } = await supabase
+    .from('field_values')
+    .select('field_id, value_text, value_number, value_boolean, value_date, value_json, updated_at')
+    .eq('record_id', recordId)
+  const fieldRows = (fvs ?? []) as FieldValueRow[]
+  const fieldIds = [...new Set(fieldRows.map((v) => v.field_id))]
+
+  // Field metadata for those values (incl slug, for the loan slug accessors), once.
+  const { data: fieldsData } = fieldIds.length > 0
+    ? await supabase.from('fields').select('id, board_id, name, field_type, slug, position, common_field_key_id').in('id', fieldIds)
+    : { data: [] as any[] }
+  const fieldsById = new Map((fieldsData ?? []).map((f: any) => [f.id, f]))
+
+  // Boards (current + every referenced), once.
+  const boardIds = [...new Set([boardId, ...(fieldsData ?? []).map((f: any) => f.board_id)].filter(Boolean))] as string[]
+  const { data: boardsData } = boardIds.length > 0
+    ? await supabase.from('boards').select('id, name, board_type, slug, color').in('id', boardIds)
+    : { data: [] as any[] }
+  const boardsById = new Map((boardsData ?? []).map((b: any) => [b.id, b]))
+
+  // Remaining record-scoped reads — each table ONCE.
+  const [
+    { data: groups }, { data: keys }, { data: tasks }, { data: activities },
+    { data: movements }, { data: notes }, { data: communications }, { data: mems },
+    checklist, twilioConfig, thread,
+  ] = await Promise.all([
+    boardId ? supabase.from('board_groups').select('*').eq('board_id', boardId).eq('is_archived', false).order('position') : Promise.resolve({ data: [] as any[] }),
+    supabase.from('common_field_keys').select('id, key, label, scope, data_type').eq('organization_id', orgId),
+    supabase.from('tasks').select('*').eq('record_id', recordId).order('created_at', { ascending: false }),
+    supabase.from('activities').select('id, activity_type, content, metadata, created_at, user_id').eq('record_id', recordId).order('created_at', { ascending: false }).limit(100),
+    supabase.from('record_movements').select('id, created_at').eq('record_id', recordId).order('created_at', { ascending: false }).limit(20),
+    supabase.from('notes').select('*').eq('record_id', recordId).order('created_at', { ascending: false }),
+    supabase.from('communication_logs').select('*').eq('record_id', recordId).order('occurred_at', { ascending: false }),
+    supabase.from('organization_members').select('user_id, status, profiles:user_id(first_name, last_name, email)').eq('organization_id', orgId),
+    getGroupChecklistFields(boardId as string, (rec.group_id as string | null)),
+    getTwilioConfig(supabase as never, orgId),
+    getThreadForRecord(recordId),
+  ])
+
+  // Profiles for owner + actors (names), once.
+  const userIds = new Set<string>()
+  if (rec.owner_user_id) userIds.add(rec.owner_user_id)
+  for (const a of activities ?? []) if (a.user_id) userIds.add(a.user_id)
+  for (const t of tasks ?? []) { if (t.created_by) userIds.add(t.created_by); if (t.assigned_user_id) userIds.add(t.assigned_user_id) }
+  const profileRows = userIds.size > 0
+    ? ((await supabase.from('profiles').select('id, first_name, last_name, email').in('id', [...userIds])).data ?? [])
+    : []
+  const profiles: Record<string, string> = {}
+  for (const p of profileRows as any[]) profiles[p.id] = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown'
+  const owner = (profileRows as any[]).find((p) => p.id === rec.owner_user_id) ?? null
+
+  const group = (groups ?? []).find((g: any) => g.id === rec.group_id) ?? null
+
+  // ── card: the cross-board read model (identical to getPersonCardData). ──
+  const card = assemblePersonCardData({ rec, fieldRows, fieldsById, boardsById, group, keys, owner, tasks, activities, checklist })
+
+  // ── loan: the current-board MortgageData bundle (identical to getLoanCommandData). ──
+  const curBoard = boardId ? boardsById.get(boardId) ?? null : null
+  const loan: LoanCommandData = {
+    record: rec,
+    board: curBoard ? { id: curBoard.id, name: curBoard.name, slug: curBoard.slug, board_type: curBoard.board_type } : null,
+    fields: (fieldsData ?? []).filter((f: any) => f.board_id === boardId),
+    fieldValues: fieldRows as any[],
+    activities: (activities ?? []) as any[],
+    tasks: (tasks ?? []) as any[],
+    movements: (movements ?? []) as any[],
+    notes: (notes ?? []) as any[],
+    groups: (groups ?? []) as any[],
+    communications: (communications ?? []) as any[],
+    profiles,
+  }
+
+  // ── comms: contact identity + SMS thread + notes + members (identical to
+  //    getCommunicateContext). ──
+  const threadId = thread?.id ?? null
+  const messages = threadId ? await loadThreadMessages(threadId) : []
+  const phoneKeyId = (keys ?? []).find((k: any) => k.key === 'phone')?.id ?? null
+  const emailKeyId = (keys ?? []).find((k: any) => k.key === 'email')?.id ?? null
+  const curFields = (fieldsData ?? []).filter((f: any) => f.board_id === boardId)
+  const valText = new Map<string, string>()
+  for (const fv of fieldRows) if (fv.value_text) valText.set(fv.field_id, fv.value_text)
+  const pickContact = (keyId: string | null, type: string): string | null => {
+    if (keyId) { const f = curFields.find((x: any) => x.common_field_key_id === keyId && valText.has(x.id)); if (f) return valText.get(f.id)! }
+    const f2 = curFields.find((x: any) => x.field_type === type && valText.has(x.id)); return f2 ? valText.get(f2.id)! : null
+  }
+  const members = ((mems ?? []) as any[])
+    .filter((m) => m.status !== 'disabled' && m.user_id)
+    .map((m) => {
+      const p = m.profiles ?? {}
+      const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || p.email || 'Member'
+      return { id: m.user_id as string, name }
+    })
+  const comms: CommsBundle = {
+    twilioConnected: !!twilioConfig,
+    phone: pickContact(phoneKeyId, 'phone'),
+    email: pickContact(emailKeyId, 'email'),
+    threadId,
+    messages,
+    notes: (notes ?? []) as any,
+    members,
+    currentUserId: user.id,
+  }
+
+  return { card, comms, loan }
 }

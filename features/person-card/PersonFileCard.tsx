@@ -15,8 +15,8 @@ import { useEffect, useState, useCallback, useTransition } from 'react'
 import {
   Loader2, CheckSquare, Square, Plug, ArrowUpRight, ArrowDownLeft, ChevronRight,
 } from 'lucide-react'
-import { getPersonCardData, getLoanCommandData, type PersonCardData, type LoanCommandData } from './actions'
-import { getCommunicateContext, type CommunicateContext } from '@/features/communications/communicate'
+import { getFileCardData, type PersonCardData, type LoanCommandData } from './actions'
+import type { CommunicateContext } from '@/features/communications/communicate'
 import { SMSComposeBox } from '@/features/conversations/compose/SMSComposeBox'
 import { NoteList } from '@/features/workspace/notes/NoteList'
 import { upsertFieldValue, moveRecord } from '@/features/records/actions'
@@ -53,27 +53,25 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
   const [filter, setFilter] = useState<Filter>('all')
   const [busy, setBusy] = useState<string | null>(null)
 
+  // Phase C4 — ONE resolver per open. getFileCardData reads each table once and
+  // returns the same three shapes the card consumes ({ card, comms, loan }).
   const load = useCallback(() => {
-    getPersonCardData(recordId).then(setCard).catch(() => setCard(null))
-    getCommunicateContext(recordId).then(setComms).catch(() => setComms(null))
-  }, [recordId])
-  const loadLoan = useCallback(() => {
-    getLoanCommandData(recordId).then(setLoan).catch(() => setLoan(null))
+    getFileCardData(recordId)
+      .then((d) => {
+        if (!d) { setCard(null); setComms(null); setLoan(null); return }
+        setCard(d.card); setComms(d.comms); setLoan(d.loan)
+      })
+      .catch(() => { setCard(null); setComms(null); setLoan(null) })
   }, [recordId])
   useEffect(() => { load() }, [load])
-
-  // Fetch the loan command bundle only for loan-like boards (after the card
-  // resolves the template key) — generic boards never pay for it.
-  const loanShape = !!card && (card.templateKey === 'loan' || card.templateKey === 'lead')
-  useEffect(() => { if (loanShape) loadLoan() }, [loanShape, loadLoan])
 
   // Refetch on window focus so harvested mutations (Next Step, Move-To, which
   // call router.refresh()) reflect in this client-loaded card.
   useEffect(() => {
-    const onFocus = () => { load(); if (loanShape) loadLoan() }
+    const onFocus = () => load()
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
-  }, [load, loadLoan, loanShape])
+  }, [load])
 
   if (card === undefined) {
     return <div className="flex items-center gap-2 py-6 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading file…</div>
@@ -101,7 +99,7 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
   // Loan-like boards (loan/lead) get the full loan File Card; every other board
   // (generic/partner/past_client) gets a generic record card: the same universal
   // shell (feed, checklist, notes) without the loan framing and loan-only tabs.
-  const isLoanLike = loanShape
+  const isLoanLike = card.templateKey === 'loan' || card.templateKey === 'lead'
   const visibleTabs = isLoanLike ? TABS : TABS.filter((t) => t.key === 'overview')
   const activeTab: Tab = isLoanLike ? tab : 'overview'
 
@@ -234,7 +232,7 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
                 loan={loan}
                 templateKey={card.templateKey}
                 tasks={card.tasks}
-                onChanged={() => { load(); loadLoan() }}
+                onChanged={load}
               />
             )}
 
