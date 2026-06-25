@@ -13,6 +13,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { type VisibilityIndex } from '@/features/fields/visibility'
 import { buildKanbanFace, KanbanCardFace } from './KanbanCardFace'
 import { stageColor } from './BoardStageSummary'
+import { useHoverCard, BorrowerPreviewPanel } from './BoardHoverCard'
 import { cn } from '@/lib/utils'
 
 export type Stage = { id: string; boardId: string; groupId: string; label: string; color?: string | null }
@@ -33,6 +34,9 @@ interface Props {
 export function BoardKanbanView({
   stages, recordsByGroup, totalByGroup, fieldsByGroup, fieldValuesIndex, fields, visibilityIndex, pendingMoveIds, onSelectRecord, onAddRecord,
 }: Props) {
+  // Stage-stepper data for the hover preview (id = group id so it matches each
+  // record's group_id; position preserves lane order). Built once for all cards.
+  const previewGroups = stages.map((s, i) => ({ id: s.groupId, name: s.label, position: i }))
   return (
     <div className="flex h-full gap-4 overflow-x-auto pb-4">
       {stages.map((stage, i) => (
@@ -46,6 +50,7 @@ export function BoardKanbanView({
           fields={fields}
           fieldValuesIndex={fieldValuesIndex}
           visibilityIndex={visibilityIndex}
+          previewGroups={previewGroups}
           pendingMoveIds={pendingMoveIds}
           onSelectRecord={onSelectRecord}
           onAddRecord={onAddRecord}
@@ -56,7 +61,7 @@ export function BoardKanbanView({
 }
 
 function KanbanColumn({
-  stage, accent, count, records, groupFields, fields, fieldValuesIndex, visibilityIndex, pendingMoveIds, onSelectRecord, onAddRecord,
+  stage, accent, count, records, groupFields, fields, fieldValuesIndex, visibilityIndex, previewGroups, pendingMoveIds, onSelectRecord, onAddRecord,
 }: {
   stage: Stage
   accent: string
@@ -66,6 +71,7 @@ function KanbanColumn({
   fields: any[]
   fieldValuesIndex: Record<string, Record<string, any>>
   visibilityIndex: VisibilityIndex
+  previewGroups: { id: string; name: string; position: number }[]
   pendingMoveIds?: Set<string>
   onSelectRecord: (recordId: string, title: string) => void
   onAddRecord?: (groupId: string) => void
@@ -126,6 +132,7 @@ function KanbanColumn({
               fields={fields}
               fieldValueMap={fieldValuesIndex[record.id] ?? {}}
               visibilityIndex={visibilityIndex}
+              previewGroups={previewGroups}
               pending={pendingMoveIds?.has(record.id) ?? false}
               onClick={() => onSelectRecord(record.id, record.title ?? 'Record')}
             />
@@ -147,7 +154,7 @@ function KanbanColumn({
 }
 
 function KanbanCard({
-  stage, record, groupFields, fields, fieldValueMap, visibilityIndex, pending, onClick,
+  stage, record, groupFields, fields, fieldValueMap, visibilityIndex, previewGroups, pending, onClick,
 }: {
   stage: Stage
   record: any
@@ -155,6 +162,7 @@ function KanbanCard({
   fields: any[]
   fieldValueMap: Record<string, any>
   visibilityIndex: VisibilityIndex
+  previewGroups: { id: string; name: string; position: number }[]
   pending: boolean
   onClick: () => void
 }) {
@@ -172,23 +180,45 @@ function KanbanCard({
   })
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
 
+  // Phase 3C — borrower preview on hover. Disabled while dragging so it never
+  // competes with dnd-kit; the trigger's onPointerDown closes it AND bubbles to
+  // the button's drag listeners (the trigger is an inner element), so click-to-
+  // open and drag-to-move keep working untouched.
+  const hover = useHoverCard({ disabled: isDragging })
+
   return (
-    <button
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      type="button"
-      onClick={onClick}
-      className={cn(
-        // Warm LOS card. block (not flex) so the face's block rows stay full-width
-        // and the status pill stays content-width. relative+overflow-hidden clips
-        // the colored rail to the rounded corners.
-        'relative block w-full flex-shrink-0 min-h-[4rem] cursor-grab overflow-hidden rounded-xl border border-jubo-border bg-jubo-card py-3.5 pl-4 pr-3.5 text-left shadow-sm transition-[transform,opacity,border-color,box-shadow] duration-150 ease-out hover:border-jubo-border-strong hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
-        isDragging && 'opacity-40',
+    <>
+      <button
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        type="button"
+        onClick={onClick}
+        className={cn(
+          // Warm LOS card. block (not flex) so the face's block rows stay full-width
+          // and the status pill stays content-width. relative+overflow-hidden clips
+          // the colored rail to the rounded corners.
+          'relative block w-full flex-shrink-0 min-h-[4rem] cursor-grab overflow-hidden rounded-xl border border-jubo-border bg-jubo-card py-3.5 pl-4 pr-3.5 text-left shadow-sm transition-[transform,opacity,border-color,box-shadow] duration-150 ease-out hover:border-jubo-border-strong hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
+          isDragging && 'opacity-40',
+        )}
+      >
+        {/* tabIndex −1: the card button is already the tab stop; we only want the
+            div's pointer handlers, not a nested focusable inside the button. */}
+        <div ref={hover.ref} {...hover.triggerProps} tabIndex={-1} className="outline-none">
+          <KanbanCardFace {...face} />
+        </div>
+      </button>
+      {hover.open && hover.rect && (
+        <BorrowerPreviewPanel
+          rect={hover.rect}
+          panelProps={hover.panelProps}
+          record={record}
+          fields={fields}
+          fieldValueMap={fieldValueMap}
+          groups={previewGroups}
+        />
       )}
-    >
-      <KanbanCardFace {...face} />
-    </button>
+    </>
   )
 }

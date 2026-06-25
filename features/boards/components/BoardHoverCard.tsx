@@ -119,7 +119,7 @@ export function BorrowerPreviewPanel({
 }) {
   if (typeof document === 'undefined') return null
 
-  const W = 288
+  const W = 320
   const sorted = [...groups].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
   const stageIdx = sorted.findIndex((g) => g.id === record.group_id)
   const stageName = stageIdx >= 0 ? sorted[stageIdx].name : null
@@ -158,10 +158,10 @@ export function BorrowerPreviewPanel({
       {...panelProps}
       role="dialog"
       aria-label={`${record.title} preview`}
-      className="jubo-los-scope fixed z-[100] rounded-xl border border-border bg-popover p-3 shadow-2xl"
+      className="fixed z-[100] rounded-xl border border-jubo-border bg-jubo-card p-3 shadow-2xl"
       style={style}
     >
-      {/* Stage / status at top */}
+      {/* Stage / status at top — navy = current stage. */}
       {sorted.length >= 2 && (
         <div className="mb-2 flex items-center gap-2">
           <div className="flex items-center gap-1">
@@ -169,48 +169,48 @@ export function BorrowerPreviewPanel({
               <span
                 key={g.id}
                 className="h-1.5 w-1.5 rounded-full"
-                style={{ backgroundColor: i < stageIdx ? 'var(--accent-green)' : i === stageIdx ? 'var(--primary)' : 'var(--surface-3)' }}
+                style={{ backgroundColor: i < stageIdx ? 'var(--jubo-green)' : i === stageIdx ? 'var(--jubo-navy)' : 'var(--jubo-border)' }}
                 aria-hidden
               />
             ))}
           </div>
-          {stageName && <span className="truncate text-2xs font-medium text-muted-foreground">{stageName} · {stageIdx + 1}/{sorted.length}</span>}
+          {stageName && <span className="truncate text-2xs font-medium text-jubo-muted">{stageName} · {stageIdx + 1}/{sorted.length}</span>}
         </div>
       )}
 
       {/* Name */}
-      <p className="truncate text-sm font-semibold text-foreground">{record.title || 'Untitled'}</p>
+      <p className="truncate text-sm font-semibold text-jubo-text">{record.title || 'Untitled'}</p>
 
       {/* Loan amount · purpose */}
       {(amount || purpose) && (
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {amount && <span className="font-semibold" style={{ color: 'var(--accent-green)' }}>{amount}</span>}
+        <p className="mt-0.5 text-xs text-jubo-text-soft">
+          {amount && <span className="font-semibold text-jubo-green">{amount}</span>}
           {amount && purpose ? ' · ' : ''}{purpose}
         </p>
       )}
 
       {/* Checklist + notes */}
       {(pct != null || (notesCount ?? 0) > 0) && (
-        <div className="mt-2 flex flex-wrap items-center gap-3 text-2xs text-muted-foreground">
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-2xs text-jubo-text-soft">
           {pct != null && (
             <span className="inline-flex items-center gap-1">
-              <CheckSquare className="h-3 w-3" style={{ color: total - done === 0 ? 'var(--accent-green)' : 'var(--accent-amber)' }} />
+              <CheckSquare className="h-3 w-3" style={{ color: total - done === 0 ? 'var(--jubo-green)' : 'var(--jubo-gold)' }} />
               {pct}% · {total - done} left
             </span>
           )}
           {(notesCount ?? 0) > 0 && (
-            <span className="inline-flex items-center gap-1"><StickyNote className="h-3 w-3" /> {notesCount} notes</span>
+            <span className="inline-flex items-center gap-1"><StickyNote className="h-3 w-3 text-jubo-gold" /> {notesCount} notes</span>
           )}
         </div>
       )}
 
       {/* Next action — prominent if present and not completed */}
       {na && !doneNa && (
-        <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-surface-1/70 px-2 py-1.5">
-          <Zap className="mt-0.5 h-3 w-3 flex-shrink-0" style={{ color: nextDue === 'overdue' ? 'var(--accent-rose)' : 'var(--primary)' }} />
+        <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-jubo-card-soft px-2 py-1.5">
+          <Zap className="mt-0.5 h-3 w-3 flex-shrink-0" style={{ color: nextDue === 'overdue' ? 'var(--jubo-red)' : 'var(--jubo-navy)' }} />
           <div className="min-w-0">
-            <p className="text-2xs font-medium text-foreground line-clamp-2">{na}</p>
-            {nextDue && <p className={cn('text-2xs', nextDue === 'overdue' ? 'text-red-400' : 'text-muted-foreground')}>Due {nextDue}</p>}
+            <p className="text-2xs font-medium text-jubo-text line-clamp-2">{na}</p>
+            {nextDue && <p className={cn('text-2xs', nextDue === 'overdue' ? 'text-jubo-red' : 'text-jubo-muted')}>Due {nextDue}</p>}
           </div>
         </div>
       )}
