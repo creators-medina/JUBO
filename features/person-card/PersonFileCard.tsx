@@ -13,7 +13,7 @@
 
 import { useEffect, useState, useCallback, useTransition } from 'react'
 import {
-  Loader2, Phone, Mail, CheckSquare, Square, Plug, ArrowUpRight, ArrowDownLeft, ChevronRight,
+  Loader2, CheckSquare, Square, Plug, ArrowUpRight, ArrowDownLeft, ChevronRight,
 } from 'lucide-react'
 import { getPersonCardData, getLoanCommandData, type PersonCardData, type LoanCommandData } from './actions'
 import { getCommunicateContext, type CommunicateContext } from '@/features/communications/communicate'
@@ -113,34 +113,22 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
 
   return (
     <div className="space-y-4">
-      {/* ── Header ── */}
-      <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="truncate text-base font-semibold tracking-tight text-foreground">{card.record.title}</h1>
-            <p className="mt-0.5 text-2xs text-muted-foreground">
-              {card.currentBoard?.name ?? 'No board'}{card.currentGroup ? ` · ${card.currentGroup.name}` : ''}
-              {card.ownerName ? ` · ${card.ownerName}` : ''}
-            </p>
-          </div>
-          <div className="flex flex-shrink-0 items-center gap-1.5">
-            {phone && <a href={`tel:${phone}`} title={`Call ${phone}`} className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-surface-1 hover:text-foreground"><Phone className="h-3.5 w-3.5" /></a>}
-            {email && <a href={`mailto:${email}`} title={`Email ${email}`} className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-surface-1 hover:text-foreground"><Mail className="h-3.5 w-3.5" /></a>}
-          </div>
+      {/* C1-FIX-2 — the borrower identity + comms actions live in the ONE
+          WorkspacePanel command header above (avatar · name · role/board/owner ·
+          phone, plus call/email/move/expand/close). This card renders only its
+          four-tab strip, directly beneath that header + the stage tracker.
+          A generic board (one tab) shows no strip — just the single header. */}
+      {visibleTabs.length > 1 && (
+        <div className="flex gap-1 overflow-x-auto border-b border-border">
+          {visibleTabs.map((t) => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={cn('whitespace-nowrap border-b-2 -mb-px px-3 py-2 text-xs font-medium transition-colors',
+                activeTab === t.key ? 'border-jubo-navy text-jubo-navy' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+              {t.label}
+            </button>
+          ))}
         </div>
-        {/* Tabs — a generic board shows only Overview, so the strip collapses. */}
-        {visibleTabs.length > 1 && (
-          <div className="mt-3 flex gap-1 overflow-x-auto">
-            {visibleTabs.map((t) => (
-              <button key={t.key} onClick={() => setTab(t.key)}
-                className={cn('whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                  activeTab === t.key ? 'bg-jubo-navy/10 text-jubo-navy' : 'text-muted-foreground hover:text-foreground')}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      )}
 
       {activeTab === 'overview' && (
         <div className={cn(

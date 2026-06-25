@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { X, Maximize2, ArrowRightLeft, Phone } from 'lucide-react'
+import { X, Maximize2, ArrowRightLeft, Phone, Mail } from 'lucide-react'
 import { MoveToBoardDialog } from '@/features/boards/components/MoveToBoardDialog'
 import { createClient } from '@/lib/supabase/client'
 import { useWorkspaceTabs } from '../providers/WorkspaceTabsProvider'
@@ -26,8 +26,9 @@ type BoardLite = { id: string; name: string; slug: string; board_type: string }
 // LOS Command-Center (features/workspace/command/LosCommandCenter.tsx) types
 // against it for the Phase C3 harvest.
 export type Loaded = {
-  // RecordRow omits description (a real column); the parked LosCommandCenter reads it.
-  record: RecordRow & { description: string | null }
+  // RecordRow omits description + owner_user_id (real columns); the parked
+  // LosCommandCenter reads description, and the header resolves the owner name.
+  record: RecordRow & { description: string | null; owner_user_id: string | null }
   board: BoardLite | null
   communications: CommunicationLog[]
   fields: FieldRow[]
@@ -103,8 +104,9 @@ function WorkspaceContent({
         supabase.from('communication_logs').select('*').eq('record_id', recordId).order('occurred_at', { ascending: false }),
       ])
 
-      // Resolve actor names from activities + tasks + notes + movements
+      // Resolve actor names from the record owner + activities/tasks/notes/movements
       const userIds = new Set<string>()
+      if (record.owner_user_id) userIds.add(record.owner_user_id)
       for (const a of aRes.data ?? []) if (a.user_id) userIds.add(a.user_id)
       for (const t of tRes.data ?? []) { if (t.created_by) userIds.add(t.created_by); if (t.assigned_user_id) userIds.add(t.assigned_user_id) }
       for (const n of nRes.data ?? []) if (n.author_user_id) userIds.add(n.author_user_id)
@@ -156,14 +158,20 @@ function WorkspaceContent({
 
   const contactHealth: ContactHealth = data ? getContactHealth(data.communications) : 'unknown'
 
-  // Header identity bits (role label + phone) from loaded data only.
+  // Header identity bits — the single command header carries everything the card
+  // used to duplicate: role · board · owner · phone, plus call/email actions.
   const roleLabel = data ? (resolveWorkspaceTemplate(data as unknown as MortgageData)?.label ?? '') : ''
-  const phone = useMemo(() => {
+  const ownerName = data?.record?.owner_user_id ? (data.profiles[data.record.owner_user_id] ?? null) : null
+  const boardName = data?.board?.name ?? null
+  const fieldValBySlug = useCallback((slug: string): string | null => {
     if (!data) return null
-    const f = data.fields.find((x) => x.slug === 'phone')
+    const f = data.fields.find((x) => x.slug === slug)
     if (!f) return null
     return data.fieldValues.find((v) => v.field_id === f.id)?.value_text ?? null
   }, [data])
+  const phone = useMemo(() => fieldValBySlug('phone'), [fieldValBySlug])
+  const email = useMemo(() => fieldValBySlug('email'), [fieldValBySlug])
+  const subline = [roleLabel, boardName, ownerName].filter(Boolean).join(' · ')
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
@@ -199,7 +207,8 @@ function WorkspaceContent({
               )}
               {data && (
                 <p className="mt-0.5 truncate text-2xs text-jubo-gold-soft/70">
-                  {roleLabel}{phone ? <> · <span className="tabular-nums text-white/80">{phone}</span></> : null}
+                  {subline}
+                  {phone ? <>{subline ? ' · ' : ''}<span className="tabular-nums text-white/80">{phone}</span></> : null}
                 </p>
               )}
             </div>
@@ -213,6 +222,15 @@ function WorkspaceContent({
                 className="rounded-lg bg-jubo-red p-2 text-white shadow-sm transition-colors hover:bg-jubo-red-dark"
               >
                 <Phone className="h-4 w-4" />
+              </a>
+            )}
+            {email && (
+              <a
+                href={`mailto:${email}`}
+                title="Email"
+                className="rounded-lg border border-white/10 bg-jubo-navy2 p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <Mail className="h-4 w-4" />
               </a>
             )}
 
