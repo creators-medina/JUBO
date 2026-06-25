@@ -71,7 +71,8 @@ export function WorkspaceTabsProvider({ children }: { children: React.ReactNode 
       const next: WorkspaceTab = {
         recordId,
         title: title ?? 'Loading…',
-        activeSubTab: activeSubTab ?? 'overview',
+        // Phase 39A — the V2 File Card ('card' tab) is the default landing.
+        activeSubTab: activeSubTab ?? 'card',
       }
       const trimmed = prev.length >= MAX_OPEN_WORKSPACES
         ? prev.slice(prev.length - (MAX_OPEN_WORKSPACES - 1))

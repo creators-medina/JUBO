@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useWorkspaceTabs } from '../providers/WorkspaceTabsProvider'
 import { ActivityTimeline } from '../timeline/ActivityTimeline'
 import { ChecklistView } from '../checklist/ChecklistView'
-import { PersonCard } from '@/features/person-card/PersonCard'
+import { PersonFileCard } from '@/features/person-card/PersonFileCard'
 import { CommunicateView } from '@/features/communications/components/CommunicateView'
 import { NoteList } from '../notes/NoteList'
 import { NextActionCard } from './NextActionCard'
@@ -442,7 +442,7 @@ function WorkspaceContent({
             <div className="grid h-full grid-cols-1 lg:grid-cols-[1fr_18rem] overflow-hidden">
               <div className="overflow-y-auto p-5">
                 {activeSubTab === 'card' && (
-                  <PersonCard recordId={recordId} />
+                  <PersonFileCard recordId={recordId} />
                 )}
                 {activeSubTab === 'communicate' && (
                   <CommunicateView recordId={recordId} organizationId={data.record.organization_id} />
