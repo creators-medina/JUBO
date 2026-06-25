@@ -121,7 +121,8 @@
   --destructive: var(--jubo-red);
   --border: var(--jubo-border);
   --input: var(--jubo-border);
-  --ring: var(--jubo-red);
+  /* Neutral focus rings are navy (command); destructive/aria-invalid use --destructive. */
+  --ring: var(--jubo-navy);
 
   /* Radius */
   --radius: 0.5rem;
@@ -497,7 +498,7 @@
   --destructive: var(--jubo-red);
   --border: var(--jubo-border);
   --input: var(--jubo-border);
-  --ring: var(--jubo-red);
+  --ring: var(--jubo-navy);
   --surface-0: var(--jubo-cream-bg);
   --surface-1: var(--jubo-card);
   --surface-2: var(--jubo-card-soft);
