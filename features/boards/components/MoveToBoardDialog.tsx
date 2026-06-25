@@ -51,7 +51,9 @@ export function MoveToBoardDialog({
   const board = useMemo(() => targets?.find((b) => b.id === boardId) ?? null, [targets, boardId])
   const groups = board?.groups ?? []
 
-  // Reset the group whenever the board changes.
+  // Reset the group whenever the board changes (dependent-field reset — must be
+  // an effect responding to the boardId change, not render-time derivation).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setGroupId('') }, [boardId])
 
   const submit = () => {

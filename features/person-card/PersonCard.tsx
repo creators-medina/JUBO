@@ -15,6 +15,9 @@ export function PersonCard({ recordId }: { recordId: string }) {
 
   useEffect(() => {
     let active = true
+    // Reset to loading then re-fetch whenever the record changes (data-load
+    // effect — the sync reset must precede the async fetch, not derive in render).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setData(undefined)
     getPersonCardData(recordId).then((d) => { if (active) setData(d) }).catch(() => { if (active) setData(null) })
     return () => { active = false }

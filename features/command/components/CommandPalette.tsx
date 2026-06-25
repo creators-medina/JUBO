@@ -64,14 +64,16 @@ export function CommandPalette() {
 
   const activePage = pages[pages.length - 1] ?? null
 
-  // Reset everything when the palette opens
+  // Reset everything when the palette opens (sync to the open state).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isOpen) { setQuery(''); setPages([]); setPageItems([]) }
   }, [isOpen])
 
-  // Load list-page items when navigating into a list page
+  // Load list-page items when navigating into a list page (sync to navigation).
   useEffect(() => {
     let cancelled = false
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (activePage?.kind === 'list') {
       setQuery('')
       Promise.resolve(activePage.loadItems()).then(items => {
@@ -80,6 +82,7 @@ export function CommandPalette() {
     } else {
       setPageItems([])
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
     return () => { cancelled = true }
   }, [activePage])
 

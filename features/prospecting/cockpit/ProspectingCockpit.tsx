@@ -98,7 +98,9 @@ export function ProspectingCockpit({
     [queue, worked, bucket],
   )
 
-  // Keep the selection in range as the queue shrinks; reset on bucket change.
+  // Reset the selection index on bucket change (dependent-state reset — must be
+  // an effect responding to the bucket change, not render-time derivation).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setSelectedIndex(0) }, [bucket])
   const sel = Math.min(selectedIndex, Math.max(0, visible.length - 1))
 

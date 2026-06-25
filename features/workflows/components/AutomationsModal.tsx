@@ -65,8 +65,11 @@ export function AutomationsModal({
 
   const refresh = () => { listBoardAutomations(board.id).then((rows) => { setItems(rows); setLoading(false) }).catch(() => setLoading(false)) }
 
+  // Load automations + targets and default the status field when the modal opens
+  // (sync from server/props on open — must stay effect-driven).
   useEffect(() => {
     if (!open) return
+    /* eslint-disable react-hooks/set-state-in-effect */
     setLoading(true); setError(null)
     refresh()
     getMoveTargets().then(setTargets).catch(() => setTargets([]))
@@ -75,11 +78,15 @@ export function AutomationsModal({
       const def = statusFields.find((f) => f.is_default_status) ?? statusFields[0]
       if (def) setFieldId(def.id)
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, board.id])
 
+  // Reset the "to" value when the status field changes (dependent-field reset).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setToValue('') }, [fieldId])
   // Reset destination group when the destination board changes.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setDestGroupId('') }, [destBoardId])
   // Linear-progression nicety: when a source group is picked on the same board,
   // preselect the NEXT group as the destination if one exists and none chosen.
@@ -87,6 +94,7 @@ export function AutomationsModal({
     if (!sourceGroupId || destBoardId !== board.id || destGroupId) return
     const idx = groups.findIndex((g) => g.id === sourceGroupId)
     const next = idx >= 0 ? groups[idx + 1] : undefined
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (next) setDestGroupId(next.id)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceGroupId, destBoardId])
