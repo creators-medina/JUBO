@@ -69,7 +69,7 @@ export function CreateBoardModal({ open, onClose, organizationId }: Props) {
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               placeholder="e.g. Loan Pipeline"
               required
               autoFocus
@@ -101,7 +101,7 @@ export function CreateBoardModal({ open, onClose, organizationId }: Props) {
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
               placeholder="What is this board for?"
               rows={2}
             />

@@ -155,7 +155,7 @@ export function BoardGroupTable({
       <div
         className={cn(
           'relative rounded-xl border transition-colors',
-          isOver ? 'border-primary/50' : emphasized ? 'border-border ring-1 ring-primary/15' : 'border-border',
+          isOver ? 'border-jubo-navy/50' : emphasized ? 'border-border ring-1 ring-jubo-navy/15' : 'border-border',
         )}
         style={{
           backgroundColor: 'color-mix(in oklch, var(--surface-1) 55%, transparent)',
@@ -295,7 +295,7 @@ export function BoardGroupTable({
 
       {/* Drop zone highlight when dragging over a collapsed group */}
       {isOver && collapsed && (
-        <div className="mx-3 mb-3 ml-5 h-10 rounded-lg border-2 border-dashed border-primary/50 flex items-center justify-center">
+        <div className="mx-3 mb-3 ml-5 h-10 rounded-lg border-2 border-dashed border-jubo-navy/50 flex items-center justify-center">
           <span className="text-xs text-primary/70">Drop here</span>
         </div>
       )}
@@ -316,7 +316,7 @@ export function BoardGroupTable({
                         checked={allOn}
                         ref={(el) => { if (el) el.indeterminate = someOn }}
                         onChange={(e) => onToggleSelectMany(records.map((r) => r.id), e.target.checked)}
-                        className="h-3.5 w-3.5 rounded border-border bg-surface-1 text-primary focus:ring-primary"
+                        className="h-3.5 w-3.5 rounded border-border bg-surface-1 text-primary focus:ring-ring"
                       />
                     )
                   })()}

@@ -132,7 +132,7 @@ export function MoveToBoardDialog({
   )
 }
 
-const selectCls = 'w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60'
+const selectCls = 'w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1.5"><label className="text-xs font-medium text-muted-foreground">{label}</label>{children}</div>

@@ -69,7 +69,7 @@ export function ManualActionModal({ organizationId, productionGoals, defaultDate
               onChange={e => setTitle(e.target.value)}
               autoFocus
               placeholder="e.g. Call John about preapproval"
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
 
@@ -79,7 +79,7 @@ export function ManualActionModal({ organizationId, productionGoals, defaultDate
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
             />
           </div>
 
@@ -89,7 +89,7 @@ export function ManualActionModal({ organizationId, productionGoals, defaultDate
               <select
                 value={priority}
                 onChange={e => setPriority(e.target.value as TaskPriority)}
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary capitalize"
+                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring capitalize"
               >
                 {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -100,7 +100,7 @@ export function ManualActionModal({ organizationId, productionGoals, defaultDate
                 type="date"
                 value={dueDate}
                 onChange={e => setDueDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
           </div>
@@ -110,7 +110,7 @@ export function ManualActionModal({ organizationId, productionGoals, defaultDate
             <select
               value={goalId}
               onChange={e => setGoalId(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="">None</option>
               {productionGoals.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}

@@ -45,7 +45,7 @@ export function AttentionViewsList({ attentionViews }: Props) {
               style={explicitColor ? { backgroundColor: explicitColor } : undefined}
             />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate group-hover:text-primary">{label}</p>
+              <p className="text-sm font-medium text-foreground truncate group-hover:text-jubo-navy">{label}</p>
               <p className="text-2xs text-muted-foreground truncate">{view.name}</p>
             </div>
             <span className="text-sm font-semibold text-foreground tabular-nums">{count}</span>

@@ -242,4 +242,4 @@ export function AutomationsModal({
   )
 }
 
-const sel = 'rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50'
+const sel = 'rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50'

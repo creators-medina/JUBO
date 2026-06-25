@@ -477,7 +477,7 @@ function Row({ item, onSelect }: { item: CommandItem; onSelect: () => void }) {
         'data-[selected=true]:bg-surface-2 data-[selected=true]:text-foreground hover:bg-surface-1',
       )}
     >
-      <span className="w-6 h-6 rounded-md bg-surface-1 flex items-center justify-center flex-shrink-0 text-muted-foreground group-data-[selected=true]:bg-primary/15 group-data-[selected=true]:text-primary">
+      <span className="w-6 h-6 rounded-md bg-surface-1 flex items-center justify-center flex-shrink-0 text-muted-foreground group-data-[selected=true]:bg-jubo-navy/15 group-data-[selected=true]:text-jubo-navy">
         <Icon className="w-3.5 h-3.5" />
       </span>
       <div className="flex-1 min-w-0">
@@ -530,7 +530,7 @@ function InputPage({ page, onBack, onClose }: { page: Extract<CommandPage, { kin
             placeholder={page.placeholder}
             rows={4}
             autoFocus
-            className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+            className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
           />
         ) : (
           <input
@@ -540,7 +540,7 @@ function InputPage({ page, onBack, onClose }: { page: Extract<CommandPage, { kin
             onKeyDown={onKeyDown}
             placeholder={page.placeholder}
             autoFocus
-            className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
         )}
         <div className="flex items-center justify-between">

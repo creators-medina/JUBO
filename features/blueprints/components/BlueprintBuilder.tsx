@@ -59,7 +59,7 @@ export function BlueprintBuilder() {
           onChange={(e) => setInput(e.target.value)}
           placeholder='{ "version": 1, "boards": [], "automations": [] }'
           spellCheck={false}
-          className="h-64 w-full resize-y rounded-lg border border-border bg-surface-1 p-3 font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          className="h-64 w-full resize-y rounded-lg border border-border bg-surface-1 p-3 font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
         <div className="mt-3 flex items-center gap-2">
           <button

@@ -33,7 +33,7 @@ export function AccountMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Open account menu"
-        className="rounded-full ring-offset-background focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+        className="rounded-full ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
       >
         <Avatar className="h-7 w-7 cursor-pointer">
           <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">

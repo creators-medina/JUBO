@@ -222,7 +222,7 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
                     <input
                       autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOption() } if (e.key === 'Escape') { setAdding(false); setDraft('') } }}
-                      placeholder="New label…" className="flex-1 rounded border border-border bg-surface-1 px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none"
+                      placeholder="New label…" className="flex-1 rounded border border-border bg-surface-1 px-2 py-1 text-xs text-foreground focus:border-ring focus:outline-none"
                     />
                     <button onClick={addOption} disabled={!draft.trim()} className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50">Add</button>
                   </div>
@@ -252,7 +252,7 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
                       defaultValue={o.label}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); rename(o.id!, (e.target as HTMLInputElement).value) } }}
                       onBlur={(e) => rename(o.id!, e.target.value)}
-                      className="flex-1 rounded border border-transparent bg-transparent px-1.5 py-0.5 text-xs text-foreground hover:border-border focus:border-primary focus:bg-surface-1 focus:outline-none"
+                      className="flex-1 rounded border border-transparent bg-transparent px-1.5 py-0.5 text-xs text-foreground hover:border-border focus:border-ring focus:bg-surface-1 focus:outline-none"
                     />
                     <button onClick={() => removeOption(o.id!)} title="Delete label" className="text-muted-foreground hover:text-red-300"><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
@@ -264,7 +264,7 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
                     <input
                       autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOption() } if (e.key === 'Escape') { setAdding(false); setDraft('') } }}
-                      placeholder="New label…" className="flex-1 rounded border border-border bg-surface-1 px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none"
+                      placeholder="New label…" className="flex-1 rounded border border-border bg-surface-1 px-2 py-1 text-xs text-foreground focus:border-ring focus:outline-none"
                     />
                     <button onClick={addOption} disabled={!draft.trim()} className="rounded bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50">Add</button>
                   </div>

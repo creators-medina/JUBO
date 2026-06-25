@@ -73,7 +73,7 @@ export function SnoozeMenu({ onPick, label = 'Snooze', className, buttonClassNam
                 value={customDate}
                 onChange={e => setCustomDate(e.target.value)}
                 autoFocus
-                className="flex-1 px-1.5 py-1 rounded bg-surface-1 border border-border text-2xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="flex-1 px-1.5 py-1 rounded bg-surface-1 border border-border text-2xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
               <button type="submit" className="px-2 py-1 rounded bg-primary text-primary-foreground text-2xs">Set</button>
             </form>

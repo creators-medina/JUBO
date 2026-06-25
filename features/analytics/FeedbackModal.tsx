@@ -51,9 +51,9 @@ export function FeedbackModal({ initialType = 'general', onClose }: { initialTyp
             ))}
           </div>
           <input value={title} onChange={(e) => setTitle(e.target.value)} autoFocus placeholder="Short summary"
-            className="w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+            className="w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} placeholder="What happened, or what would help? (optional)"
-            className="w-full resize-none rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+            className="w-full resize-none rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
           <div className="flex justify-end gap-2">
             <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">Cancel</button>
             <button onClick={submit} disabled={pending || !title.trim()} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">

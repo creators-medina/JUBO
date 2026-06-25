@@ -85,7 +85,7 @@ export function CreateFunnelModal({ organizationId, boards, boardGroupsByBoard, 
               onChange={e => setName(e.target.value)}
               autoFocus
               placeholder="e.g. Mortgage funnel, SDR funnel, Realtor funnel"
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
 
@@ -95,7 +95,7 @@ export function CreateFunnelModal({ organizationId, boards, boardGroupsByBoard, 
               type="text"
               value={description}
               onChange={e => setDescription(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
 
@@ -121,12 +121,12 @@ export function CreateFunnelModal({ organizationId, boards, boardGroupsByBoard, 
                     value={s.name}
                     onChange={e => handleStageNameChange(i, e.target.value)}
                     placeholder="Stage name"
-                    className="flex-1 px-2 py-1.5 rounded-md bg-surface-1 border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="flex-1 px-2 py-1.5 rounded-md bg-surface-1 border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                   />
                   <select
                     value={s.board_group_id ?? ''}
                     onChange={e => setStages(prev => prev.map((x, j) => j === i ? { ...x, board_group_id: e.target.value || null } : x))}
-                    className="w-44 px-2 py-1.5 rounded-md bg-surface-1 border border-border text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    className="w-44 px-2 py-1.5 rounded-md bg-surface-1 border border-border text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                   >
                     <option value="">No board group</option>
                     {allGroups.map(g => (

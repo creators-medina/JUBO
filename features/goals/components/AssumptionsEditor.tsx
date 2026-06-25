@@ -89,7 +89,7 @@ function AssumptionRow({ from, to, existing, organizationId }: {
           value={percent}
           onChange={e => setPercent(e.target.value)}
           placeholder="0"
-          className="w-full px-2 py-1 rounded-md bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary tabular-nums text-right"
+          className="w-full px-2 py-1 rounded-md bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring tabular-nums text-right"
         />
         <span className="text-xs text-muted-foreground">%</span>
       </div>
@@ -99,7 +99,7 @@ function AssumptionRow({ from, to, existing, organizationId }: {
         value={notes}
         onChange={e => setNotes(e.target.value)}
         placeholder="Notes (e.g. industry average, seasonal adjustment)"
-        className="w-64 px-2 py-1 rounded-md bg-surface-1 border border-border text-xs text-muted-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        className="w-64 px-2 py-1 rounded-md bg-surface-1 border border-border text-xs text-muted-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       />
 
       <button

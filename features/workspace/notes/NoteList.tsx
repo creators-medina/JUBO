@@ -237,7 +237,7 @@ function NoteItem({
             }}
             autoFocus
             rows={Math.min(8, Math.max(3, content.split('\n').length))}
-            className="w-full px-2 py-1.5 rounded-md bg-surface-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none whitespace-pre-wrap"
+            className="w-full px-2 py-1.5 rounded-md bg-surface-1 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none whitespace-pre-wrap"
           />
           <div className="flex items-center justify-between text-2xs text-muted-foreground">
             <span className="flex items-center gap-1">

@@ -96,7 +96,7 @@ export function FunnelStagesEditor({ funnel, stages, boards, boardGroupsByBoard 
               onChange={e => setNewName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdd() } }}
               placeholder="Add a new stage…"
-              className="flex-1 px-3 py-1.5 rounded-md bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="flex-1 px-3 py-1.5 rounded-md bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
             <button
               onClick={handleAdd}
@@ -132,12 +132,12 @@ function StageRow({
         value={name}
         onChange={e => setName(e.target.value)}
         onBlur={() => dirty && onUpdate({ name })}
-        className="flex-1 px-2 py-1 rounded-md bg-transparent border border-transparent hover:border-border focus:border-primary focus:bg-surface-1 text-sm text-foreground focus:outline-none"
+        className="flex-1 px-2 py-1 rounded-md bg-transparent border border-transparent hover:border-border focus:border-ring focus:bg-surface-1 text-sm text-foreground focus:outline-none"
       />
       <select
         value={stage.board_group_id ?? ''}
         onChange={e => onUpdate({ board_group_id: e.target.value || null })}
-        className="w-48 px-2 py-1 rounded-md bg-surface-1 border border-border text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        className="w-48 px-2 py-1 rounded-md bg-surface-1 border border-border text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       >
         <option value="">No board group</option>
         {allGroups.map(g => (

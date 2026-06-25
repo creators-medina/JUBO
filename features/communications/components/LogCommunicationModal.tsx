@@ -83,13 +83,13 @@ export function LogCommunicationModal({
           {channel !== 'internal' && (
             <div className="flex items-center gap-2">
               <select value={direction} onChange={(e) => setDirection(e.target.value as CommunicationDirection)}
-                className="rounded-md border border-border bg-surface-1 px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+                className="rounded-md border border-border bg-surface-1 px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring">
                 <option value="outbound">Outbound</option>
                 <option value="inbound">Inbound</option>
               </select>
               {OUTCOMES_BY_CHANNEL[channel].length > 0 && (
                 <select value={outcome ?? ''} onChange={(e) => setOutcome((e.target.value || null) as CommunicationOutcome | null)}
-                  className="flex-1 rounded-md border border-border bg-surface-1 px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+                  className="flex-1 rounded-md border border-border bg-surface-1 px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring">
                   {OUTCOMES_BY_CHANNEL[channel].map((o) => <option key={o} value={o}>{OUTCOME_LABEL[o]}</option>)}
                 </select>
               )}
@@ -98,18 +98,18 @@ export function LogCommunicationModal({
 
           {(channel === 'email' || channel === 'meeting') && (
             <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject"
-              className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+              className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
           )}
 
           <textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={3} placeholder="What happened? (optional)"
-            className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+            className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
 
           {/* Follow-up */}
           <div className="space-y-2 rounded-lg border border-border bg-surface-1 p-3">
             <label className="flex items-center justify-between gap-2 text-xs text-foreground">
               Follow-up date
               <input type="date" value={followUp} onChange={(e) => setFollowUp(e.target.value)}
-                className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring" />
             </label>
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               <input type="checkbox" checked={setNext} onChange={(e) => setSetNext(e.target.checked)} /> Set as next action

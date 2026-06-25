@@ -65,7 +65,7 @@ export function BoardSettingsModal({ open, onClose, board }: Props) {
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               required
             />
           </div>
@@ -75,7 +75,7 @@ export function BoardSettingsModal({ open, onClose, board }: Props) {
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
             />
           </div>
           <div className="space-y-1.5">
@@ -84,14 +84,14 @@ export function BoardSettingsModal({ open, onClose, board }: Props) {
               <button
                 type="button"
                 onClick={() => setColor('')}
-                className={`w-6 h-6 rounded-full border-2 transition-transform bg-surface-2 ${!color ? 'border-primary scale-110' : 'border-transparent'}`}
+                className={`w-6 h-6 rounded-full border-2 transition-transform bg-surface-2 ${!color ? 'border-jubo-navy scale-110' : 'border-transparent'}`}
               />
               {COLORS.map(c => (
                 <button
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
-                  className={`w-6 h-6 rounded-full border-2 transition-transform ${color === c ? 'border-primary scale-110' : 'border-transparent'}`}
+                  className={`w-6 h-6 rounded-full border-2 transition-transform ${color === c ? 'border-jubo-navy scale-110' : 'border-transparent'}`}
                   style={{ backgroundColor: c }}
                 />
               ))}

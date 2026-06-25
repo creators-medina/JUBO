@@ -70,7 +70,7 @@ export function SMSComposeBox({
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send() } }}
           rows={compact ? 1 : 2}
           placeholder={participantPhone ? `Message ${participantPhone}…` : 'Type a message…'}
-          className="w-full resize-none rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full resize-none rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
         {!compact && <p className="mt-1 text-2xs text-muted-foreground">{body.length} chars{body.length > 160 ? ` · ${Math.ceil(body.length / 153)} segments` : ''} · ⌘↵ to send</p>}
       </div>

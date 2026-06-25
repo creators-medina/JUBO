@@ -90,7 +90,7 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
   const renderInput = (field: any) => {
     const v = fieldVals[field.id] ?? ''
     const set = (val: string) => setFieldVals((prev) => ({ ...prev, [field.id]: val }))
-    const cls = 'w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary'
+    const cls = 'w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
     if (field.field_type === 'textarea') return <textarea value={v} onChange={(e) => set(e.target.value)} rows={2} className={`${cls} resize-none`} />
     if (field.field_type === 'boolean' || field.field_type === 'checklist') {
       return (
@@ -141,7 +141,7 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
                 <input
                   type="text" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus
                   placeholder={isContact ? 'Contact name' : 'Record title'}
-                  className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
               {basicFields.map((f) => <FieldRow key={f.id} field={f} />)}
@@ -151,7 +151,7 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
                   <textarea
                     value={notesDraft} onChange={(e) => setNotesDraft(e.target.value)} rows={2}
                     placeholder="First note — context, where they're at, next step…"
-                    className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                    className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
                   />
                 </div>
               )}

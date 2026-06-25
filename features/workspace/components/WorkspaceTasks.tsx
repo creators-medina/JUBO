@@ -196,7 +196,7 @@ function TaskRow({ task, onToggle, now }: { task: Task; onToggle: () => void; no
           'flex-shrink-0 w-4 h-4 rounded-full border flex items-center justify-center transition-colors',
           completed
             ? 'bg-emerald-500 border-emerald-500 text-emerald-50'
-            : 'border-border hover:border-primary hover:bg-primary/5',
+            : 'border-border hover:border-jubo-navy hover:bg-jubo-navy/5',
         )}
       >
         {completed && <Check className="w-2.5 h-2.5" />}
@@ -287,7 +287,7 @@ function QuickAddTask({
         <select
           value={priority}
           onChange={e => setPriority(e.target.value as TaskPriority)}
-          className="px-2 py-1 rounded bg-surface-1 border border-border text-2xs text-foreground capitalize focus:outline-none focus:ring-1 focus:ring-primary"
+          className="px-2 py-1 rounded bg-surface-1 border border-border text-2xs text-foreground capitalize focus:outline-none focus:ring-1 focus:ring-ring"
         >
           {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
@@ -295,7 +295,7 @@ function QuickAddTask({
           type="date"
           value={dueDate}
           onChange={e => setDueDate(e.target.value)}
-          className="px-2 py-1 rounded bg-surface-1 border border-border text-2xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          className="px-2 py-1 rounded bg-surface-1 border border-border text-2xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
         />
         <div className="ml-auto flex items-center gap-1">
           <button onClick={onCancel}

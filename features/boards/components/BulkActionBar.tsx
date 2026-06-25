@@ -72,7 +72,7 @@ export function BulkActionBar({ selectedIds, boardId, onClear }: Props) {
     )}
     <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
       <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-border bg-card/95 px-3 py-2 shadow-2xl backdrop-blur">
-        <span className="rounded-md bg-primary/15 px-2 py-1 text-xs font-semibold text-primary">
+        <span className="rounded-md bg-jubo-navy/15 px-2 py-1 text-xs font-semibold text-jubo-navy">
           {count} selected
         </span>
 

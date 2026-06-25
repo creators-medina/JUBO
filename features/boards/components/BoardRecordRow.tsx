@@ -119,7 +119,7 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
             checked={!!isSelected}
             onChange={() => onToggleSelect(record.id)}
             className={cn(
-              'h-3.5 w-3.5 rounded border-border bg-surface-1 text-primary focus:ring-primary transition-opacity',
+              'h-3.5 w-3.5 rounded border-border bg-surface-1 text-primary focus:ring-ring transition-opacity',
               !isSelected && 'opacity-0 group-hover:opacity-100',
             )}
           />
@@ -147,7 +147,7 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
         <div
           ref={hover.ref}
           {...hover.triggerProps}
-          className="flex items-center gap-2 rounded outline-none focus-visible:ring-1 focus-visible:ring-primary"
+          className="flex items-center gap-2 rounded outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <button
             onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v) }}

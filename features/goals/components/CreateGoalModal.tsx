@@ -92,7 +92,7 @@ export function CreateGoalModal({ organizationId, funnels, onClose, onSuccess }:
               onChange={e => setName(e.target.value)}
               autoFocus
               placeholder="e.g. 2026 Production, Q3 Team Goal"
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
 
@@ -101,7 +101,7 @@ export function CreateGoalModal({ organizationId, funnels, onClose, onSuccess }:
             <select
               value={funnelId}
               onChange={e => setFunnelId(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="">No funnel (you can attach one later)</option>
               {funnels.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
@@ -117,7 +117,7 @@ export function CreateGoalModal({ organizationId, funnels, onClose, onSuccess }:
               <select
                 value={timeframe}
                 onChange={e => setTimeframe(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 {TIMEFRAME_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -128,7 +128,7 @@ export function CreateGoalModal({ organizationId, funnels, onClose, onSuccess }:
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
           </div>
@@ -139,7 +139,7 @@ export function CreateGoalModal({ organizationId, funnels, onClose, onSuccess }:
               type="date"
               value={endDate}
               onChange={e => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 rounded-lg bg-surface-1 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
 
@@ -183,7 +183,7 @@ function NumberInput({ label, value, onChange }: { label: string; value: string;
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder="—"
-        className="flex-1 px-2 py-1.5 rounded-md bg-surface-1 border border-border text-xs text-foreground tabular-nums placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        className="flex-1 px-2 py-1.5 rounded-md bg-surface-1 border border-border text-xs text-foreground tabular-nums placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
       />
     </div>
   )

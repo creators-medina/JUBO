@@ -76,7 +76,7 @@ export function DailyActionItem({ action, recordLink, selected, onToggleSelect, 
       className={cn(
         'group flex items-start gap-3 px-3 py-2.5 rounded-lg border transition-all',
         completed ? 'bg-surface-1/30 border-border/50 opacity-60' : 'bg-card border-border hover:border-border/80',
-        selected && 'ring-1 ring-primary border-primary/50',
+        selected && 'ring-1 ring-jubo-navy border-jubo-navy/50',
         onToggleSelect && 'cursor-pointer',
       )}
     >
@@ -87,10 +87,10 @@ export function DailyActionItem({ action, recordLink, selected, onToggleSelect, 
         className={cn(
           'mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border flex items-center justify-center transition-colors',
           selected
-            ? 'bg-primary border-primary text-primary-foreground'
+            ? 'bg-jubo-navy border-jubo-navy text-white'
             : completed
               ? 'bg-jubo-green border-jubo-green text-white'
-              : 'border-border hover:border-primary hover:bg-primary/5',
+              : 'border-border hover:border-jubo-navy hover:bg-jubo-navy/5',
         )}
       >
         {isPending ? <RefreshCw className="w-2.5 h-2.5 animate-spin" />

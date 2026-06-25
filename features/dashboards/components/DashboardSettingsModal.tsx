@@ -132,7 +132,7 @@ export function DashboardSettingsModal({ dashboard, onClose }: DashboardSettings
               <button
                 type="button"
                 onClick={() => setColor('')}
-                className={`w-6 h-6 rounded-full border-2 bg-muted transition-colors ${!color ? 'border-primary' : 'border-transparent hover:border-border'}`}
+                className={`w-6 h-6 rounded-full border-2 bg-muted transition-colors ${!color ? 'border-jubo-navy' : 'border-transparent hover:border-border'}`}
                 title="None"
               />
               {COLOR_OPTIONS.map(opt => (

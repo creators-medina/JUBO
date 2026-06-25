@@ -16,7 +16,7 @@ export function DragOverlayRow({
     <div
       style={widthStyle}
       className={cn(
-        'flex items-stretch overflow-hidden rounded-lg border border-primary/50 bg-card shadow-2xl origin-left scale-[1.01] cursor-grabbing',
+        'flex items-stretch overflow-hidden rounded-lg border border-jubo-navy/50 bg-card shadow-2xl origin-left scale-[1.01] cursor-grabbing',
         !widthStyle && 'min-w-[480px]',
       )}
     >

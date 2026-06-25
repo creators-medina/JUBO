@@ -96,7 +96,7 @@ export function CreateFieldModal({ open, onClose, boardId, organizationId, nextP
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               placeholder="e.g. Loan Amount"
               required
               autoFocus
@@ -107,7 +107,7 @@ export function CreateFieldModal({ open, onClose, boardId, organizationId, nextP
             <select
               value={fieldType}
               onChange={e => setFieldType(e.target.value as FieldType)}
-              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             >
               {FIELD_TYPES.map(t => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -128,7 +128,7 @@ export function CreateFieldModal({ open, onClose, boardId, organizationId, nextP
                 type="text"
                 value={selectOptions}
                 onChange={e => setSelectOptions(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                className="w-full px-3 py-2 text-sm bg-surface-1 border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 placeholder="Option A, Option B, Option C"
               />
             </div>

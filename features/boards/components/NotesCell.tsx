@@ -105,7 +105,7 @@ export function NotesCell({
               placeholder="Add a note…"
               autoFocus
               rows={4}
-              className="w-full resize-none rounded-md border border-border bg-surface-1 px-2.5 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full resize-none rounded-md border border-border bg-surface-1 px-2.5 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
             <div className="flex items-center justify-between">
               {count > 0 ? (
