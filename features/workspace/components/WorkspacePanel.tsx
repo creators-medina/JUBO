@@ -1,53 +1,23 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo, useTransition } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import {
-  X, Maximize2, FileText, Activity, ListChecks, StickyNote, Database, Columns3,
-  ArrowRightLeft, CheckSquare, IdCard, MessageSquare, Phone, Mail, CalendarDays,
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { X, Maximize2, ArrowRightLeft, Phone } from 'lucide-react'
 import { MoveToBoardDialog } from '@/features/boards/components/MoveToBoardDialog'
 import { createClient } from '@/lib/supabase/client'
 import { useWorkspaceTabs } from '../providers/WorkspaceTabsProvider'
-import { ActivityTimeline } from '../timeline/ActivityTimeline'
-import { ChecklistView } from '../checklist/ChecklistView'
 import { PersonFileCard } from '@/features/person-card/PersonFileCard'
-import { CommunicateView } from '@/features/communications/components/CommunicateView'
-import { NoteList } from '../notes/NoteList'
-import { NextActionCard } from './NextActionCard'
-import { WorkspaceTasks } from './WorkspaceTasks'
 import { useWorkspaceKeyboard } from '../hooks/useWorkspaceKeyboard'
-import { MortgageWorkspace, hasMortgageTemplate } from '@/features/mortgage/workspaces/MortgageWorkspace'
-import { computeOpportunitySignals } from '@/features/mortgage/scoring/opportunities'
 import { resolveWorkspaceTemplate } from '@/features/mortgage/templates/resolve'
-import { isChecklistFieldType } from '@/features/fields/checklist'
-import { StageTracker } from '../command/StageTracker'
-import { ParticipantRibbon } from '../command/ParticipantRibbon'
-import { UnifiedTimeline } from '../command/UnifiedTimeline'
-import { QualificationSnapshot } from '../command/QualificationSnapshot'
-import { LoanSnapshot } from '../command/LoanSnapshot'
-import { PropertyCard } from '../command/PropertyCard'
-import { moveRecord } from '@/features/records/actions'
 import { getContactHealth } from '@/features/communications/metrics'
 import type { ContactHealth } from '@/features/communications/types'
-import type { WorkspaceTabKey, NoteRow, TimelineItem } from '../types'
-import { WORKSPACE_TABS, WORKSPACE_TAB_LABELS } from '../types'
+import type { NoteRow } from '../types'
 
-const TAB_ICONS: Record<WorkspaceTabKey, React.ElementType> = {
-  overview:    FileText,
-  card:        IdCard,
-  communicate: MessageSquare,
-  checklist:   CheckSquare,
-  activity:    Activity,
-  tasks:       ListChecks,
-  notes:       StickyNote,
-  data:        Database,
-  pipeline:    Columns3,
-}
-
-type Loaded = {
+// Shared shape for the loaded record bundle. Kept exported because the parked
+// LOS Command-Center (features/workspace/command/LosCommandCenter.tsx) types
+// against it for the Phase C3 harvest.
+export type Loaded = {
   record: any
   board: any
   communications: any[]
@@ -63,7 +33,7 @@ type Loaded = {
 }
 
 export function WorkspacePanel() {
-  const { tabs, activeRecordId, closeWorkspace, setActiveSubTab, cycleSubTab, closeAll } = useWorkspaceTabs()
+  const { tabs, activeRecordId, closeWorkspace, cycleSubTab, closeAll } = useWorkspaceTabs()
   const activeTab = tabs.find(t => t.recordId === activeRecordId) ?? null
 
   // Keyboard: Esc closes, Cmd+Shift+[ / ] cycles sub-tabs
@@ -79,19 +49,15 @@ export function WorkspacePanel() {
     <WorkspaceContent
       key={activeTab.recordId}
       recordId={activeTab.recordId}
-      activeSubTab={activeTab.activeSubTab}
-      onSubTabChange={(t) => setActiveSubTab(activeTab.recordId, t)}
       onClose={() => closeWorkspace(activeTab.recordId)}
     />
   )
 }
 
 function WorkspaceContent({
-  recordId, activeSubTab, onSubTabChange, onClose,
+  recordId, onClose,
 }: {
   recordId: string
-  activeSubTab: WorkspaceTabKey
-  onSubTabChange: (t: WorkspaceTabKey) => void
   onClose: () => void
 }) {
   const router = useRouter()
@@ -172,67 +138,10 @@ function WorkspaceContent({
     return () => window.removeEventListener('focus', onFocus)
   }, [load])
 
-  const timeline = useMemo<TimelineItem[]>(() => {
-    if (!data) return []
-    const items: TimelineItem[] = []
-
-    for (const a of data.activities) {
-      items.push({
-        id: a.id, type: 'activity', activity_type: a.activity_type,
-        timestamp: a.created_at, actor_id: a.user_id,
-        actor_name: a.user_id ? (data.profiles[a.user_id] ?? null) : null,
-        content: a.content, metadata: a.metadata ?? undefined,
-      })
-    }
-    for (const t of data.tasks) {
-      items.push({
-        id: `t-${t.id}-c`, type: 'task',
-        activity_type: 'task_created', timestamp: t.created_at,
-        actor_id: t.created_by, actor_name: t.created_by ? (data.profiles[t.created_by] ?? null) : null,
-        content: t.title,
-      })
-      if (t.completed_at) {
-        items.push({
-          id: `t-${t.id}-x`, type: 'task',
-          activity_type: 'task_completed', timestamp: t.completed_at,
-          actor_id: t.assigned_user_id ?? t.created_by,
-          actor_name: (t.assigned_user_id ?? t.created_by)
-            ? (data.profiles[t.assigned_user_id ?? t.created_by] ?? null)
-            : null,
-          content: t.title,
-        })
-      }
-    }
-    for (const m of data.movements) {
-      items.push({
-        id: m.id, type: 'movement', activity_type: 'movement',
-        timestamp: m.created_at, actor_id: m.user_id,
-        actor_name: m.user_id ? (data.profiles[m.user_id] ?? null) : null,
-        content: m.from_group?.name && m.to_group?.name
-          ? `${m.from_group.name} → ${m.to_group.name}`
-          : null,
-      })
-    }
-    return items.sort((a, b) => b.timestamp.localeCompare(a.timestamp))
-  }, [data])
-
-  const isMortgage = data ? hasMortgageTemplate(data) : false
   const contactHealth: ContactHealth = data ? getContactHealth(data.communications) : 'unknown'
 
-  // Phase 3 — Needs Attention signals (mortgage templates only; generic parity
-  // is a later phase). Pure: reads loaded data, no query.
-  const signals = useMemo(() => {
-    if (!data || !isMortgage) return []
-    return computeOpportunitySignals(data as any, resolveWorkspaceTemplate(data as any).key)
-  }, [data, isMortgage])
-
-  // Phase 10.1 — header identity bits (role label + phone) from loaded data only.
-  const template = data ? resolveWorkspaceTemplate(data as any) : null
-  const roleLabel = template?.label ?? ''
-  // Loan-like records get the Loan Snapshot in the left column; non-loan entities
-  // get their Qualification (Refi/Production) snapshot instead.
-  const isLoanLike = template?.key === 'loan' || template?.key === 'lead'
-  const hasChecklistFields = !!data && data.fields.some((f: any) => isChecklistFieldType(f.field_type))
+  // Header identity bits (role label + phone) from loaded data only.
+  const roleLabel = data ? (resolveWorkspaceTemplate(data as any)?.label ?? '') : ''
   const phone = useMemo(() => {
     if (!data) return null
     const f = data.fields.find((x: any) => x.slug === 'phone')
@@ -244,8 +153,9 @@ function WorkspaceContent({
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full md:max-w-[min(72rem,92vw)] bg-background border-l border-border flex flex-col h-full shadow-2xl">
-        {/* Header — borrower identity (left) + quick actions (right). Phase 2A:
-            deep-navy LOS command bar; the stage tracker continues it below. */}
+        {/* Window chrome — borrower identity (left) + panel controls (right). The
+            record's four-tab File Card (Overview / Loan & Property / Borrower /
+            Financial) is the entire body below. */}
         <header className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-jubo-navy2 bg-jubo-navy flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             {loading ? (
@@ -280,8 +190,6 @@ function WorkspaceContent({
           </div>
 
           <div className="flex items-center gap-0.5 flex-shrink-0">
-            {/* Quick actions — Call is the dusty-red primary; the rest are navy
-                surface buttons. Handlers/behaviour unchanged. */}
             {phone && (
               <a
                 href={`tel:${phone}`}
@@ -291,22 +199,7 @@ function WorkspaceContent({
                 <Phone className="h-4 w-4" />
               </a>
             )}
-            <button onClick={() => onSubTabChange('communicate')} title="Message"
-              className="rounded-lg border border-white/10 bg-jubo-navy2 p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white">
-              <MessageSquare className="h-4 w-4" />
-            </button>
-            <button onClick={() => onSubTabChange('communicate')} title="Email"
-              className="rounded-lg border border-white/10 bg-jubo-navy2 p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white">
-              <Mail className="h-4 w-4" />
-            </button>
-            <button onClick={() => onSubTabChange('tasks')} title="Tasks & follow-up"
-              className="rounded-lg border border-white/10 bg-jubo-navy2 p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white">
-              <CalendarDays className="h-4 w-4" />
-            </button>
 
-            <span className="mx-1.5 h-5 w-px bg-white/15" aria-hidden />
-
-            {/* Overflow — existing move / open-in-board / close. */}
             {data?.record?.board_id && (
               <button onClick={() => setShowMove(true)} title="Move to another board"
                 className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
@@ -326,13 +219,6 @@ function WorkspaceContent({
           </div>
         </header>
 
-        {/* Stage tracker bar — continues the navy LOS header. */}
-        {data && (
-          <div className="flex flex-shrink-0 justify-start border-b border-jubo-navy2 bg-jubo-navy px-5 py-3 sm:justify-center">
-            <StageTracker groups={data.groups} currentGroupId={data.record.group_id ?? null} />
-          </div>
-        )}
-
         {showMove && data?.record?.board_id && (
           <MoveToBoardDialog
             recordIds={[recordId]}
@@ -342,157 +228,16 @@ function WorkspaceContent({
           />
         )}
 
-        {/* Tabs nav — horizontally scrollable on small screens */}
-        <div className="flex items-center gap-0.5 px-3 border-b border-border flex-shrink-0 overflow-x-auto">
-          {WORKSPACE_TABS.filter(t => t !== 'pipeline' && t !== 'data').map(t => {
-            const Icon = TAB_ICONS[t]
-            const active = activeSubTab === t
-            return (
-              <button
-                key={t}
-                onClick={() => onSubTabChange(t)}
-                className={cn(
-                  'flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors',
-                  active
-                    ? 'border-jubo-navy text-jubo-text'
-                    : 'border-transparent text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Icon className="w-3 h-3" />
-                {WORKSPACE_TAB_LABELS[t]}
-                {t === 'tasks' && data && data.tasks.filter((x: any) => !x.completed_at).length > 0 && (
-                  <span className="text-2xs px-1.5 py-0 rounded-full bg-surface-2 text-foreground tabular-nums">
-                    {data.tasks.filter((x: any) => !x.completed_at).length}
-                  </span>
-                )}
-                {t === 'notes' && data && data.notes.length > 0 && (
-                  <span className="text-2xs px-1.5 py-0 rounded-full bg-surface-2 text-foreground tabular-nums">
-                    {data.notes.length}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Body: content + right sidebar */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          {loading || !data ? (
-            <div className="space-y-3 p-5">
+        {/* Body — the four-tab File Card owns its own header + tab strip. */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-5">
+          {loading && !data ? (
+            <div className="space-y-3">
               {[0, 1, 2, 3].map(i => (
                 <div key={i} className="h-8 bg-surface-1 rounded animate-pulse" style={{ opacity: 1 - i * 0.15 }} />
               ))}
             </div>
-          ) : activeSubTab === 'overview' ? (
-            // Phase 2A — warm LOS loan-file workspace (Overview). The cream canvas
-            // + left LOS cards land now; center/right keep a dark backing until
-            // their own LOS pass (so their light text stays readable on cream).
-            <div className="jubo-los-page h-full overflow-y-auto p-5">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-[20rem_minmax(0,1fr)_20rem] items-start">
-                {/* LEFT — the loan file: Loan Snapshot, Property, Conditions. */}
-                <div className="space-y-4">
-                  {isLoanLike ? <LoanSnapshot data={data as any} /> : <QualificationSnapshot data={data as any} />}
-                  <PropertyCard data={data as any} />
-                  {hasChecklistFields && (
-                    <section className="jubo-los-card p-3.5">
-                      <div className="mb-2.5 flex items-center gap-1.5">
-                        <ListChecks className="h-3.5 w-3.5 text-jubo-gold" />
-                        <p className="jubo-los-section-label">Conditions</p>
-                      </div>
-                      <ChecklistView
-                        variant="los"
-                        recordId={recordId}
-                        boardId={data.record.board_id}
-                        groupId={data.record.group_id ?? null}
-                        fieldValues={data.fieldValues}
-                        onChanged={load}
-                      />
-                    </section>
-                  )}
-                </div>
-                {/* CENTER — unified timeline + composer (LOS). Any entity-detail
-                    panels below are solid dark cards that read fine on cream. */}
-                <div className="space-y-4">
-                  <UnifiedTimeline
-                    timeline={timeline}
-                    communications={data.communications}
-                    notes={data.notes}
-                    profiles={data.profiles}
-                    name={(data.record.title ?? '').trim().split(/\s+/)[0] || null}
-                    onCompose={(kind) =>
-                      onSubTabChange(kind === 'note' ? 'notes' : kind === 'task' ? 'tasks' : 'communicate')
-                    }
-                    onFullHistory={() => onSubTabChange('activity')}
-                  />
-                  {hasMortgageTemplate(data) ? <MortgageWorkspace data={data} onChanged={load} /> : <OverviewView data={data} />}
-                </div>
-                {/* RIGHT — control rail (LOS): navy Next Step + cream sections. */}
-                <div className="space-y-4 order-first lg:order-last lg:col-span-2 xl:order-none xl:col-span-1">
-                  <CommandRail
-                    recordId={recordId}
-                    data={data}
-                    signals={signals}
-                    onChanged={load}
-                  />
-                </div>
-              </div>
-            </div>
           ) : (
-            // Non-overview tabs keep main content + the command rail (desktop).
-            <div className="grid h-full grid-cols-1 lg:grid-cols-[1fr_18rem] overflow-hidden">
-              <div className="overflow-y-auto p-5">
-                {activeSubTab === 'card' && (
-                  <PersonFileCard recordId={recordId} />
-                )}
-                {activeSubTab === 'communicate' && (
-                  <CommunicateView recordId={recordId} organizationId={data.record.organization_id} />
-                )}
-                {activeSubTab === 'checklist' && (
-                  <ChecklistView
-                    recordId={recordId}
-                    boardId={data.record.board_id}
-                    groupId={data.record.group_id ?? null}
-                    fieldValues={data.fieldValues}
-                    onChanged={load}
-                  />
-                )}
-                {activeSubTab === 'activity' && (
-                  <ActivityTimeline items={timeline} emptyHint="No activity on this record yet." />
-                )}
-                {activeSubTab === 'tasks' && (
-                  <WorkspaceTasks
-                    recordId={recordId}
-                    organizationId={data.record.organization_id}
-                    boardId={data.record.board_id}
-                    tasks={data.tasks}
-                  />
-                )}
-                {activeSubTab === 'notes' && (
-                  <div className="space-y-3">
-                    <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Notes</p>
-                    <NoteList
-                      organizationId={data.record.organization_id}
-                      recordId={recordId}
-                      notes={data.notes}
-                      currentUserId={data.currentUserId}
-                      defaultDrafting
-                    />
-                  </div>
-                )}
-                {activeSubTab === 'data' && (
-                  <DataView data={data} />
-                )}
-              </div>
-
-              <aside className="hidden lg:flex flex-col overflow-y-auto border-l border-border bg-surface-1/30 p-4 gap-4">
-                <CommandRail
-                  recordId={recordId}
-                  data={data}
-                  signals={signals}
-                  onChanged={load}
-                />
-              </aside>
-            </div>
+            <PersonFileCard recordId={recordId} />
           )}
         </div>
       </div>
@@ -509,233 +254,3 @@ function initials(title?: string | null): string {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
-
-// ── Command Rail ────────────────────────────────────────────────────────────
-// The control panel: Next Step (dominant) with a compact signals subsection
-// beneath it, then Tasks, Related (file team), and Move To. Rendered in the
-// desktop rail AND inline on mobile. Pure composition over loaded data.
-function CommandRail({
-  recordId, data, signals, onChanged,
-}: {
-  recordId: string
-  data: Loaded
-  signals: any[]
-  onChanged: () => void
-}) {
-  const isMort = hasMortgageTemplate(data)
-  const openTaskCount = data.tasks.filter((t: any) => !t.completed_at).length
-  const topSignals = isMort ? signals.slice(0, 3) : []
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Next Step — the dominant navy card; compact signals support it below. */}
-      <NextActionCard
-        recordId={recordId}
-        nextAction={data.record.next_action ?? null}
-        nextActionDueAt={data.record.next_action_due_at ?? null}
-        nextActionCompletedAt={data.record.next_action_completed_at ?? null}
-      />
-      {topSignals.length > 0 && (
-        <div className="jubo-los-card space-y-1 px-3 py-2.5">
-          {topSignals.map((s: any) => (
-            <div key={s.key} className="flex items-center gap-1.5 text-2xs">
-              <span
-                className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                style={{ backgroundColor: s.level === 'urgent' ? 'var(--jubo-red)' : s.level === 'warning' ? 'var(--jubo-gold)' : s.level === 'positive' ? 'var(--jubo-green)' : 'var(--jubo-muted)' }}
-                aria-hidden
-              />
-              <span className="truncate text-jubo-text">{s.label}</span>
-              {s.detail && <span className="ml-auto flex-shrink-0 text-jubo-muted">{s.detail}</span>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Tasks — open task preview (full management in the Tasks tab). */}
-      <SidebarSection title={`Tasks${openTaskCount > 0 ? ` · ${openTaskCount}` : ''}`}>
-        <UpcomingTasks tasks={data.tasks} />
-      </SidebarSection>
-
-      {/* Related / File team — collapses when no participant data exists. */}
-      <ParticipantRibbon data={data as any} />
-
-      {/* Move To — stage selector reusing existing move logic (RPC + workflows). */}
-      <MoveToControl
-        recordId={recordId}
-        boardId={data.record.board_id}
-        groups={data.groups}
-        currentGroupId={data.record.group_id ?? null}
-        onMoved={onChanged}
-      />
-    </div>
-  )
-}
-
-// ── Move To (Phase 10.4) ───────────────────────────────────────────────────
-// A stage selector over the board's existing groups; selecting a stage calls the
-// existing moveRecord (move_record RPC + workflow dispatch). Participants moved
-// to the top "File team" ribbon in Phase 10.6.
-function MoveToControl({
-  recordId, boardId, groups, currentGroupId, onMoved,
-}: {
-  recordId: string
-  boardId: string
-  groups: any[]
-  currentGroupId: string | null
-  onMoved: () => void
-}) {
-  const [pending, startTransition] = useTransition()
-  const sorted = useMemo(() => [...groups].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)), [groups])
-  if (sorted.length < 2) return null
-
-  const onSelect = (toGroupId: string) => {
-    if (!toGroupId || toGroupId === currentGroupId) return
-    startTransition(async () => {
-      try { await moveRecord(recordId, toGroupId, boardId) } catch {}
-      onMoved()
-    })
-  }
-
-  return (
-    <SidebarSection title="Move to stage">
-      <select
-        value={currentGroupId ?? ''}
-        onChange={(e) => onSelect(e.target.value)}
-        disabled={pending}
-        className="w-full rounded-lg border border-jubo-border bg-jubo-card px-2.5 py-1.5 text-xs text-jubo-text transition-colors hover:border-jubo-border-strong focus:outline-none focus:ring-1 focus:ring-jubo-red disabled:opacity-60"
-        aria-label="Move to stage"
-      >
-        {currentGroupId == null && <option value="">Select a stage…</option>}
-        {sorted.map((g) => (
-          <option key={g.id} value={g.id}>{g.name}</option>
-        ))}
-      </select>
-      {pending && <p className="mt-1 text-2xs text-jubo-muted">Moving…</p>}
-    </SidebarSection>
-  )
-}
-
-// ── Sub-views ────────────────────────────────────────────────────────────────
-
-function OverviewView({ data }: { data: Loaded }) {
-  const r = data.record
-  const groupName = data.groups.find(g => g.id === r.group_id)?.name ?? '—'
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {/* Internal records.status removed (Phase 34A.1) — surfaced only via the
-            user-facing Status field on the board. Priority/Group/Value remain. */}
-        <Stat label="Priority" value={r.priority} capitalize />
-        <Stat label="Group"    value={groupName} />
-        <Stat label="Value"    value={r.value != null ? '$' + Number(r.value).toLocaleString() : '—'} />
-      </div>
-
-      {r.description && (
-        <div className="jubo-los-card p-3">
-          <p className="jubo-los-section-label mb-1">Description</p>
-          <p className="text-sm text-jubo-text whitespace-pre-wrap">{r.description}</p>
-        </div>
-      )}
-
-      <div className="jubo-los-card p-3">
-        <p className="jubo-los-section-label mb-2">Fields</p>
-        {data.fields.length === 0 ? (
-          <p className="text-xs text-jubo-text-soft">No custom fields on this board.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {data.fields.map((f: any) => {
-              const fv = data.fieldValues.find((v: any) => v.field_id === f.id)
-              const value = fv?.value_text ?? fv?.value_number ?? fv?.value_date ?? fv?.value_bool
-              return (
-                <div key={f.id} className="space-y-0.5 text-xs">
-                  <p className="text-jubo-muted">{f.name}</p>
-                  <p className="text-jubo-text">{String(value ?? '—')}</p>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function DataView({ data }: { data: Loaded }) {
-  return (
-    <div className="space-y-3">
-      <p className="text-2xs uppercase tracking-wider text-muted-foreground">Raw fields</p>
-      <div className="rounded-lg border border-border bg-card divide-y divide-border">
-        {data.fields.length === 0 ? (
-          <p className="text-xs text-muted-foreground p-3">No fields configured.</p>
-        ) : (
-          data.fields.map((f: any) => {
-            const fv = data.fieldValues.find((v: any) => v.field_id === f.id)
-            const display = fv?.value_text ?? fv?.value_number ?? fv?.value_date ?? fv?.value_bool ?? '—'
-            return (
-              <div key={f.id} className="grid grid-cols-3 gap-3 px-3 py-2 text-xs">
-                <span className="text-muted-foreground truncate" title={f.name}>{f.name}</span>
-                <span className="text-2xs text-muted-foreground uppercase tracking-wider self-center">{f.field_type}</span>
-                <span className="text-foreground truncate">{String(display)}</span>
-              </div>
-            )
-          })
-        )}
-      </div>
-    </div>
-  )
-}
-
-function Stat({ label, value, capitalize }: { label: string; value: string; capitalize?: boolean }) {
-  return (
-    <div className="rounded-md bg-jubo-card-soft px-2.5 py-1.5">
-      <p className="text-2xs uppercase tracking-wider text-jubo-muted">{label}</p>
-      <p className={cn('text-sm font-medium text-jubo-text truncate', capitalize && 'capitalize')}>
-        {value}
-      </p>
-    </div>
-  )
-}
-
-function SidebarSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="jubo-los-card space-y-1.5 p-3.5">
-      <p className="jubo-los-section-label">{title}</p>
-      {children}
-    </div>
-  )
-}
-
-function UpcomingTasks({ tasks }: { tasks: any[] }) {
-  const upcoming = tasks
-    .filter(t => !t.completed_at)
-    .sort((a, b) => {
-      if (!a.due_date && !b.due_date) return 0
-      if (!a.due_date) return 1
-      if (!b.due_date) return -1
-      return a.due_date.localeCompare(b.due_date)
-    })
-    .slice(0, 4)
-
-  if (upcoming.length === 0) {
-    return <p className="text-2xs text-jubo-muted italic">No open tasks.</p>
-  }
-
-  const now = new Date()
-  return (
-    <div className="space-y-1">
-      {upcoming.map(t => {
-        const overdue = t.due_date && new Date(t.due_date) < now
-        return (
-          <div key={t.id} className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-jubo-card-soft transition-colors">
-            <span className="flex-1 text-xs text-jubo-text truncate">{t.title}</span>
-            {t.due_date && (
-              <span className={cn('text-2xs tabular-nums', overdue ? 'text-jubo-red' : 'text-jubo-muted')}>
-                {new Date(t.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-              </span>
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
