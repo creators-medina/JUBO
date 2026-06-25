@@ -79,16 +79,16 @@ export function InviteAcceptClient({
 
       <div className="rounded-xl border border-border bg-card p-6">
         {invalid ? (
-          <State icon={<AlertCircle className="h-5 w-5 text-amber-400" />} title="Invalid invite link"
+          <State icon={<AlertCircle className="h-5 w-5 text-jubo-gold" />} title="Invalid invite link"
             body="This link is missing or doesn't match an invitation. Ask your admin to send a new one." />
         ) : expired ? (
-          <State icon={<AlertCircle className="h-5 w-5 text-amber-400" />} title="Invitation expired"
+          <State icon={<AlertCircle className="h-5 w-5 text-jubo-gold" />} title="Invitation expired"
             body="This invite is no longer valid. Ask an admin to resend it." />
         ) : notPending ? (
-          <State icon={<AlertCircle className="h-5 w-5 text-amber-400" />} title="Invitation unavailable"
+          <State icon={<AlertCircle className="h-5 w-5 text-jubo-gold" />} title="Invitation unavailable"
             body={`This invitation is ${preview.status}. Ask an admin to send a new one.`} />
         ) : done ? (
-          <State icon={<Check className="h-5 w-5 text-emerald-400" />} title="You're in!" body="Taking you to your workspace…" />
+          <State icon={<Check className="h-5 w-5 text-jubo-green" />} title="You're in!" body="Taking you to your workspace…" />
         ) : (
           <>
             <h1 className="text-base font-semibold text-foreground">
@@ -100,7 +100,7 @@ export function InviteAcceptClient({
             </p>
 
             {emailMismatch ? (
-              <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-200">
+              <div className="mt-4 rounded-lg border border-jubo-gold/40 bg-jubo-gold-soft px-3 py-2.5 text-xs text-amber-200">
                 This invitation is for <span className="font-medium">{preview.email}</span>, but you&apos;re signed in as{' '}
                 <span className="font-medium">{currentEmail}</span>. Sign in with the invited email to accept.
               </div>
@@ -114,7 +114,7 @@ export function InviteAcceptClient({
                   {pending ? 'Joining…' : <><Check className="h-3.5 w-3.5" /> Join {preview.organizationName}</>}
                 </button>
                 {acceptError && (
-                  <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">{acceptError}</p>
+                  <p className="mt-3 rounded-lg border border-jubo-gold/40 bg-jubo-gold-soft px-3 py-2 text-xs text-amber-200">{acceptError}</p>
                 )}
               </>
             ) : (

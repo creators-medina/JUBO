@@ -102,7 +102,7 @@ export function TeamClient({
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10"><Users className="h-4.5 w-4.5 text-primary" /></div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-jubo-navy/10"><Users className="h-4.5 w-4.5 text-jubo-navy" /></div>
         <div className="min-w-0">
           <h1 className="text-lg font-semibold text-foreground">Team</h1>
           <p className="text-xs text-muted-foreground">
@@ -174,7 +174,7 @@ export function TeamClient({
                     {m.memberType === 'support' && (
                       <p className="mt-1 text-2xs text-muted-foreground">
                         {producersForUser(m.userId).length === 0
-                          ? <span className="text-amber-300/80">No producers yet</span>
+                          ? <span className="text-jubo-gold">No producers yet</span>
                           : <>Supports: {producersForUser(m.userId).map((l) => nameByUser.get(l.producerUserId) ?? '—').join(', ')}</>}
                       </p>
                     )}
@@ -273,7 +273,7 @@ function PendingInvites({
             <button
               onClick={() => run(revokeInvitation(inv.id), 'Invitation revoked')}
               disabled={busy || pending}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-2xs text-red-300 hover:bg-surface-1 hover:text-red-200 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-2xs text-jubo-red hover:bg-surface-1 hover:text-jubo-red-dark disabled:opacity-50"
             >
               <X className="h-3 w-3" /> Revoke
             </button>
@@ -311,7 +311,7 @@ function InviteModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-jubo-navy/50 p-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Invite a teammate</h2>
@@ -354,7 +354,7 @@ function InviteModal({
   )
 }
 
-const inviteInput = 'w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary'
+const inviteInput = 'w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1.5"><label className="text-xs font-medium text-muted-foreground">{label}</label>{children}</div>
@@ -386,7 +386,7 @@ function RowActions({
       <DropdownMenuTrigger
         aria-label={`Actions for ${member.name}`}
         disabled={pending}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-1 hover:text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy disabled:opacity-50"
       >
         <MoreHorizontal className="h-4 w-4" />
       </DropdownMenuTrigger>
@@ -431,7 +431,7 @@ function RowActions({
             <CircleCheck className="mr-2 h-3.5 w-3.5" /> Re-enable access
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem disabled={!canRemove} onSelect={() => onRemove()} className="cursor-pointer text-xs text-red-300 focus:text-red-200">
+        <DropdownMenuItem disabled={!canRemove} onSelect={() => onRemove()} className="cursor-pointer text-xs text-jubo-red focus:text-jubo-red-dark">
           <UserMinus className="mr-2 h-3.5 w-3.5" /> Remove from org
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -441,7 +441,7 @@ function RowActions({
 
 function ConfirmRemove({ member, pending, onCancel, onConfirm }: { member: TeamMember; pending: boolean; onCancel: () => void; onConfirm: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onCancel}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-jubo-navy/50 p-4" onClick={onCancel}>
       <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-sm font-semibold text-foreground">Remove {member.name}?</h2>
         <p className="mt-1.5 text-xs text-muted-foreground">
@@ -450,7 +450,7 @@ function ConfirmRemove({ member, pending, onCancel, onConfirm }: { member: TeamM
         </p>
         <div className="mt-4 flex justify-end gap-2">
           <button onClick={onCancel} className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-surface-1">Cancel</button>
-          <button onClick={onConfirm} disabled={pending} className="rounded-lg bg-red-500/90 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-500 disabled:opacity-50">
+          <button onClick={onConfirm} disabled={pending} className="rounded-lg bg-jubo-red px-3 py-1.5 text-xs font-medium text-white hover:bg-jubo-red-dark disabled:opacity-50">
             {pending ? 'Removing…' : 'Remove'}
           </button>
         </div>
@@ -460,16 +460,16 @@ function ConfirmRemove({ member, pending, onCancel, onConfirm }: { member: TeamM
 }
 
 function RoleBadge({ role }: { role: string }) {
-  const tone = role === 'owner' ? 'bg-violet-500/15 text-violet-300'
-    : role === 'admin' ? 'bg-blue-500/15 text-blue-300'
+  const tone = role === 'owner' ? 'bg-jubo-navy/10 text-jubo-navy'
+    : role === 'admin' ? 'bg-jubo-navy/10 text-jubo-navy'
     : 'bg-surface-2 text-muted-foreground'
   return <span className={`inline-flex rounded-full px-2 py-0.5 text-2xs font-medium capitalize ${tone}`}>{role}</span>
 }
 
 function MemberTypeBadge({ type }: { type: string }) {
   return type === 'support'
-    ? <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 px-2 py-0.5 text-2xs font-medium text-cyan-300"><LifeBuoy className="h-2.5 w-2.5" /> Support</span>
-    : <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/15 px-2 py-0.5 text-2xs font-medium text-indigo-300"><Briefcase className="h-2.5 w-2.5" /> Producer</span>
+    ? <span className="inline-flex items-center gap-1 rounded-full bg-jubo-green-soft px-2 py-0.5 text-2xs font-medium text-jubo-green"><LifeBuoy className="h-2.5 w-2.5" /> Support</span>
+    : <span className="inline-flex items-center gap-1 rounded-full bg-jubo-navy/10 px-2 py-0.5 text-2xs font-medium text-jubo-navy"><Briefcase className="h-2.5 w-2.5" /> Producer</span>
 }
 
 function SupportLinksModal({
@@ -497,7 +497,7 @@ function SupportLinksModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-jubo-navy/50 p-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-foreground">Producers {support.name} supports</h2>
@@ -521,7 +521,7 @@ function SupportLinksModal({
                     disabled={pending}
                     className="flex w-full items-center gap-3 rounded-lg border border-border px-3 py-2 text-left text-xs hover:bg-surface-1 disabled:opacity-50"
                   >
-                    <span className={`flex h-4 w-4 items-center justify-center rounded border ${on ? 'border-primary bg-primary text-primary-foreground' : 'border-border'}`}>
+                    <span className={`flex h-4 w-4 items-center justify-center rounded border ${on ? 'border-jubo-navy bg-jubo-navy text-white' : 'border-border'}`}>
                       {on && <CircleCheck className="h-3 w-3" />}
                     </span>
                     <span className="flex-1 text-foreground">{p.name}</span>
@@ -544,7 +544,7 @@ function SupportLinksModal({
 function StatusBadge({ status }: { status: string }) {
   return status === 'disabled'
     ? <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 text-2xs font-medium text-muted-foreground"><Ban className="h-2.5 w-2.5" /> Disabled</span>
-    : <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-2xs font-medium text-emerald-400"><CircleCheck className="h-2.5 w-2.5" /> Active</span>
+    : <span className="inline-flex items-center gap-1 rounded-full bg-jubo-green-soft px-2 py-0.5 text-2xs font-medium text-jubo-green"><CircleCheck className="h-2.5 w-2.5" /> Active</span>
 }
 
 function fmtDate(iso: string | null): string {

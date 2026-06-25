@@ -67,7 +67,7 @@ export function OrganizationSettingsClient({
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10"><Building2 className="h-4.5 w-4.5 text-primary" /></div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-jubo-navy/10"><Building2 className="h-4.5 w-4.5 text-jubo-navy" /></div>
         <div>
           <h1 className="text-lg font-semibold text-foreground">Organization</h1>
           <p className="text-xs text-muted-foreground">Your company profile and workspace defaults.</p>
@@ -128,7 +128,7 @@ export function OrganizationSettingsClient({
   )
 }
 
-const inputCls = 'w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60 disabled:cursor-not-allowed'
+const inputCls = 'w-full rounded-lg border border-border bg-surface-1 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy disabled:opacity-60 disabled:cursor-not-allowed'
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1.5"><label className="text-xs font-medium text-muted-foreground">{label}</label>{children}</div>

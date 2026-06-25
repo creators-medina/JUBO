@@ -32,7 +32,7 @@ export function StageMappingClient({
           <ArrowLeft className="h-3.5 w-3.5" /> Back to integrations
         </Link>
         <div className="flex items-center gap-2">
-          <GitBranch className="h-5 w-5 text-primary" />
+          <GitBranch className="h-5 w-5 text-jubo-navy" />
           <h1 className="text-xl font-semibold tracking-tight text-foreground">Status → Stage Mapping</h1>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -81,18 +81,18 @@ export function StageMappingClient({
           <p className="mb-2 text-xs font-medium text-foreground">Add mapping</p>
           <div className="grid gap-2 sm:grid-cols-[1.2fr_1fr_1fr_auto_auto]">
             <input placeholder="keyword (e.g. funded)" value={draft.keyword} onChange={(e) => setDraft({ ...draft, keyword: e.target.value })}
-              className="rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+              className="rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
             <select value={draft.board_slug} onChange={(e) => setDraft({ ...draft, board_slug: e.target.value })}
-              className="rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+              className="rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy">
               <option value="active-leads">active-leads</option>
               <option value="loan-pipeline">loan-pipeline</option>
               <option value="prospecting">prospecting</option>
               <option value="past-clients">past-clients</option>
             </select>
             <input placeholder="group (e.g. Funded)" value={draft.group_name} onChange={(e) => setDraft({ ...draft, group_name: e.target.value })}
-              className="rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+              className="rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
             <input type="number" placeholder="order" value={draft.stage_order || ''} onChange={(e) => setDraft({ ...draft, stage_order: Number(e.target.value) })}
-              className="w-20 rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+              className="w-20 rounded-md border border-border bg-surface-1 px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
             <Button className="gap-1.5" disabled={pending} onClick={add}><Plus className="h-4 w-4" /> Add</Button>
           </div>
         </div>

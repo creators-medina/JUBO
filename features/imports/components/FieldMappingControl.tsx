@@ -26,9 +26,9 @@ function ConfidenceBadge({ meta }: { meta?: MappingMetadata }) {
     reason === 'manual' ? 'Manual' : reason === 'created' ? 'New field' :
     reason === 'matched-by-header' ? 'Matched by header' : reason === 'synonym' ? 'Matched by name' :
     reason === 'type-detected' ? 'Detected by values' : confidence >= 0.8 ? 'Strong match' : confidence >= 0.5 ? 'Possible match' : 'Needs review'
-  const tone = reason === 'manual' || reason === 'created' ? 'text-blue-300 bg-blue-500/15'
-    : confidence >= 0.8 ? 'text-emerald-300 bg-emerald-500/15'
-    : confidence >= 0.5 ? 'text-amber-300 bg-amber-500/15'
+  const tone = reason === 'manual' || reason === 'created' ? 'text-jubo-navy bg-jubo-navy/10'
+    : confidence >= 0.8 ? 'text-jubo-green bg-jubo-green-soft'
+    : confidence >= 0.5 ? 'text-jubo-gold bg-jubo-gold-soft'
     : 'text-muted-foreground bg-surface-2'
   return <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-medium', tone)}>{label}</span>
 }
@@ -113,7 +113,7 @@ export function FieldMappingControl({
                 </Command.Group>
               </Command.List>
               <button type="button" onClick={() => setMode('create')}
-                className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-left text-sm text-primary hover:bg-surface-1">
+                className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-left text-sm text-jubo-navy hover:bg-surface-1">
                 <Plus className="h-3.5 w-3.5" /> Create a field for “{columnHeader}”
               </button>
             </Command>
@@ -121,10 +121,10 @@ export function FieldMappingControl({
             <div className="space-y-2.5 p-3">
               <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">New field</p>
               <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus placeholder="Field name"
-                className="w-full rounded-md border border-border bg-surface-1 px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                className="w-full rounded-md border border-border bg-surface-1 px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
               <div>
                 <select value={newType} onChange={(e) => setNewType(e.target.value as FieldType)}
-                  className="w-full rounded-md border border-border bg-surface-1 px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+                  className="w-full rounded-md border border-border bg-surface-1 px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy">
                   {CREATABLE.map((c) => <option key={c.type} value={c.type}>{c.label}</option>)}
                 </select>
                 <p className="mt-1 text-2xs text-muted-foreground">{TYPE_REASON[inferred.type] ? `Suggested: ${TYPE_REASON[inferred.type]}` : 'Pick the type that fits this column'}</p>
@@ -149,9 +149,9 @@ function Item({ value, onSelect, icon: Icon, label, active }: { value?: string; 
   return (
     <Command.Item value={value ?? label} onSelect={onSelect}
       className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground data-[selected=true]:bg-surface-1">
-      <Icon className={cn('h-3.5 w-3.5 flex-shrink-0', active ? 'text-primary' : 'text-muted-foreground')} />
+      <Icon className={cn('h-3.5 w-3.5 flex-shrink-0', active ? 'text-jubo-navy' : 'text-muted-foreground')} />
       <span className="flex-1 truncate">{label}</span>
-      {active && <Check className="h-3.5 w-3.5 flex-shrink-0 text-primary" />}
+      {active && <Check className="h-3.5 w-3.5 flex-shrink-0 text-jubo-navy" />}
     </Command.Item>
   )
 }

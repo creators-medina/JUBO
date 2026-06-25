@@ -54,7 +54,7 @@ export function CreateBoardStep({
     <div className="space-y-5">
       <div>
         <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-          <Sparkles className="h-4 w-4 text-primary" /> We analyzed your file
+          <Sparkles className="h-4 w-4 text-jubo-navy" /> We analyzed your file
         </h2>
         <p className="text-sm text-muted-foreground">
           {fileName} · {rowsCount.toLocaleString()} record{rowsCount === 1 ? '' : 's'} · {columnsCount} column{columnsCount === 1 ? '' : 's'}
@@ -69,11 +69,11 @@ export function CreateBoardStep({
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full rounded-md border border-border bg-surface-1 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy"
           />
         </label>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-          <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-primary">
+          <span className="inline-flex items-center gap-1 rounded-md bg-jubo-navy/10 px-2 py-1 text-jubo-navy">
             <Layers className="h-3 w-3" /> {suggestion.typeLabel}
           </span>
           <span className="text-muted-foreground">·</span>
@@ -88,30 +88,30 @@ export function CreateBoardStep({
         <p className="mb-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">We detected</p>
         <ul className="space-y-1.5 text-sm text-foreground">
           <li className="flex items-start gap-2">
-            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-400" />
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-jubo-green" />
             <span>{rowsCount.toLocaleString()} record{rowsCount === 1 ? '' : 's'} across {columnsCount} column{columnsCount === 1 ? '' : 's'}.</span>
           </li>
           {suggestion.confidence >= 0.5 && (
             <li className="flex items-start gap-2">
-              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-400" />
+              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-jubo-green" />
               <span>This looks like {suggestion.typeLabel.toLowerCase()} ({suggestion.reason}).</span>
             </li>
           )}
           {hasPhone && (
             <li className="flex items-start gap-2">
-              <Phone className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-primary" />
+              <Phone className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-jubo-navy" />
               <span>Phone numbers — you&apos;ll be able to call right from Jubo.</span>
             </li>
           )}
           {hasEmail && (
             <li className="flex items-start gap-2">
-              <Mail className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-primary" />
+              <Mail className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-jubo-navy" />
               <span>Email addresses.</span>
             </li>
           )}
           {groupSuggestion && (
             <li className="flex items-start gap-2">
-              <Tag className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-primary" />
+              <Tag className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-jubo-navy" />
               <span>
                 A <span className="font-medium">{groupSuggestion.header}</span> column — we can turn it into{' '}
                 {groupSuggestion.values.length} group{groupSuggestion.values.length === 1 ? '' : 's'}{' '}
@@ -130,11 +130,11 @@ export function CreateBoardStep({
               type="checkbox"
               checked={createGroups}
               onChange={(e) => setCreateGroups(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-border bg-surface-1 text-primary focus:ring-primary"
+              className="mt-0.5 h-4 w-4 rounded border-border bg-surface-1 text-jubo-navy focus:ring-jubo-navy"
             />
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">
-                Create groups from <span className="text-primary">{groupSuggestion.header}</span>
+                Create groups from <span className="text-jubo-navy">{groupSuggestion.header}</span>
               </p>
               <p className="text-xs text-muted-foreground">
                 Records will be sorted into these groups automatically.
@@ -155,7 +155,7 @@ export function CreateBoardStep({
 
       {/* Blank-header warning — surfaced ABOVE the fields card so it's the first thing the user sees. */}
       {blankIncluded.length > 0 && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-200">
+        <div className="flex items-start gap-2 rounded-lg border border-jubo-gold/40 bg-jubo-gold-soft px-3 py-2.5 text-sm text-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
           <div>
             <p className="font-medium">
@@ -184,7 +184,7 @@ export function CreateBoardStep({
                 className={cn(
                   'flex items-center gap-3 border-b border-border/60 px-4 py-2.5 last:border-b-0',
                   isGroupCol && 'opacity-60',
-                  blankIncludedField && 'bg-amber-500/5',
+                  blankIncludedField && 'bg-jubo-gold-soft',
                 )}
               >
                 <input
@@ -192,7 +192,7 @@ export function CreateBoardStep({
                   checked={!isGroupCol && f.include}
                   disabled={isGroupCol}
                   onChange={() => onToggleField(f.columnIndex)}
-                  className="h-4 w-4 rounded border-border bg-surface-1 text-primary focus:ring-primary"
+                  className="h-4 w-4 rounded border-border bg-surface-1 text-jubo-navy focus:ring-jubo-navy"
                 />
                 <div className="min-w-0 flex-1">
                   <input
@@ -202,13 +202,13 @@ export function CreateBoardStep({
                     disabled={isGroupCol || !f.include}
                     className={cn(
                       'w-full bg-transparent text-sm text-foreground focus:outline-none disabled:text-muted-foreground',
-                      blankIncludedField && 'placeholder:text-amber-300/80',
+                      blankIncludedField && 'placeholder:text-jubo-gold',
                     )}
                   />
                   <p className="text-2xs text-muted-foreground">
                     {f.header.trim()
                       ? <>from &ldquo;{f.header}&rdquo;{isGroupCol && ' · used for groups'}</>
-                      : <span className="text-amber-300/80">no header in the file{isGroupCol && ' · used for groups'}</span>}
+                      : <span className="text-jubo-gold">no header in the file{isGroupCol && ' · used for groups'}</span>}
                   </p>
                 </div>
                 {!isGroupCol && (
@@ -216,7 +216,7 @@ export function CreateBoardStep({
                     value={f.fieldType}
                     disabled={!f.include}
                     onChange={(e) => onFieldType(f.columnIndex, e.target.value as FieldType)}
-                    className="rounded-md border border-border bg-surface-1 px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:text-muted-foreground"
+                    className="rounded-md border border-border bg-surface-1 px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy disabled:text-muted-foreground"
                   >
                     {CREATABLE_TYPES.map((t) => (
                       <option key={t} value={t}>{TYPE_LABEL[t]}</option>

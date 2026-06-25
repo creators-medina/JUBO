@@ -9,10 +9,10 @@ import { IMPORT_TEMPLATES } from '../templates/importTemplates'
 import type { ImportRow } from '../types'
 
 const STATUS_STYLE: Record<string, { icon: React.ElementType; cls: string }> = {
-  completed: { icon: CheckCircle2, cls: 'text-emerald-400' },
-  partial:   { icon: AlertTriangle, cls: 'text-amber-400' },
-  failed:    { icon: XCircle, cls: 'text-red-400' },
-  running:   { icon: Clock, cls: 'text-blue-400' },
+  completed: { icon: CheckCircle2, cls: 'text-jubo-green' },
+  partial:   { icon: AlertTriangle, cls: 'text-jubo-gold' },
+  failed:    { icon: XCircle, cls: 'text-jubo-red' },
+  running:   { icon: Clock, cls: 'text-jubo-navy' },
   pending:   { icon: Clock, cls: 'text-muted-foreground' },
 }
 
@@ -24,7 +24,7 @@ export function ImportHistoryClient({ imports }: { imports: ImportRow[] }) {
       <header className="flex items-center justify-between border-b border-border px-6 py-5">
         <div>
           <div className="flex items-center gap-2">
-            <Upload className="h-5 w-5 text-primary" />
+            <Upload className="h-5 w-5 text-jubo-navy" />
             <h1 className="text-xl font-semibold tracking-tight text-foreground">Imports</h1>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">Bring your business into Jubo from CSV, XLSX, or a Monday export.</p>
@@ -87,9 +87,9 @@ export function ImportHistoryClient({ imports }: { imports: ImportRow[] }) {
                         </p>
                       </div>
                       <div className="flex items-center gap-4 text-2xs text-muted-foreground">
-                        <span className="text-emerald-400">{imp.imported_count} imported</span>
-                        {imp.duplicate_count > 0 && <span className="text-amber-400">{imp.duplicate_count} dupes</span>}
-                        {imp.failed_count > 0 && <span className="text-red-400">{imp.failed_count} failed</span>}
+                        <span className="text-jubo-green">{imp.imported_count} imported</span>
+                        {imp.duplicate_count > 0 && <span className="text-jubo-gold">{imp.duplicate_count} dupes</span>}
+                        {imp.failed_count > 0 && <span className="text-jubo-red">{imp.failed_count} failed</span>}
                       </div>
                     </div>
                   )
@@ -106,7 +106,7 @@ export function ImportHistoryClient({ imports }: { imports: ImportRow[] }) {
 function ImportCard({ href, icon: Icon, title, desc }: { href: string; icon: React.ElementType; title: string; desc: string }) {
   return (
     <Link href={href} className="flex flex-col gap-2 rounded-xl border border-border bg-surface-1 p-4 hover:bg-surface-2 transition-colors">
-      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon className="h-4.5 w-4.5" /></div>
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-jubo-navy/10 text-jubo-navy"><Icon className="h-4.5 w-4.5" /></div>
       <p className="text-sm font-medium text-foreground">{title}</p>
       <p className="text-2xs text-muted-foreground">{desc}</p>
     </Link>

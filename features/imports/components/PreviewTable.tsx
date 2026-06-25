@@ -42,7 +42,7 @@ export function PreviewTable({
                     <span
                       className={cn(
                         'inline-flex items-center rounded px-1.5 py-0.5 text-2xs font-medium',
-                        dup ? 'bg-amber-500/15 text-amber-400' : 'bg-emerald-500/15 text-emerald-400',
+                        dup ? 'bg-jubo-gold-soft text-jubo-gold' : 'bg-jubo-green-soft text-jubo-green',
                       )}
                     >
                       {dup ? `Dupe · ${match?.matchedOn}` : 'New'}

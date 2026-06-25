@@ -62,8 +62,8 @@ export function MappingTable({
       </div>
 
       {ignored.length > 0 && (
-        <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
-          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
+        <div className="flex items-start gap-2.5 rounded-lg border border-jubo-gold/40 bg-jubo-gold-soft px-3 py-2.5">
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-jubo-gold" />
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">{ignored.length} column{ignored.length === 1 ? '' : 's'} will be skipped</p>
             <p className="mt-0.5 text-xs text-muted-foreground">

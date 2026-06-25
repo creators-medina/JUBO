@@ -41,7 +41,7 @@ export function IntegrationsClient({
       <header className="flex items-center justify-between border-b border-border px-6 py-5">
         <div>
           <div className="flex items-center gap-2">
-            <Plug className="h-5 w-5 text-primary" />
+            <Plug className="h-5 w-5 text-jubo-navy" />
             <h1 className="text-xl font-semibold tracking-tight text-foreground">Integrations</h1>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">Connect external systems so Jubo stays live with your business.</p>
@@ -99,7 +99,7 @@ function WorkerRunsPanel({ runs }: { runs: WorkerRunRow[] }) {
           const s = (r.summary ?? {}) as { processed?: number; created?: number; moved?: number; failed?: number }
           return (
             <div key={r.id} className="flex items-center gap-3 px-4 py-2 text-2xs">
-              <span className={cn('rounded px-1.5 py-0.5 font-medium', r.status === 'completed' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400')}>{r.worker_type}</span>
+              <span className={cn('rounded px-1.5 py-0.5 font-medium', r.status === 'completed' ? 'bg-jubo-green-soft text-jubo-green' : 'bg-jubo-red/10 text-jubo-red')}>{r.worker_type}</span>
               <span className="text-muted-foreground">{new Date(r.started_at).toLocaleString()}</span>
               <span className="ml-auto text-muted-foreground">
                 {s.processed ?? 0} processed · {s.created ?? 0} created · {s.moved ?? 0} moved{s.failed ? ` · ${s.failed} failed` : ''}
@@ -200,13 +200,13 @@ function TestPanel({ connectionId, onClose }: { connectionId: string; onClose: (
         <button onClick={onClose} className="text-2xs text-muted-foreground hover:text-foreground">Close</button>
       </div>
       <textarea value={text} onChange={(e) => setText(e.target.value)} rows={10}
-        className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+        className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
       <div className="mt-2 flex items-center gap-3">
         <Button size="sm" className="gap-1.5" disabled={pending} onClick={run}>
           <Zap className="h-3.5 w-3.5" /> {pending ? 'Sending…' : 'Send test payload'}
         </Button>
         {result && (
-          <span className={cn('text-xs', result.ok ? 'text-emerald-400' : 'text-destructive')}>
+          <span className={cn('text-xs', result.ok ? 'text-jubo-green' : 'text-destructive')}>
             {result.ok
               ? result.duplicate ? 'Duplicate — already processed (idempotent)' : `${result.created ? 'Created' : 'Updated'} record${result.matchedOn ? ` · matched on ${result.matchedOn}` : ''}`
               : `Error: ${result.error}`}
@@ -225,7 +225,7 @@ function EventLog({ events, organizationId }: { events: IntegrationEventRow[]; o
     <section>
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Recent events {pendingCount > 0 && <span className="ml-1 text-amber-400">· {pendingCount} pending</span>}
+          Recent events {pendingCount > 0 && <span className="ml-1 text-jubo-gold">· {pendingCount} pending</span>}
         </h2>
         <Button size="sm" variant="outline" className="gap-1.5" disabled={pending}
           onClick={() => startTransition(async () => { await runWorkerAction(organizationId) })}>
@@ -246,14 +246,14 @@ function EventLog({ events, organizationId }: { events: IntegrationEventRow[]; o
 }
 
 const EVENT_STATUS: Record<string, { icon: React.ElementType; cls: string }> = {
-  processed:  { icon: CheckCircle2, cls: 'text-emerald-400' },
-  received:   { icon: Clock, cls: 'text-blue-400' },
-  pending:    { icon: Clock, cls: 'text-amber-400' },
-  processing: { icon: RefreshCw, cls: 'text-blue-400' },
-  retrying:   { icon: RefreshCw, cls: 'text-amber-400' },
+  processed:  { icon: CheckCircle2, cls: 'text-jubo-green' },
+  received:   { icon: Clock, cls: 'text-jubo-navy' },
+  pending:    { icon: Clock, cls: 'text-jubo-gold' },
+  processing: { icon: RefreshCw, cls: 'text-jubo-navy' },
+  retrying:   { icon: RefreshCw, cls: 'text-jubo-gold' },
   duplicate:  { icon: Check, cls: 'text-muted-foreground' },
   ignored:    { icon: XCircle, cls: 'text-muted-foreground' },
-  failed:     { icon: XCircle, cls: 'text-red-400' },
+  failed:     { icon: XCircle, cls: 'text-jubo-red' },
 }
 
 function EventRow({ ev }: { ev: IntegrationEventRow }) {
@@ -321,9 +321,9 @@ function JsonBlock({ title, data }: { title: string; data: unknown }) {
 
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
-    active: 'bg-emerald-500/15 text-emerald-400',
-    paused: 'bg-amber-500/15 text-amber-400',
-    revoked: 'bg-red-500/15 text-red-400',
+    active: 'bg-jubo-green-soft text-jubo-green',
+    paused: 'bg-jubo-gold-soft text-jubo-gold',
+    revoked: 'bg-jubo-red/10 text-jubo-red',
   }
   return <span className={cn('rounded px-1.5 py-0.5 text-2xs font-medium capitalize', map[status] ?? 'bg-surface-2 text-muted-foreground')}>{status}</span>
 }
@@ -337,7 +337,7 @@ function CopyRow({ value, mono, copyValue }: { value: string; mono?: boolean; co
     <div className="flex items-center gap-2">
       <input readOnly value={value} className={cn('w-full rounded-md border border-border bg-surface-1 px-2.5 py-2 text-xs text-foreground focus:outline-none', mono && 'font-mono')} />
       <button onClick={copy} className="flex-shrink-0 rounded-md border border-border p-2 text-muted-foreground hover:text-foreground">
-        {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+        {copied ? <Check className="h-3.5 w-3.5 text-jubo-green" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
     </div>
   )

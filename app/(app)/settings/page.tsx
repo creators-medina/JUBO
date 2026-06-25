@@ -72,7 +72,7 @@ export default function SettingsPage() {
 function SectionLink({ title, description, href, icon: Icon, status }: SectionCard) {
   const inner = (
     <>
-      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-jubo-navy/10 text-jubo-navy">
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
@@ -104,7 +104,7 @@ function SectionLink({ title, description, href, icon: Icon, status }: SectionCa
   return (
     <Link
       href={href}
-      className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-surface-1"
+      className="group flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-jubo-navy/40 hover:bg-surface-1"
     >
       {inner}
     </Link>

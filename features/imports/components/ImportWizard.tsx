@@ -438,8 +438,8 @@ export function ImportWizard({
           <div key={s.key} className="flex items-center gap-2">
             <div className={cn(
               'flex h-6 w-6 items-center justify-center rounded-full border text-2xs font-semibold',
-              i < stepIdx ? 'border-primary bg-primary text-primary-foreground'
-                : i === stepIdx ? 'border-primary text-primary'
+              i < stepIdx ? 'border-jubo-navy bg-jubo-navy text-white'
+                : i === stepIdx ? 'border-jubo-navy text-jubo-navy'
                 : 'border-border text-muted-foreground',
             )}>
               {i < stepIdx ? <Check className="h-3 w-3" /> : i + 1}
@@ -597,7 +597,7 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: 'gr
   return (
     <div className="rounded-lg border border-border bg-card px-4 py-2">
       <p className={cn('text-xl font-semibold',
-        tone === 'green' ? 'text-emerald-400' : tone === 'amber' ? 'text-amber-400' : 'text-foreground')}>{value}</p>
+        tone === 'green' ? 'text-jubo-green' : tone === 'amber' ? 'text-jubo-gold' : 'text-foreground')}>{value}</p>
       <p className="text-2xs text-muted-foreground">{label}</p>
     </div>
   )
@@ -615,9 +615,9 @@ function UploadStep({ busy, template, onFile }: { busy: boolean; template?: stri
         onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files?.[0]; if (f) onFile(f) }}
         onClick={() => ref.current?.click()}
         className={cn('mt-6 flex w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-16 transition-colors',
-          drag ? 'border-primary bg-primary/5' : 'border-border bg-surface-1 hover:bg-surface-2')}
+          drag ? 'border-jubo-navy bg-jubo-navy/5' : 'border-border bg-surface-1 hover:bg-surface-2')}
       >
-        {busy ? <Loader2 className="h-8 w-8 animate-spin text-primary" /> : <UploadCloud className="h-8 w-8 text-muted-foreground" />}
+        {busy ? <Loader2 className="h-8 w-8 animate-spin text-jubo-navy" /> : <UploadCloud className="h-8 w-8 text-muted-foreground" />}
         <p className="mt-3 text-sm font-medium text-foreground">{busy ? 'Reading file…' : 'Drop file or click to browse'}</p>
         <p className="mt-1 text-2xs text-muted-foreground">CSV, XLSX · up to 15 MB · 5,000 rows</p>
         <input ref={ref} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f) }} />
@@ -647,7 +647,7 @@ function ModeToggle({
         <div>
           <p className="mb-1.5 text-xs font-medium text-foreground">Sheet</p>
           <select value={sheetIndex} onChange={(e) => setSheetIndex(Number(e.target.value))}
-            className="w-full rounded-md border border-border bg-surface-1 px-2 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+            className="w-full rounded-md border border-border bg-surface-1 px-2 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy">
             {parsed.sheets.map((s, i) => <option key={i} value={i}>{s.name} ({s.rows.length} rows)</option>)}
           </select>
         </div>
@@ -658,7 +658,7 @@ function ModeToggle({
           disabled={boardsCount === 0}
           className={cn(
             'flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-            mode === 'existing' ? 'border-primary/60 bg-primary/10' : 'border-border bg-surface-1 hover:bg-surface-2',
+            mode === 'existing' ? 'border-jubo-navy/60 bg-jubo-navy/10' : 'border-border bg-surface-1 hover:bg-surface-2',
           )}
         >
           <Columns3 className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
@@ -673,7 +673,7 @@ function ModeToggle({
           onClick={() => setMode('create')}
           className={cn(
             'flex items-start gap-2.5 rounded-lg border px-3.5 py-3 text-left transition-colors',
-            mode === 'create' ? 'border-primary/60 bg-primary/10' : 'border-border bg-surface-1 hover:bg-surface-2',
+            mode === 'create' ? 'border-jubo-navy/60 bg-jubo-navy/10' : 'border-border bg-surface-1 hover:bg-surface-2',
           )}
         >
           <Plus className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
@@ -703,10 +703,10 @@ function BoardStep({
           {boards.map((b) => (
             <button key={b.id} onClick={() => setBoardId(b.id)}
               className={cn('flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors',
-                boardId === b.id ? 'border-primary/60 bg-primary/10' : 'border-border bg-surface-1 hover:bg-surface-2')}>
+                boardId === b.id ? 'border-jubo-navy/60 bg-jubo-navy/10' : 'border-border bg-surface-1 hover:bg-surface-2')}>
               <Columns3 className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
               <span className="truncate text-sm text-foreground">{b.name}</span>
-              {b.slug === templateBoardSlug && <Sparkles className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-primary" />}
+              {b.slug === templateBoardSlug && <Sparkles className="ml-auto h-3.5 w-3.5 flex-shrink-0 text-jubo-navy" />}
             </button>
           ))}
         </div>
@@ -717,7 +717,7 @@ function BoardStep({
         <div>
           <p className="mb-1.5 text-xs font-medium text-foreground">Add to group</p>
           <select value={groupId} onChange={(e) => setGroupId(e.target.value)}
-            className="w-full rounded-md border border-border bg-surface-1 px-2 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
+            className="w-full rounded-md border border-border bg-surface-1 px-2 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy">
             {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
         </div>
@@ -730,7 +730,7 @@ function RunStep({ progress }: { progress: { done: number; total: number } }) {
   const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
   return (
     <div className="flex h-full flex-col items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <Loader2 className="h-8 w-8 animate-spin text-jubo-navy" />
       <p className="mt-4 text-sm font-medium text-foreground">Importing your records…</p>
       <p className="mt-1 text-2xs text-muted-foreground">{progress.done} of {progress.total}</p>
       <div className="mt-4 h-1.5 w-64 overflow-hidden rounded-full bg-surface-2">
@@ -743,7 +743,7 @@ function RunStep({ progress }: { progress: { done: number; total: number } }) {
 function DoneStep({ summary, boardId, router }: { summary: ImportSummary; boardId: string; router: ReturnType<typeof useRouter> }) {
   return (
     <div className="flex h-full flex-col items-center justify-center text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary"><Check className="h-7 w-7" /></div>
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-jubo-green-soft text-jubo-green"><Check className="h-7 w-7" /></div>
       <h2 className="mt-5 text-2xl font-semibold text-foreground">Import complete</h2>
       <p className="mt-1 text-sm text-muted-foreground">Your business is now in Jubo.</p>
 

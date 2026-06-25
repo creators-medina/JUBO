@@ -46,7 +46,7 @@ export function MondayImportPanel({
   if (phase === 'run') {
     return (
       <div className="mx-auto flex h-full w-full max-w-3xl flex-col items-center justify-center px-6 py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-jubo-navy" />
         <p className="mt-4 text-sm font-medium text-foreground">Importing {monday.parentCount} items + {monday.subitemCount} subitems…</p>
         <p className="mt-1 text-2xs text-muted-foreground">Building the “{monday.boardName}” board</p>
       </div>
@@ -56,7 +56,7 @@ export function MondayImportPanel({
   if (phase === 'done' && result) {
     return (
       <div className="mx-auto flex h-full w-full max-w-3xl flex-col items-center justify-center px-6 py-8 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary"><Check className="h-7 w-7" /></div>
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-jubo-green-soft text-jubo-green"><Check className="h-7 w-7" /></div>
         <h2 className="mt-5 text-2xl font-semibold text-foreground">Monday export imported</h2>
         <p className="mt-1 text-sm text-muted-foreground">Parents and their subitems are in Jubo.</p>
         <div className="mt-6 flex gap-3">
@@ -78,8 +78,8 @@ export function MondayImportPanel({
   // review
   return (
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-6 py-8">
-      <div className="mb-5 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3.5 py-2.5">
-        <GitBranch className="h-4 w-4 flex-shrink-0 text-primary" />
+      <div className="mb-5 flex items-center gap-2 rounded-lg border border-jubo-navy/30 bg-jubo-navy/10 px-3.5 py-2.5">
+        <GitBranch className="h-4 w-4 flex-shrink-0 text-jubo-navy" />
         <p className="text-sm text-foreground"><span className="font-semibold">Monday.com export detected.</span> Jubo will keep your parent items and subitems intact.</p>
       </div>
 
@@ -135,7 +135,7 @@ export function MondayImportPanel({
       {monday.warnings.length > 0 && (
         <ul className="mt-3 space-y-1">
           {monday.warnings.map((w, i) => (
-            <li key={i} className="flex items-start gap-1.5 text-2xs text-amber-300"><AlertTriangle className="mt-0.5 h-3 w-3 flex-shrink-0" /> {w}</li>
+            <li key={i} className="flex items-start gap-1.5 text-2xs text-jubo-gold"><AlertTriangle className="mt-0.5 h-3 w-3 flex-shrink-0" /> {w}</li>
           ))}
         </ul>
       )}
@@ -154,7 +154,7 @@ export function MondayImportPanel({
 function Stat({ label, value, tone }: { label: string; value: number; tone?: 'green' }) {
   return (
     <div className="rounded-lg border border-border bg-card px-4 py-2">
-      <p className={`text-xl font-semibold ${tone === 'green' ? 'text-emerald-400' : 'text-foreground'}`}>{value}</p>
+      <p className={`text-xl font-semibold ${tone === 'green' ? 'text-jubo-green' : 'text-foreground'}`}>{value}</p>
       <p className="text-2xs text-muted-foreground">{label}</p>
     </div>
   )
