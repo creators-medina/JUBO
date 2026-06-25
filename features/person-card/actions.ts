@@ -15,6 +15,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { getGroupChecklistFields } from '@/features/fields/actions'
 import { valueIsEmpty } from '@/features/fields/conversion'
+import { resolveTemplateKey } from '@/features/mortgage/templates/resolve'
+import type { MortgageData, WorkspaceTemplateKey } from '@/features/mortgage/types'
 
 type FieldValueRow = {
   field_id: string
@@ -69,6 +71,9 @@ export type PersonCardData = {
   }
   currentBoard: { id: string; name: string; boardType: string; color: string | null } | null
   currentGroup: { id: string; name: string; color: string | null } | null
+  // Phase C2 — card shape (loan vs generic) is decided by the EXISTING workspace
+  // template resolver, never by board-name matching. 'loan'/'lead' = loan-like.
+  templateKey: WorkspaceTemplateKey
   ownerName: string | null
   common: PersonCardCommon[]
   thisBoard: PersonCardBoardField[]
@@ -86,7 +91,7 @@ export async function getPersonCardData(recordId: string): Promise<PersonCardDat
   // Record (RLS scopes to the caller's org — foreign records resolve to null).
   const { data: rec } = await supabase
     .from('records')
-    .select('id, organization_id, board_id, group_id, title, status, priority, owner_user_id, created_at, updated_at')
+    .select('id, organization_id, board_id, group_id, title, status, priority, record_type, owner_user_id, created_at, updated_at')
     .eq('id', recordId).maybeSingle()
   if (!rec) return null
 
@@ -108,7 +113,7 @@ export async function getPersonCardData(recordId: string): Promise<PersonCardDat
   // Board names for current + every referenced board (one query).
   const boardIds = [...new Set([rec.board_id, ...(fieldsData ?? []).map((f: any) => f.board_id)].filter(Boolean))] as string[]
   const { data: boardsData } = boardIds.length > 0
-    ? await supabase.from('boards').select('id, name, board_type, color').in('id', boardIds)
+    ? await supabase.from('boards').select('id, name, board_type, slug, color').in('id', boardIds)
     : { data: [] as any[] }
   const boardsById = new Map((boardsData ?? []).map((b: any) => [b.id, b]))
 
@@ -200,6 +205,15 @@ export async function getPersonCardData(recordId: string): Promise<PersonCardDat
     ? [(owner as any).first_name, (owner as any).last_name].filter(Boolean).join(' ').trim() || (owner as any).email || null
     : null
 
+  // Card shape — reuse the existing workspace template resolver (board_type /
+  // record_type / slug). Loan-like boards (loan/lead) get the loan File Card;
+  // everything else (generic/partner/past_client) gets the generic card.
+  const curBoard = rec.board_id ? boardsById.get(rec.board_id) : null
+  const templateKey = resolveTemplateKey({
+    record: { record_type: (rec as any).record_type ?? null },
+    board: curBoard ? { board_type: curBoard.board_type, slug: curBoard.slug } : null,
+  } as unknown as MortgageData)
+
   return {
     record: {
       id: rec.id, title: rec.title, status: rec.status, priority: rec.priority,
@@ -210,6 +224,7 @@ export async function getPersonCardData(recordId: string): Promise<PersonCardDat
       ? { id: rec.board_id, name: boardsById.get(rec.board_id).name, boardType: boardsById.get(rec.board_id).board_type, color: boardsById.get(rec.board_id).color }
       : null,
     currentGroup: group ? { id: (group as any).id, name: (group as any).name, color: (group as any).color } : null,
+    templateKey,
     ownerName,
     common,
     thisBoard,

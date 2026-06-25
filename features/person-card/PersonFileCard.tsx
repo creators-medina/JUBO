@@ -64,6 +64,14 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
   const email = comms?.email ?? null
   const boardId = card.record.boardId
 
+  // Phase C2 — card shape from the existing template resolver (NOT board names).
+  // Loan-like boards (loan/lead) get the full loan File Card; every other board
+  // (generic/partner/past_client) gets a generic record card: the same universal
+  // shell (feed, checklist, notes) without the loan framing and loan-only tabs.
+  const isLoanLike = card.templateKey === 'loan' || card.templateKey === 'lead'
+  const visibleTabs = isLoanLike ? TABS : TABS.filter((t) => t.key === 'overview')
+  const activeTab: Tab = isLoanLike ? tab : 'overview'
+
   const toggleChecklist = (fieldId: string, complete: boolean) => {
     if (!boardId) return
     setBusy(fieldId)
@@ -87,32 +95,47 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
             {email && <a href={`mailto:${email}`} title={`Email ${email}`} className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-surface-1 hover:text-foreground"><Mail className="h-3.5 w-3.5" /></a>}
           </div>
         </div>
-        {/* Tabs */}
-        <div className="mt-3 flex gap-1 overflow-x-auto">
-          {TABS.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={cn('whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                tab === t.key ? 'bg-jubo-navy/10 text-jubo-navy' : 'text-muted-foreground hover:text-foreground')}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {/* Tabs — a generic board shows only Overview, so the strip collapses. */}
+        {visibleTabs.length > 1 && (
+          <div className="mt-3 flex gap-1 overflow-x-auto">
+            {visibleTabs.map((t) => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className={cn('whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                  activeTab === t.key ? 'bg-jubo-navy/10 text-jubo-navy' : 'text-muted-foreground hover:text-foreground')}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {tab === 'overview' && (
+      {activeTab === 'overview' && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {/* LEFT — snapshot + real checklist */}
+          {/* LEFT — snapshot/summary + real checklist */}
           <div className="space-y-4">
-            <Section title="Loan snapshot">
-              <Field label="Loan Amount" value={bind('loan_amount')} />
-              <Field label="Purchase / Appraised Value" value={null} />
-              <Field label="Interest Rate" value={null} />
-              <Field label="Loan Program" value={bind('loan_type')} />
-            </Section>
-            <Section title="Property snapshot">
-              <Field label="Address" value={bind('property_address')} />
-              <Field label="Property Type" value={null} />
-            </Section>
+            {isLoanLike ? (
+              <>
+                <Section title="Loan snapshot">
+                  <Field label="Loan Amount" value={bind('loan_amount')} />
+                  <Field label="Purchase / Appraised Value" value={null} />
+                  <Field label="Interest Rate" value={null} />
+                  <Field label="Loan Program" value={bind('loan_type')} />
+                </Section>
+                <Section title="Property snapshot">
+                  <Field label="Address" value={bind('property_address')} />
+                  <Field label="Property Type" value={null} />
+                </Section>
+              </>
+            ) : (
+              // Generic board — real record fields, no loan framing.
+              <Section title="Record summary">
+                {card.thisBoard.length > 0 ? (
+                  card.thisBoard.slice(0, 12).map((f) => <Field key={f.fieldId} label={f.name} value={f.value || null} />)
+                ) : (
+                  <p className="text-2xs text-muted-foreground">No fields on this record yet.</p>
+                )}
+              </Section>
+            )}
             <Section title={`Checklist${card.checklist.hasChecklist ? ` · ${card.checklist.completedCount}/${card.checklist.totalCount} (${card.checklist.percentage}%)` : ''}`}>
               {card.checklist.hasChecklist ? (
                 <ul className="max-h-60 space-y-1 overflow-y-auto">
@@ -154,23 +177,25 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
             </Section>
           </div>
 
-          {/* RIGHT — file summary + real notes */}
+          {/* RIGHT — file summary (loan boards only) + real notes */}
           <div className="space-y-4">
-            <div className="rounded-xl border border-jubo-navy/20 bg-jubo-navy/5 p-3">
-              <p className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">File summary</p>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                <Metric label="FICO" value={bind('fico') /* not seeded → placeholder */} />
-                <Metric label="Program" value={bind('loan_type')} />
-                <Metric label="Loan Amount" value={bind('loan_amount')} />
-                <Metric label="Occupancy" value={bind('occupancy')} />
-                <Metric label="DTI" computed />
-                <Metric label="LTV" computed />
-                <Metric label="PI" computed />
-                <Metric label="TI" computed />
-                <Metric label="Income" value={null} />
-                <Metric label="Assets" value={null} />
+            {isLoanLike && (
+              <div className="rounded-xl border border-jubo-navy/20 bg-jubo-navy/5 p-3">
+                <p className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">File summary</p>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                  <Metric label="FICO" value={bind('fico') /* not seeded → placeholder */} />
+                  <Metric label="Program" value={bind('loan_type')} />
+                  <Metric label="Loan Amount" value={bind('loan_amount')} />
+                  <Metric label="Occupancy" value={bind('occupancy')} />
+                  <Metric label="DTI" computed />
+                  <Metric label="LTV" computed />
+                  <Metric label="PI" computed />
+                  <Metric label="TI" computed />
+                  <Metric label="Income" value={null} />
+                  <Metric label="Assets" value={null} />
+                </div>
               </div>
-            </div>
+            )}
             <Section title="Notes">
               {comms ? (
                 <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} />
@@ -180,15 +205,17 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
         </div>
       )}
 
-      {tab === 'loan' && <ArriveShell title="Loan & Property Info" sections={['Loan Info', 'Property Info', 'Title Info']} />}
-      {tab === 'borrower' && (
+      {/* Loan-only tabs — never render on a generic board (also gated out of the
+          tab strip above; the activeTab guard makes them unreachable there). */}
+      {isLoanLike && activeTab === 'loan' && <ArriveShell title="Loan & Property Info" sections={['Loan Info', 'Property Info', 'Title Info']} />}
+      {isLoanLike && activeTab === 'borrower' && (
         <ArriveShell
           title="Borrower Info"
           sections={['Basic Details', 'Declarations', 'Demographics', 'Address', 'Contact']}
           contact={{ phone, email }}
         />
       )}
-      {tab === 'financial' && (
+      {isLoanLike && activeTab === 'financial' && (
         <ArriveShell title="Financial Info" sections={['Monthly Income', 'Assets', 'Liabilities', 'Real Estate Owned']} addable />
       )}
     </div>
