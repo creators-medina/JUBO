@@ -67,11 +67,11 @@ function streakMessage(data: StreakData): string {
 }
 
 function streakAccent(data: StreakData): { bg: string; text: string } {
-  if (data.todayStatus === 'won')     return { bg: 'bg-emerald-500/15', text: 'text-emerald-400' }
-  if (data.currentStreak >= 7)        return { bg: 'bg-amber-500/15',   text: 'text-amber-400' }
+  if (data.todayStatus === 'won')     return { bg: 'bg-jubo-green-soft', text: 'text-jubo-green' }
+  if (data.currentStreak >= 7)        return { bg: 'bg-jubo-gold-soft',  text: 'text-jubo-gold' }
   if (data.actionsToWin > 0 && data.actionsToWin <= 2)
-                                      return { bg: 'bg-amber-500/15',   text: 'text-amber-400' }
-  return                                       { bg: 'bg-surface-2',     text: 'text-muted-foreground' }
+                                      return { bg: 'bg-jubo-gold-soft',  text: 'text-jubo-gold' }
+  return                                       { bg: 'bg-jubo-card-soft', text: 'text-jubo-muted' }
 }
 
 // Re-exported so widgets can use the same icon-mapping helpers if needed

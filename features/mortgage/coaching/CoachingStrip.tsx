@@ -10,10 +10,10 @@ function Icon({ name, className }: { name: string; className?: string }) {
 }
 
 const TONE: Record<CoachTone, string> = {
-  good: 'text-emerald-400',
-  warn: 'text-amber-400',
-  urgent: 'text-red-400',
-  info: 'text-muted-foreground',
+  good: 'text-jubo-green',
+  warn: 'text-jubo-gold',
+  urgent: 'text-jubo-red',
+  info: 'text-jubo-muted',
 }
 
 export function CoachingStrip({
@@ -37,7 +37,7 @@ export function CoachingStrip({
   return (
     <section className="rounded-xl border border-border bg-gradient-to-br from-surface-1 to-card p-4">
       <div className="mb-2.5 flex items-center gap-2">
-        <Icons.Sparkles className="h-4 w-4 text-primary" />
+        <Icons.Sparkles className="h-4 w-4 text-jubo-gold" />
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your day, coached</h2>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">

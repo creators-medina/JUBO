@@ -54,7 +54,7 @@ export function DashboardHubClient({ organizationId, orgName }: DashboardHubClie
             <button
               key={tile.label}
               onClick={() => setShowCreate(true)}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:bg-surface-1 hover:border-primary/30 transition-all group"
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-card hover:bg-surface-1 hover:border-jubo-navy/30 transition-all group"
             >
               <span className="text-2xl">{tile.icon}</span>
               <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">

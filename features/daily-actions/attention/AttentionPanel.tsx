@@ -4,10 +4,10 @@ import { cn } from '@/lib/utils'
 import type { AttentionView } from './queries'
 
 const PRIORITY_DOT: Record<string, string> = {
-  urgent: 'bg-red-400',
-  high:   'bg-orange-400',
-  medium: 'bg-amber-400',
-  low:    'bg-blue-400',
+  urgent: 'bg-jubo-red',
+  high:   'bg-jubo-red/70',
+  medium: 'bg-jubo-gold',
+  low:    'bg-jubo-navy',
 }
 
 interface Props {
@@ -37,7 +37,7 @@ export function AttentionPanel({ views, staleRecords }: Props) {
             const label = view.attention_label || view.name
             const dot = view.attention_priority && PRIORITY_DOT[view.attention_priority]
               ? PRIORITY_DOT[view.attention_priority]
-              : 'bg-primary'
+              : 'bg-jubo-navy'
             return (
               <Link
                 key={view.id}
@@ -48,7 +48,7 @@ export function AttentionPanel({ views, staleRecords }: Props) {
                 <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', dot)}
                   style={view.attention_color ? { backgroundColor: view.attention_color } : undefined}
                 />
-                <span className="flex-1 text-sm text-foreground truncate group-hover:text-primary">{label}</span>
+                <span className="flex-1 text-sm text-foreground truncate group-hover:text-jubo-navy">{label}</span>
                 <span className="text-2xs px-1.5 py-0.5 rounded-full bg-surface-2 text-foreground tabular-nums">
                   {count}
                 </span>
@@ -73,7 +73,7 @@ export function AttentionPanel({ views, staleRecords }: Props) {
               href={`/boards/${r.board_id}`}
               className="block px-3 py-2 rounded-lg border border-border bg-card hover:bg-surface-1 transition-colors group"
             >
-              <p className="text-sm text-foreground truncate group-hover:text-primary">{r.title}</p>
+              <p className="text-sm text-foreground truncate group-hover:text-jubo-navy">{r.title}</p>
               <p className="text-2xs text-muted-foreground mt-0.5">
                 Last touched {relativeDays(r.updated_at)}
               </p>

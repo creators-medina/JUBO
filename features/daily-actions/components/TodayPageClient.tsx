@@ -50,18 +50,19 @@ interface Props {
   plan?: PlanSummary | null                // reverse-engineered plan explanation
 }
 
+// LOS pace semantics: green = ahead/healthy, gold = on pace, dusty red = behind.
 const STATUS_COLOR: Record<DailyProgressStatus, string> = {
-  ahead:   'text-emerald-400',
-  on_pace: 'text-amber-400',
-  behind:  'text-red-400',
-  unknown: 'text-muted-foreground',
+  ahead:   'text-jubo-green',
+  on_pace: 'text-jubo-gold',
+  behind:  'text-jubo-red',
+  unknown: 'text-jubo-muted',
 }
 
 const STATUS_BG: Record<DailyProgressStatus, string> = {
-  ahead:   'bg-emerald-500/15 border-emerald-500/30',
-  on_pace: 'bg-amber-500/15 border-amber-500/30',
-  behind:  'bg-red-500/15 border-red-500/30',
-  unknown: 'bg-surface-2 border-border',
+  ahead:   'bg-jubo-green-soft border-jubo-green/30',
+  on_pace: 'bg-jubo-gold-soft border-jubo-gold/40',
+  behind:  'bg-jubo-red/10 border-jubo-red/30',
+  unknown: 'bg-jubo-card-soft border-jubo-border',
 }
 
 export function TodayPageClient({
@@ -141,15 +142,17 @@ export function TodayPageClient({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <header className="px-6 py-5 border-b border-border flex-shrink-0">
+      {/* Header — the loan officer's command surface: deep navy, cream heading,
+          gold metadata, dusty-red primary action. navy-chrome flips the semantic
+          tokens for this subtree so child controls read correctly on navy. */}
+      <header className="jubo-navy-chrome bg-jubo-navy px-6 py-5 border-b border-white/10 flex-shrink-0">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <Sunrise className="w-5 h-5 text-primary" />
-              <h1 className="text-xl font-semibold text-foreground tracking-tight">Win the Day</h1>
+              <Sunrise className="w-5 h-5 text-jubo-gold" />
+              <h1 className="text-xl font-semibold text-white tracking-tight">Win the Day</h1>
             </div>
-            <p className="text-xs text-muted-foreground">{headerDate} · {organizationName}</p>
+            <p className="text-xs text-white/60">{headerDate} · {organizationName}</p>
             <p className={cn('text-sm font-medium mt-2', STATUS_COLOR[summary.paceStatus])}>
               {summary.paceLabel}
             </p>
@@ -159,21 +162,21 @@ export function TodayPageClient({
               onClick={handleRegenerate}
               disabled={isRegenerating}
               title="Regenerate actions from tasks + goal pacing"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-surface-1 disabled:opacity-50 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/15 text-xs text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-50 transition-colors"
             >
               <RefreshCw className={cn('w-3 h-3', isRegenerating && 'animate-spin')} />
               <span>Regenerate</span>
             </button>
             <button
               onClick={() => setShowManual(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-jubo-red text-white text-xs font-medium hover:bg-jubo-red-dark transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
               New action
             </button>
           </div>
         </div>
-        <p className="text-2xs text-muted-foreground/70 mt-2">
+        <p className="text-2xs text-white/50 mt-2">
           Last updated {relativeTime(lastUpdatedAt)}
         </p>
       </header>
@@ -207,9 +210,9 @@ export function TodayPageClient({
 
         {/* Progress strip */}
         <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <ProgressCard label="Actions today" value={summary.total} sub={`${summary.completed} done · ${summary.open} open`} accent="bg-primary/10 text-primary" icon={ListChecks} />
-          <ProgressCard label="Completed" value={summary.completed} sub={summary.total > 0 ? `${Math.round((summary.completed / summary.total) * 100)}%` : '—'} accent="bg-emerald-500/15 text-emerald-400" icon={CheckCircle2} />
-          <ProgressCard label="Overdue" value={summary.overdue} sub={summary.overdue > 0 ? 'Clear these first' : 'Clean'} accent={summary.overdue > 0 ? 'bg-red-500/15 text-red-400' : 'bg-surface-2 text-muted-foreground'} icon={AlertTriangle} />
+          <ProgressCard label="Actions today" value={summary.total} sub={`${summary.completed} done · ${summary.open} open`} accent="bg-jubo-navy/10 text-jubo-navy" icon={ListChecks} />
+          <ProgressCard label="Completed" value={summary.completed} sub={summary.total > 0 ? `${Math.round((summary.completed / summary.total) * 100)}%` : '—'} accent="bg-jubo-green-soft text-jubo-green" icon={CheckCircle2} />
+          <ProgressCard label="Overdue" value={summary.overdue} sub={summary.overdue > 0 ? 'Clear these first' : 'Clean'} accent={summary.overdue > 0 ? 'bg-jubo-red/10 text-jubo-red' : 'bg-jubo-card-soft text-jubo-muted'} icon={AlertTriangle} />
           <ProgressCard label="Goal pace" value={paceHeadline(summary.paceStatus)} sub={paces.length > 0 ? `${paces.length} goal${paces.length !== 1 ? 's' : ''} tracked` : 'No goals yet'} accent={cn(STATUS_BG[summary.paceStatus], STATUS_COLOR[summary.paceStatus], 'border')} icon={paceIcon(summary.paceStatus)} />
           <StreakCard data={streak} />
         </section>
@@ -262,13 +265,13 @@ export function TodayPageClient({
                 />
               ) : (
                 <>
-                  <BucketGroup title="Urgent" icon={AlertTriangle} accent="text-red-400"
+                  <BucketGroup title="Urgent" icon={AlertTriangle} accent="text-jubo-red"
                     actions={urgentActions} recordBoardMap={recordBoardMap}
                     selected={selected} onToggle={toggleSelect} />
-                  <BucketGroup title="Today" icon={Clock} accent="text-amber-400"
+                  <BucketGroup title="Today" icon={Clock} accent="text-jubo-gold"
                     actions={todayActions} recordBoardMap={recordBoardMap}
                     selected={selected} onToggle={toggleSelect} />
-                  <BucketGroup title="Later" icon={ListChecks} accent="text-muted-foreground"
+                  <BucketGroup title="Later" icon={ListChecks} accent="text-jubo-muted"
                     actions={laterActions} recordBoardMap={recordBoardMap}
                     selected={selected} onToggle={toggleSelect} />
 
@@ -343,7 +346,7 @@ export function TodayPageClient({
             {selectedOpen > 0 && (
               <button
                 onClick={bulkComplete}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition-colors"
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-jubo-green-soft text-jubo-green hover:bg-jubo-green/20 transition-colors"
               >
                 <CheckCheck className="w-3 h-3" />
                 Complete
@@ -360,7 +363,7 @@ export function TodayPageClient({
             <SnoozeMenu onPick={bulkSnooze} label="Snooze" />
             <button
               onClick={bulkDelete}
-              className="px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-red-400 hover:bg-surface-2 transition-colors"
+              className="px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-jubo-red hover:bg-surface-2 transition-colors"
             >
               Remove
             </button>
@@ -474,9 +477,9 @@ function PaceCard({ pace }: { pace: DailyMetricPace }) {
       </div>
       <div className="h-1 rounded-full bg-surface-2 overflow-hidden">
         <div className={cn('h-full rounded-full transition-all',
-          pace.status === 'ahead'   ? 'bg-emerald-400/70' :
-          pace.status === 'on_pace' ? 'bg-amber-400/70'   :
-          pace.status === 'behind'  ? 'bg-red-400/70'     : 'bg-muted-foreground/40',
+          pace.status === 'ahead'   ? 'bg-jubo-green' :
+          pace.status === 'on_pace' ? 'bg-jubo-gold'  :
+          pace.status === 'behind'  ? 'bg-jubo-red'   : 'bg-jubo-muted/40',
         )} style={{ width: `${fill}%` }} />
       </div>
       <div className="grid grid-cols-3 gap-2 text-2xs">

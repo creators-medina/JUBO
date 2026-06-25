@@ -9,12 +9,14 @@ import { completeDailyAction, reopenDailyAction, deleteDailyAction, snoozeDailyA
 import { SnoozeMenu } from './SnoozeMenu'
 import type { DailyActionRow } from '../types'
 
+// LOS priority semantics: dusty red = urgent/high, gold = medium attention,
+// navy = low (neutral active), taupe = none.
 const PRIORITY_PILL: Record<string, string> = {
-  urgent: 'bg-red-500/15 text-red-400 border-red-500/30',
-  high:   'bg-orange-500/15 text-orange-400 border-orange-500/30',
-  medium: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-  low:    'bg-blue-500/15 text-blue-400 border-blue-500/30',
-  none:   'bg-surface-2 text-muted-foreground border-border',
+  urgent: 'bg-jubo-red/10 text-jubo-red border-jubo-red/30',
+  high:   'bg-jubo-red/[0.06] text-jubo-red border-jubo-red/20',
+  medium: 'bg-jubo-gold-soft text-jubo-gold border-jubo-gold/40',
+  low:    'bg-jubo-navy/[0.06] text-jubo-navy border-jubo-navy/20',
+  none:   'bg-jubo-card-soft text-jubo-muted border-jubo-border',
 }
 
 const SOURCE_ICON: Record<string, React.ElementType> = {
@@ -87,7 +89,7 @@ export function DailyActionItem({ action, recordLink, selected, onToggleSelect, 
           selected
             ? 'bg-primary border-primary text-primary-foreground'
             : completed
-              ? 'bg-emerald-500 border-emerald-500 text-emerald-50'
+              ? 'bg-jubo-green border-jubo-green text-white'
               : 'border-border hover:border-primary hover:bg-primary/5',
         )}
       >
@@ -146,7 +148,7 @@ export function DailyActionItem({ action, recordLink, selected, onToggleSelect, 
           onClick={remove}
           disabled={isPending}
           title="Remove"
-          className="p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-surface-2 disabled:opacity-50"
+          className="p-1 rounded text-muted-foreground hover:text-jubo-red hover:bg-surface-2 disabled:opacity-50"
         >
           <Trash2 className="w-3 h-3" />
         </button>
