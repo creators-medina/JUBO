@@ -339,60 +339,80 @@ export async function getFileCardData(recordId: string): Promise<FileCardData | 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
+  // C4-FIX — classify fetches: the RECORD is the only REQUIRED read; everything
+  // else is OPTIONAL and must degrade to []/null/placeholder, never null the
+  // whole card. `safe` swallows a rejected optional fetch (missing thread, no
+  // twilio config, RLS-empty, null board/group, …) so one absent relationship
+  // can't abort the bundle — matching the old three-resolver tolerance.
+  const safe = async (p: PromiseLike<any>, fallback: any): Promise<any> => {
+    try { return await p } catch { return fallback }
+  }
+  const EMPTY = { data: [] as any[] }
+
   // Record once — the full row covers every consumer (ids, owner, status,
-  // next_action*, record_type).
-  const { data: rec } = await supabase.from('records').select('*').eq('id', recordId).maybeSingle()
+  // next_action*, record_type). REQUIRED: a truly-missing record → "unavailable".
+  const recRes = await safe(supabase.from('records').select('*').eq('id', recordId).maybeSingle(), { data: null as any })
+  const rec = recRes.data
   if (!rec) return null
   const orgId = rec.organization_id as string
   const boardId = rec.board_id as string | null
 
-  // Every field value the record holds (current + stranded), once.
-  const { data: fvs } = await supabase
+  // Every field value the record holds (current + stranded), once. [OPTIONAL]
+  const fvs = (await safe(supabase
     .from('field_values')
     .select('field_id, value_text, value_number, value_boolean, value_date, value_json, updated_at')
-    .eq('record_id', recordId)
+    .eq('record_id', recordId), EMPTY)).data
   const fieldRows = (fvs ?? []) as FieldValueRow[]
   const fieldIds = [...new Set(fieldRows.map((v) => v.field_id))]
 
-  // Field metadata for those values (incl slug, for the loan slug accessors), once.
-  const { data: fieldsData } = fieldIds.length > 0
-    ? await supabase.from('fields').select('id, board_id, name, field_type, slug, position, common_field_key_id').in('id', fieldIds)
-    : { data: [] as any[] }
+  // Field metadata for those values (incl slug, for the loan slug accessors). [OPTIONAL]
+  const fieldsData = (fieldIds.length > 0
+    ? (await safe(supabase.from('fields').select('id, board_id, name, field_type, slug, position, common_field_key_id').in('id', fieldIds), EMPTY)).data
+    : []) as any[]
   const fieldsById = new Map((fieldsData ?? []).map((f: any) => [f.id, f]))
 
-  // Boards (current + every referenced), once.
+  // Boards (current + every referenced). [OPTIONAL]
   const boardIds = [...new Set([boardId, ...(fieldsData ?? []).map((f: any) => f.board_id)].filter(Boolean))] as string[]
-  const { data: boardsData } = boardIds.length > 0
-    ? await supabase.from('boards').select('id, name, board_type, slug, color').in('id', boardIds)
-    : { data: [] as any[] }
+  const boardsData = (boardIds.length > 0
+    ? (await safe(supabase.from('boards').select('id, name, board_type, slug, color').in('id', boardIds), EMPTY)).data
+    : []) as any[]
   const boardsById = new Map((boardsData ?? []).map((b: any) => [b.id, b]))
 
-  // Remaining record-scoped reads — each table ONCE.
+  // Remaining record-scoped reads — each table ONCE, each independently guarded
+  // so a single rejection (e.g. no thread, twilio not configured) can't null the
+  // card. [ALL OPTIONAL]
   const [
-    { data: groups }, { data: keys }, { data: tasks }, { data: activities },
-    { data: movements }, { data: notes }, { data: communications }, { data: mems },
+    groupsR, keysR, tasksR, activitiesR, movementsR, notesR, communicationsR, memsR,
     checklist, twilioConfig, thread,
   ] = await Promise.all([
-    boardId ? supabase.from('board_groups').select('*').eq('board_id', boardId).eq('is_archived', false).order('position') : Promise.resolve({ data: [] as any[] }),
-    supabase.from('common_field_keys').select('id, key, label, scope, data_type').eq('organization_id', orgId),
-    supabase.from('tasks').select('*').eq('record_id', recordId).order('created_at', { ascending: false }),
-    supabase.from('activities').select('id, activity_type, content, metadata, created_at, user_id').eq('record_id', recordId).order('created_at', { ascending: false }).limit(100),
-    supabase.from('record_movements').select('id, created_at').eq('record_id', recordId).order('created_at', { ascending: false }).limit(20),
-    supabase.from('notes').select('*').eq('record_id', recordId).order('created_at', { ascending: false }),
-    supabase.from('communication_logs').select('*').eq('record_id', recordId).order('occurred_at', { ascending: false }),
-    supabase.from('organization_members').select('user_id, status, profiles:user_id(first_name, last_name, email)').eq('organization_id', orgId),
-    getGroupChecklistFields(boardId as string, (rec.group_id as string | null)),
-    getTwilioConfig(supabase as never, orgId),
-    getThreadForRecord(recordId),
+    safe(boardId ? supabase.from('board_groups').select('*').eq('board_id', boardId).eq('is_archived', false).order('position') : Promise.resolve(EMPTY), EMPTY),
+    safe(supabase.from('common_field_keys').select('id, key, label, scope, data_type').eq('organization_id', orgId), EMPTY),
+    safe(supabase.from('tasks').select('*').eq('record_id', recordId).order('created_at', { ascending: false }), EMPTY),
+    safe(supabase.from('activities').select('id, activity_type, content, metadata, created_at, user_id').eq('record_id', recordId).order('created_at', { ascending: false }).limit(100), EMPTY),
+    safe(supabase.from('record_movements').select('id, created_at').eq('record_id', recordId).order('created_at', { ascending: false }).limit(20), EMPTY),
+    safe(supabase.from('notes').select('*').eq('record_id', recordId).order('created_at', { ascending: false }), EMPTY),
+    safe(supabase.from('communication_logs').select('*').eq('record_id', recordId).order('occurred_at', { ascending: false }), EMPTY),
+    safe(supabase.from('organization_members').select('user_id, status, profiles:user_id(first_name, last_name, email)').eq('organization_id', orgId), EMPTY),
+    safe(boardId ? getGroupChecklistFields(boardId, (rec.group_id as string | null)) : Promise.resolve({ fields: [] as { id: string; name: string }[] }), { fields: [] as { id: string; name: string }[] }),
+    safe(getTwilioConfig(supabase as never, orgId), null),
+    safe(getThreadForRecord(recordId), null),
   ])
+  const groups = groupsR.data
+  const keys = keysR.data
+  const tasks = tasksR.data
+  const activities = activitiesR.data
+  const movements = movementsR.data
+  const notes = notesR.data
+  const communications = communicationsR.data
+  const mems = memsR.data
 
-  // Profiles for owner + actors (names), once.
+  // Profiles for owner + actors (names). [OPTIONAL]
   const userIds = new Set<string>()
   if (rec.owner_user_id) userIds.add(rec.owner_user_id)
   for (const a of activities ?? []) if (a.user_id) userIds.add(a.user_id)
   for (const t of tasks ?? []) { if (t.created_by) userIds.add(t.created_by); if (t.assigned_user_id) userIds.add(t.assigned_user_id) }
   const profileRows = userIds.size > 0
-    ? ((await supabase.from('profiles').select('id, first_name, last_name, email').in('id', [...userIds])).data ?? [])
+    ? ((await safe(supabase.from('profiles').select('id, first_name, last_name, email').in('id', [...userIds]), EMPTY)).data ?? [])
     : []
   const profiles: Record<string, string> = {}
   for (const p of profileRows as any[]) profiles[p.id] = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown'
@@ -422,7 +442,7 @@ export async function getFileCardData(recordId: string): Promise<FileCardData | 
   // ── comms: contact identity + SMS thread + notes + members (identical to
   //    getCommunicateContext). ──
   const threadId = thread?.id ?? null
-  const messages = threadId ? await loadThreadMessages(threadId) : []
+  const messages = threadId ? await safe(loadThreadMessages(threadId), [] as any[]) : []
   const phoneKeyId = (keys ?? []).find((k: any) => k.key === 'phone')?.id ?? null
   const emailKeyId = (keys ?? []).find((k: any) => k.key === 'email')?.id ?? null
   const curFields = (fieldsData ?? []).filter((f: any) => f.board_id === boardId)
