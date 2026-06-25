@@ -234,3 +234,63 @@ export async function getPersonCardData(recordId: string): Promise<PersonCardDat
     activities: (activities ?? []) as any,
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Phase C3 — current-board "command" bundle for the loan-shape Overview.
+//
+// The harvested LOS pieces (NextActionCard, computeOpportunitySignals,
+// ParticipantRibbon, Move-To, and the slug accessors that bind the Loan
+// Snapshot / File Summary to REAL stored values) all read the `MortgageData`
+// shape. This resolver returns exactly that for the record's CURRENT board —
+// the same query shape the old WorkspacePanel.load used, scoped to one board.
+// (Read-only; nothing here writes. Data-path dedup with getPersonCardData /
+// getCommunicateContext is deferred to C4.)
+// ─────────────────────────────────────────────────────────────────────────
+
+export type LoanCommandData = MortgageData & { profiles: Record<string, string> }
+
+export async function getLoanCommandData(recordId: string): Promise<LoanCommandData | null> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const { data: record } = await supabase.from('records').select('*').eq('id', recordId).maybeSingle()
+  if (!record) return null
+
+  const [fieldsRes, fvRes, aRes, tRes, mRes, gRes, nRes, bRes, cRes] = await Promise.all([
+    supabase.from('fields').select('*').eq('board_id', record.board_id).order('position'),
+    supabase.from('field_values').select('*').eq('record_id', recordId),
+    supabase.from('activities').select('*').eq('record_id', recordId).order('created_at', { ascending: false }).limit(40),
+    supabase.from('tasks').select('*').eq('record_id', recordId).order('created_at', { ascending: false }),
+    supabase.from('record_movements').select('*, from_group:from_group_id(name), to_group:to_group_id(name)').eq('record_id', recordId).order('created_at', { ascending: false }).limit(20),
+    supabase.from('board_groups').select('*').eq('board_id', record.board_id).eq('is_archived', false).order('position'),
+    supabase.from('notes').select('*').eq('record_id', recordId).order('created_at', { ascending: false }),
+    supabase.from('boards').select('id, name, slug, board_type').eq('id', record.board_id).maybeSingle(),
+    supabase.from('communication_logs').select('*').eq('record_id', recordId).order('occurred_at', { ascending: false }),
+  ])
+
+  // Resolve actor names (used by ParticipantRibbon's Loan-Officer fallback).
+  const userIds = new Set<string>()
+  if (record.owner_user_id) userIds.add(record.owner_user_id)
+  for (const a of aRes.data ?? []) if (a.user_id) userIds.add(a.user_id)
+  for (const t of tRes.data ?? []) { if (t.created_by) userIds.add(t.created_by); if (t.assigned_user_id) userIds.add(t.assigned_user_id) }
+  const profiles: Record<string, string> = {}
+  if (userIds.size > 0) {
+    const { data: profs } = await supabase.from('profiles').select('id, first_name, last_name').in('id', [...userIds])
+    for (const p of profs ?? []) profiles[p.id] = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown'
+  }
+
+  return {
+    record,
+    board: bRes.data ?? null,
+    fields: fieldsRes.data ?? [],
+    fieldValues: fvRes.data ?? [],
+    activities: aRes.data ?? [],
+    tasks: tRes.data ?? [],
+    movements: mRes.data ?? [],
+    notes: nRes.data ?? [],
+    groups: gRes.data ?? [],
+    communications: cRes.data ?? [],
+    profiles,
+  }
+}
