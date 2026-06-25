@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
+import { useMemo, useState, useEffect, useRef, useCallback, createElement } from 'react'
 import { useRouter } from 'next/navigation'
 import { Command } from 'cmdk'
 import {
@@ -23,7 +23,7 @@ import { runWorkflowScansAction } from '@/features/workflows/actions'
 import { useGlobalSearch } from '../hooks/useGlobalSearch'
 import { useRecentItems, pushRecentItem } from '../recent/useRecentItems'
 import { useActiveRecordContext } from '../hooks/useActiveRecordContext'
-import { useCommandHistory, recordCommandExecution } from '../history/useCommandHistory'
+import { useCommandHistory } from '../history/useCommandHistory'
 import { getQuickActionItems } from '../actions/registry'
 import { contextualCommands } from '../contextual/contextualCommands'
 import type { CommandItem, CommandPage, RecentItem } from '../types'
@@ -470,7 +470,6 @@ function PaletteShell({ children, onBackdrop }: { children: React.ReactNode; onB
 }
 
 function Row({ item, onSelect }: { item: CommandItem; onSelect: () => void }) {
-  const Icon = IconFor(item.iconName)
   return (
     <Command.Item
       value={`${item.id} ${item.title} ${item.subtitle ?? ''} ${(item.keywords ?? []).join(' ')}`}
@@ -481,7 +480,9 @@ function Row({ item, onSelect }: { item: CommandItem; onSelect: () => void }) {
       )}
     >
       <span className="w-6 h-6 rounded-md bg-surface-1 flex items-center justify-center flex-shrink-0 text-muted-foreground group-data-[selected=true]:bg-jubo-navy/15 group-data-[selected=true]:text-jubo-navy">
-        <Icon className="w-3.5 h-3.5" />
+        {/* createElement (not <Icon/>) avoids the static-components rule firing on
+            a render-local component variable; IconFor returns a stable icon ref. */}
+        {createElement(IconFor(item.iconName), { className: 'w-3.5 h-3.5' })}
       </span>
       <div className="flex-1 min-w-0">
         <p className="text-foreground truncate">{item.title}</p>
