@@ -92,7 +92,7 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
           {TABS.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={cn('whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                tab === t.key ? 'bg-primary/15 text-foreground' : 'text-muted-foreground hover:text-foreground')}>
+                tab === t.key ? 'bg-jubo-navy/10 text-jubo-navy' : 'text-muted-foreground hover:text-foreground')}>
               {t.label}
             </button>
           ))}
@@ -120,7 +120,7 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
                     <li key={i.fieldId}>
                       <button onClick={() => toggleChecklist(i.fieldId, i.complete)} disabled={busy === i.fieldId}
                         className="flex w-full items-center gap-2 rounded px-1 py-1 text-left text-xs hover:bg-surface-1 disabled:opacity-60">
-                        {busy === i.fieldId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : i.complete ? <CheckSquare className="h-3.5 w-3.5 text-emerald-400" /> : <Square className="h-3.5 w-3.5 text-muted-foreground" />}
+                        {busy === i.fieldId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : i.complete ? <CheckSquare className="h-3.5 w-3.5 text-jubo-green" /> : <Square className="h-3.5 w-3.5 text-muted-foreground" />}
                         <span className={i.complete ? 'text-foreground' : 'text-muted-foreground'}>{i.name}</span>
                       </button>
                     </li>
@@ -156,7 +156,7 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
 
           {/* RIGHT — file summary + real notes */}
           <div className="space-y-4">
-            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+            <div className="rounded-xl border border-jubo-navy/20 bg-jubo-navy/5 p-3">
               <p className="mb-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">File summary</p>
               <div className="grid grid-cols-2 gap-x-3 gap-y-2">
                 <Metric label="FICO" value={bind('fico') /* not seeded → placeholder */} />
@@ -209,7 +209,7 @@ function Feed({ card, comms, filter }: { card: PersonCardData; comms: Communicat
     <div className="max-h-72 space-y-1.5 overflow-y-auto p-3">
       {shown.map((i) => i.kind === 'sms' ? (
         <div key={i.id} className={cn('flex', i.direction === 'outbound' ? 'justify-end' : 'justify-start')}>
-          <div className={cn('max-w-[80%] rounded-lg px-2.5 py-1.5 text-xs', i.direction === 'outbound' ? 'bg-primary/15' : 'bg-surface-2')}>
+          <div className={cn('max-w-[80%] rounded-lg px-2.5 py-1.5 text-xs', i.direction === 'outbound' ? 'bg-jubo-navy/10' : 'bg-surface-2')}>
             <span className="mb-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
               {i.direction === 'outbound' ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownLeft className="h-2.5 w-2.5" />}{i.ts?.split('T')[0]}
             </span>{i.body}
