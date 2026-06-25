@@ -27,8 +27,8 @@ export default function OnboardingPage() {
     setError(null)
     try {
       await createOrganization(name.trim(), slug.trim())
-    } catch (err: any) {
-      setError(err.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong')
       setLoading(false)
     }
   }

@@ -17,9 +17,12 @@ export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Prefill the invited email when arriving from an invite link.
+  // Prefill the invited email when arriving from an invite link. Reads the
+  // browser-only URL after mount, so it must stay an effect (a lazy initializer
+  // would run during SSR with no window and cause a hydration mismatch).
   useEffect(() => {
     const prefill = new URLSearchParams(window.location.search).get("email");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (prefill) setEmail(prefill);
   }, []);
 

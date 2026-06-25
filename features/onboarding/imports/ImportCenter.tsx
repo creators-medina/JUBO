@@ -40,7 +40,7 @@ export function ImportCenter({ organizationId }: { organizationId: string }) {
           setPendingUpload={setPendingUpload}
           onUploaded={(name) => {
             setDone((d) => ({ ...d, [u.kind]: name }))
-            setErrors((e) => { const { [u.kind]: _omit, ...rest } = e; return rest })
+            setErrors((e) => { const rest = { ...e }; delete rest[u.kind]; return rest })
           }}
           onError={(msg) => setErrors((e) => ({ ...e, [u.kind]: msg }))}
         />

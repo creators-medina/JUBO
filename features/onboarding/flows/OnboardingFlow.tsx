@@ -255,9 +255,13 @@ function DoneStep() {
   const router = useRouter()
   const [result, setResult] = useState<ProvisionResult | null>(null)
 
+  // Hydrate the provision result from browser sessionStorage after mount (and
+  // clear the working draft). Browser-only APIs can't run during SSR, so this
+  // must remain an effect rather than a lazy initializer.
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(`jubo:onboarding:result:${organizationId}`)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw) setResult(JSON.parse(raw))
       localStorage.removeItem(`jubo:onboarding:${organizationId}`)
     } catch { /* ignore */ }
