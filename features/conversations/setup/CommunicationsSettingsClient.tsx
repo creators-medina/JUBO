@@ -48,12 +48,12 @@ export function CommunicationsSettingsClient({ initial, connected }: { initial: 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10"><MessageSquare className="h-4.5 w-4.5 text-primary" /></div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-jubo-navy/10"><MessageSquare className="h-4.5 w-4.5 text-jubo-navy" /></div>
         <div>
           <h1 className="text-lg font-semibold text-foreground">Communications</h1>
           <p className="text-xs text-muted-foreground">Connect Twilio to send and receive SMS from Jubo.</p>
         </div>
-        {connected && <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-2xs font-medium text-emerald-400"><Check className="h-3 w-3" /> Connected</span>}
+        {connected && <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-jubo-green-soft px-2.5 py-1 text-2xs font-medium text-jubo-green"><Check className="h-3 w-3" /> Connected</span>}
       </div>
 
       <section className="space-y-4 rounded-xl border border-border bg-card p-5">

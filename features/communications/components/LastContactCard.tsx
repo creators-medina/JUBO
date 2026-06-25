@@ -5,9 +5,9 @@ import { getLastContactedAt, daysSince, getContactHealth, getCommunicationCounts
 import type { CommunicationLog, ContactHealth } from '../types'
 
 const HEALTH_STYLE: Record<ContactHealth, { label: string; cls: string }> = {
-  healthy: { label: 'Healthy', cls: 'text-emerald-400' },
-  warming: { label: 'Warming', cls: 'text-amber-400' },
-  stale:   { label: 'Stale', cls: 'text-red-400' },
+  healthy: { label: 'Healthy', cls: 'text-jubo-green' },
+  warming: { label: 'Warming', cls: 'text-jubo-gold' },
+  stale:   { label: 'Stale', cls: 'text-jubo-red' },
   unknown: { label: 'No contact yet', cls: 'text-muted-foreground' },
 }
 
@@ -30,7 +30,7 @@ export function LastContactCard({ logs }: { logs: CommunicationLog[] }) {
       {counts.total > 0 && (
         <p className="mt-1 text-2xs text-muted-foreground">
           {counts.total} logged · {counts.connected} connected
-          {counts.noAnswerStreak >= 2 && <span className="text-amber-400"> · {counts.noAnswerStreak} no-answers in a row</span>}
+          {counts.noAnswerStreak >= 2 && <span className="text-jubo-gold"> · {counts.noAnswerStreak} no-answers in a row</span>}
         </p>
       )}
     </div>

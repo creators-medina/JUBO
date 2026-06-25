@@ -45,7 +45,7 @@ export function FeedbackModal({ initialType = 'general', onClose }: { initialTyp
             {TYPES.map((t) => (
               <button key={t.id} type="button" onClick={() => setType(t.id)}
                 className={cn('flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
-                  type === t.id ? 'border-primary bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:text-foreground')}>
+                  type === t.id ? 'border-jubo-navy bg-jubo-navy/15 text-jubo-navy' : 'border-border text-muted-foreground hover:text-foreground')}>
                 <t.icon className="h-3.5 w-3.5" /> {t.label}
               </button>
             ))}

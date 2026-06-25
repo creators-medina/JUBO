@@ -73,7 +73,7 @@ export function LogCommunicationModal({
             {CHANNELS.map((c) => (
               <button key={c.key} onClick={() => pickChannel(c.key)}
                 className={cn('flex flex-1 flex-col items-center gap-1 rounded-lg border px-2 py-2 text-2xs transition-colors',
-                  channel === c.key ? 'border-primary/60 bg-primary/10 text-foreground' : 'border-border text-muted-foreground hover:bg-surface-2')}>
+                  channel === c.key ? 'border-jubo-navy/60 bg-jubo-navy/10 text-foreground' : 'border-border text-muted-foreground hover:bg-surface-2')}>
                 <c.icon className="h-4 w-4" /> {c.label}
               </button>
             ))}

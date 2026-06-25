@@ -9,7 +9,7 @@ import { updateFeedbackStatus } from './actions'
 import type { AnalyticsSummary, FeedbackRow } from './queries'
 
 const STATUSES = ['new', 'acknowledged', 'in_progress', 'resolved', 'wontfix']
-const TYPE_COLOR: Record<string, string> = { bug: 'text-red-400', feature: 'text-violet-400', general: 'text-muted-foreground' }
+const TYPE_COLOR: Record<string, string> = { bug: 'text-jubo-red', feature: 'text-jubo-navy', general: 'text-muted-foreground' }
 
 export function AnalyticsSettingsClient({ summary, feedback }: { summary: AnalyticsSummary; feedback: FeedbackRow[] }) {
   const router = useRouter()
@@ -22,7 +22,7 @@ export function AnalyticsSettingsClient({ summary, feedback }: { summary: Analyt
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10"><BarChart3 className="h-4.5 w-4.5 text-primary" /></div>
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-jubo-navy/10"><BarChart3 className="h-4.5 w-4.5 text-jubo-navy" /></div>
         <div>
           <h1 className="text-lg font-semibold text-foreground">Product analytics</h1>
           <p className="text-xs text-muted-foreground">Lightweight usage signals (last 30 days) + team feedback. Admin-only.</p>

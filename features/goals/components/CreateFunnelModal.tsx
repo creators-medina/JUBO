@@ -136,7 +136,7 @@ export function CreateFunnelModal({ organizationId, boards, boardGroupsByBoard, 
                   <button
                     type="button"
                     onClick={() => setStages(prev => prev.filter((_, j) => j !== i))}
-                    className="p-1 rounded text-muted-foreground hover:text-red-400"
+                    className="p-1 rounded text-muted-foreground hover:text-jubo-red"
                     title="Remove stage"
                   >
                     <Trash2 className="w-3 h-3" />
@@ -149,7 +149,7 @@ export function CreateFunnelModal({ organizationId, boards, boardGroupsByBoard, 
             </p>
           </div>
 
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-jubo-red">{error}</p>}
 
           <div className="flex gap-2 pt-2">
             <button

@@ -152,7 +152,7 @@ export function CreateGoalModal({ organizationId, funnels, onClose, onSuccess }:
             </div>
           </div>
 
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-jubo-red">{error}</p>}
 
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose}

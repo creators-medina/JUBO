@@ -140,7 +140,7 @@ export function AutomationsModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10"><Zap className="h-4 w-4 text-primary" /></div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-jubo-navy/10"><Zap className="h-4 w-4 text-jubo-navy" /></div>
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold text-foreground">Automations · {board.name}</h2>
             <p className="text-2xs text-muted-foreground">When a status changes, move the item to a group.</p>
@@ -164,7 +164,7 @@ export function AutomationsModal({
                 <li key={wf.id} className="flex items-center gap-2 rounded-lg border border-border bg-surface-1 px-3 py-2">
                   <span className={`flex-1 truncate text-xs ${wf.enabled && !warn ? 'text-foreground' : 'text-muted-foreground line-through'}`}>{wf.title}</span>
                   {warn && (
-                    <span title={warn} className="inline-flex flex-shrink-0 items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-400">
+                    <span title={warn} className="inline-flex flex-shrink-0 items-center gap-1 rounded bg-jubo-gold-soft px-1.5 py-0.5 text-[10px] text-jubo-gold">
                       <AlertTriangle className="h-3 w-3" /> {warn}
                     </span>
                   )}
@@ -172,7 +172,7 @@ export function AutomationsModal({
                     <input type="checkbox" checked={wf.enabled} disabled={pending} onChange={() => toggle(wf)} className="rounded border-border" />
                     {wf.enabled ? 'On' : 'Off'}
                   </label>
-                  <button onClick={() => remove(wf)} disabled={pending} className="text-muted-foreground hover:text-red-300 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => remove(wf)} disabled={pending} className="text-muted-foreground hover:text-jubo-red disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>
                 </li>
                 )
               })}

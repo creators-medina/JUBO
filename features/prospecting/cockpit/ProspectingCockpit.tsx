@@ -34,9 +34,9 @@ function Icon({ name, className }: { name: string; className?: string }) {
 }
 
 const TEMP_STYLE: Record<LeadTemperature, { label: string; cls: string; dot: string; badge: string }> = {
-  hot:     { label: 'Hot', cls: 'text-red-300', dot: 'bg-red-400', badge: 'bg-red-500/10 text-red-300' },
-  warm:    { label: 'Warm', cls: 'text-amber-300', dot: 'bg-amber-400', badge: 'bg-amber-500/10 text-amber-300' },
-  cold:    { label: 'Cold', cls: 'text-blue-300', dot: 'bg-blue-400', badge: 'bg-blue-500/10 text-blue-300' },
+  hot:     { label: 'Hot', cls: 'text-jubo-red', dot: 'bg-jubo-red', badge: 'bg-jubo-red/10 text-jubo-red' },
+  warm:    { label: 'Warm', cls: 'text-jubo-gold', dot: 'bg-jubo-gold', badge: 'bg-jubo-gold-soft text-jubo-gold' },
+  cold:    { label: 'Cold', cls: 'text-jubo-navy', dot: 'bg-jubo-navy', badge: 'bg-jubo-navy/10 text-jubo-navy' },
   dormant: { label: 'Dormant', cls: 'text-muted-foreground', dot: 'bg-surface-3', badge: 'bg-surface-2 text-muted-foreground' },
 }
 
@@ -52,12 +52,12 @@ const BUCKETS: { key: QueueBucketKey | 'all'; label: string }[] = [
 
 type OutcomeBtn = { outcome: CommunicationOutcome; label: string; key: string; icon: React.ElementType; tone?: string }
 const OUTCOME_BTNS: OutcomeBtn[] = [
-  { outcome: 'connected',          label: 'Connected', key: 'C', icon: PhoneCall,     tone: 'text-emerald-400' },
-  { outcome: 'interested',         label: 'Interested', key: 'I', icon: ThumbsUp,      tone: 'text-emerald-400' },
-  { outcome: 'booked_appointment', label: 'Booked',    key: 'B', icon: CalendarCheck, tone: 'text-violet-400' },
+  { outcome: 'connected',          label: 'Connected', key: 'C', icon: PhoneCall,     tone: 'text-jubo-green' },
+  { outcome: 'interested',         label: 'Interested', key: 'I', icon: ThumbsUp,      tone: 'text-jubo-green' },
+  { outcome: 'booked_appointment', label: 'Booked',    key: 'B', icon: CalendarCheck, tone: 'text-jubo-navy' },
   { outcome: 'no_answer',          label: 'No answer', key: 'N', icon: PhoneOff },
   { outcome: 'voicemail',          label: 'Voicemail', key: 'V', icon: Voicemail },
-  { outcome: 'follow_up_needed',   label: 'Follow-up', key: 'F', icon: CalendarClock, tone: 'text-amber-400' },
+  { outcome: 'follow_up_needed',   label: 'Follow-up', key: 'F', icon: CalendarClock, tone: 'text-jubo-gold' },
 ]
 const KEY_OUTCOME: Record<string, CommunicationOutcome> = {
   c: 'connected', i: 'interested', b: 'booked_appointment',
@@ -180,7 +180,7 @@ export function ProspectingCockpit({
                 <div className="w-full flex-1 text-center lg:text-left">
                   <p className={cn('text-2xs font-semibold uppercase tracking-wider', comp.tone)}>{comp.stage}</p>
                   {goalHit ? (
-                    <h1 className="mt-1 flex items-center justify-center gap-2 text-4xl font-bold tracking-tight text-emerald-300 lg:justify-start">
+                    <h1 className="mt-1 flex items-center justify-center gap-2 text-4xl font-bold tracking-tight text-jubo-green lg:justify-start">
                       You won today <span aria-hidden>🎉</span>
                     </h1>
                   ) : (
@@ -225,7 +225,7 @@ export function ProspectingCockpit({
             {/* ── Theme Day banner ── */}
             <PremiumSurface sweep className="rounded-2xl bg-gradient-to-r from-primary/15 via-primary/[0.06] to-transparent p-5">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
+                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-jubo-navy/15 text-jubo-navy">
                   <Flame className="h-6 w-6" />
                 </div>
                 <div className="min-w-0">
@@ -313,16 +313,16 @@ export function ProspectingCockpit({
 
 // ── Completion-state messaging (Priority 2) ──
 function completionState(pct: number, goalHit: boolean): { stage: string; message: string; tone: string } {
-  if (goalHit) return { stage: 'Complete', message: 'You won today. Every call after this is a bonus.', tone: 'text-emerald-400' }
+  if (goalHit) return { stage: 'Complete', message: 'You won today. Every call after this is a bonus.', tone: 'text-jubo-green' }
   if (pct <= 0) return { stage: 'Ready', message: 'Start with one call.', tone: 'text-primary' }
   if (pct < 25) return { stage: 'Warming up', message: 'Good start. Build momentum.', tone: 'text-primary' }
   if (pct < 50) return { stage: 'Building', message: "You're moving. Keep stacking wins.", tone: 'text-primary' }
-  if (pct < 75) return { stage: 'Halfway', message: 'Halfway there — hold the pace.', tone: 'text-amber-400' }
-  return { stage: 'Almost there', message: 'Finish strong.', tone: 'text-amber-400' }
+  if (pct < 75) return { stage: 'Halfway', message: 'Halfway there — hold the pace.', tone: 'text-jubo-gold' }
+  return { stage: 'Almost there', message: 'Finish strong.', tone: 'text-jubo-gold' }
 }
 
 function coachTone(tone: CoachLine['tone']): string {
-  return tone === 'good' ? 'text-emerald-400' : tone === 'warn' ? 'text-amber-400' : tone === 'urgent' ? 'text-red-400' : 'text-muted-foreground'
+  return tone === 'good' ? 'text-jubo-green' : tone === 'warn' ? 'text-jubo-gold' : tone === 'urgent' ? 'text-jubo-red' : 'text-muted-foreground'
 }
 
 function StreakChip({ streak }: { streak: ProspectingStreak }) {
@@ -335,11 +335,11 @@ function StreakChip({ streak }: { streak: ProspectingStreak }) {
   }
   const milestone = streak.current >= 30 ? 'on fire' : streak.current >= 7 ? 'keep it alive' : 'momentum building'
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-amber-300">
+    <div className="inline-flex items-center gap-2 rounded-full border border-jubo-gold/40 bg-jubo-gold-soft px-3 py-1.5 text-jubo-gold">
       <span className="text-sm font-semibold"><span aria-hidden>🔥</span> {streak.current}-day streak</span>
-      <span className="text-2xs font-medium text-amber-300/70">· {milestone}</span>
+      <span className="text-2xs font-medium text-jubo-gold">· {milestone}</span>
       {streak.best > 1 && streak.best > streak.current && (
-        <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-2xs font-medium">Best {streak.best}</span>
+        <span className="rounded-full bg-jubo-gold-soft px-1.5 py-0.5 text-2xs font-medium">Best {streak.best}</span>
       )}
     </div>
   )
@@ -348,7 +348,7 @@ function StreakChip({ streak }: { streak: ProspectingStreak }) {
 function HeroStat({ label, value, accent, warn }: { label: string; value: number | string; accent?: boolean; warn?: boolean }) {
   return (
     <div className="premium-card rounded-lg px-3 py-2">
-      <p className={cn('text-lg font-semibold tabular-nums', warn ? 'text-amber-400' : accent ? 'text-emerald-400' : 'text-foreground')}>{value}</p>
+      <p className={cn('text-lg font-semibold tabular-nums', warn ? 'text-jubo-gold' : accent ? 'text-jubo-green' : 'text-foreground')}>{value}</p>
       <p className="text-2xs text-muted-foreground">{label}</p>
     </div>
   )
@@ -361,14 +361,14 @@ function MomentumCard({ label, completed, goal }: { label: string; completed: nu
     <>
       <div className="flex items-center justify-between">
         <span className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
-        <span className={cn('text-2xs font-semibold tabular-nums', done ? 'text-emerald-400' : 'text-muted-foreground')}>{pct}%</span>
+        <span className={cn('text-2xs font-semibold tabular-nums', done ? 'text-jubo-green' : 'text-muted-foreground')}>{pct}%</span>
       </div>
       <p className="mt-1 text-xl font-bold tabular-nums text-foreground">
         {completed.toLocaleString()}
         <span className="text-xs font-normal text-muted-foreground"> / {goal.toLocaleString()}</span>
       </p>
       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
-        <div className={cn('h-full rounded-full transition-all duration-700 ease-out', done ? 'bg-emerald-400' : 'bg-primary')} style={{ width: `${pct}%` }} />
+        <div className={cn('h-full rounded-full transition-all duration-700 ease-out', done ? 'bg-jubo-green' : 'bg-primary')} style={{ width: `${pct}%` }} />
       </div>
     </>
   )
@@ -391,7 +391,7 @@ function PaceCard({ targets }: { targets: PeriodCallTargets }) {
   return (
     <PremiumSurface className="rounded-xl bg-card p-4">
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-jubo-navy/10 text-jubo-navy">
           <TrendingUp className="h-5 w-5" />
         </div>
         <div className="min-w-0">
@@ -432,7 +432,7 @@ function ContactedToday({ items, onOpen }: { items: ContactedTodayItem[]; onOpen
             return (
               <div key={`${it.recordId}-${i}`} className="flex items-center justify-between gap-3 px-3 py-2">
                 <div className="flex min-w-0 items-center gap-2">
-                  <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-emerald-400/70" />
+                  <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 text-jubo-green" />
                   <button onClick={() => onOpen({ recordId: it.recordId, title: it.title })} className="truncate text-sm text-foreground hover:underline">{it.title}</button>
                 </div>
                 <div className="flex flex-shrink-0 items-center gap-2">
@@ -453,10 +453,10 @@ function ContactedToday({ items, onOpen }: { items: ContactedTodayItem[]; onOpen
 
 function outcomeBadge(channel: string, outcome: string | null): { label: string; cls: string } {
   const label = outcome ? (OUTCOME_LABEL[outcome as CommunicationOutcome] ?? outcome) : channel
-  if (isBookedAppointment(channel, outcome)) return { label, cls: 'bg-violet-500/10 text-violet-300' }
-  if (isConnect(outcome)) return { label, cls: 'bg-emerald-500/10 text-emerald-300' }
+  if (isBookedAppointment(channel, outcome)) return { label, cls: 'bg-jubo-navy/10 text-jubo-navy' }
+  if (isConnect(outcome)) return { label, cls: 'bg-jubo-green-soft text-jubo-green' }
   if (outcome === 'no_answer' || outcome === 'voicemail' || outcome === 'left_message' || outcome === 'follow_up_needed') {
-    return { label, cls: 'bg-amber-500/10 text-amber-300' }
+    return { label, cls: 'bg-jubo-gold-soft text-jubo-gold' }
   }
   return { label, cls: 'bg-surface-2 text-muted-foreground' }
 }
@@ -467,7 +467,7 @@ function SessionControl({ organizationId, session, liveStats, pending, startTran
 }) {
   if (session && liveStats) {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2">
+      <div className="flex items-center gap-3 rounded-xl border border-jubo-navy/30 bg-jubo-navy/10 px-3 py-2">
         <div className="text-xs">
           <p className="font-medium text-foreground">Session live · {liveStats.attempted}/{session.target_calls || callGoal} calls</p>
           <p className="text-2xs text-muted-foreground">{liveStats.connected} connected · {liveStats.noAnswer} no answer · {liveStats.meetings} booked</p>
@@ -505,7 +505,7 @@ function LeadCard({ lead, selected, pending, onSelect, onLog, onSkip, onOpen }: 
   return (
     <div ref={ref} onMouseEnter={onSelect}
       className={cn('rounded-xl border bg-card p-3.5 transition-all',
-        selected ? 'border-primary/50 ring-1 ring-primary/20 shadow-sm' : overdue ? 'border-red-500/30' : 'border-border')}>
+        selected ? 'border-primary/50 ring-1 ring-primary/20 shadow-sm' : overdue ? 'border-jubo-red/30' : 'border-border')}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           {/* Name + temperature + overdue */}
@@ -514,8 +514,8 @@ function LeadCard({ lead, selected, pending, onSelect, onLog, onSkip, onOpen }: 
             <span className={cn('inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-2xs font-medium', t.badge)}>
               <span className={cn('h-1.5 w-1.5 rounded-full', t.dot)} /> {t.label}
             </span>
-            {overdue && <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-2xs font-semibold text-red-300">Overdue</span>}
-            {selected && <span className="rounded bg-primary/15 px-1.5 py-0.5 text-2xs font-medium text-primary">Next</span>}
+            {overdue && <span className="rounded bg-jubo-red/10 px-1.5 py-0.5 text-2xs font-semibold text-jubo-red">Overdue</span>}
+            {selected && <span className="rounded bg-jubo-navy/15 px-1.5 py-0.5 text-2xs font-medium text-jubo-navy">Next</span>}
           </div>
 
           {/* Last contact + value */}
@@ -595,7 +595,7 @@ function SessionHistory({ sessions }: { sessions: SessionRow[] }) {
                 <p className="truncate font-medium text-foreground">{formatDay(s.started_at)} · {durationLabel(s.started_at, s.ended_at)}</p>
                 <p className="text-2xs text-muted-foreground">{s.attempted_calls} calls · {rate}% connect · {s.meetings_booked} booked</p>
               </div>
-              <span className={cn('flex-shrink-0 text-2xs font-medium', hit ? 'text-emerald-400' : 'text-muted-foreground')}>
+              <span className={cn('flex-shrink-0 text-2xs font-medium', hit ? 'text-jubo-green' : 'text-muted-foreground')}>
                 {hit ? 'Goal' : `${s.attempted_calls}/${s.target_calls || '—'}`}
               </span>
             </div>

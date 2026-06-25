@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import type { ConversationMessage, DeliveryStatus } from '../types'
 
 function StatusIcon({ status }: { status: DeliveryStatus }) {
-  if (status === 'failed' || status === 'undelivered') return <AlertCircle className="h-3 w-3 text-red-300" />
+  if (status === 'failed' || status === 'undelivered') return <AlertCircle className="h-3 w-3 text-jubo-red" />
   if (status === 'delivered') return <CheckCheck className="h-3 w-3 text-emerald-200/80" />
   if (status === 'sent') return <Check className="h-3 w-3 text-primary-foreground/70" />
   if (status === 'queued' || status === 'sending') return <Clock className="h-3 w-3 text-primary-foreground/60" />
@@ -32,7 +32,7 @@ export function ConversationTimeline({ messages, compact }: { messages: Conversa
                 <span className="text-[10px] tabular-nums">{timeLabel(m.occurred_at)}</span>
                 {out && <StatusIcon status={m.deliveryStatus} />}
               </div>
-              {m.errorMessage && out && <p className="mt-0.5 text-[10px] text-red-300">Failed · {m.errorMessage}</p>}
+              {m.errorMessage && out && <p className="mt-0.5 text-[10px] text-jubo-red">Failed · {m.errorMessage}</p>}
             </div>
           </div>
         )

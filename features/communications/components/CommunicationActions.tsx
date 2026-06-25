@@ -8,11 +8,11 @@ import { LogCommunicationModal } from './LogCommunicationModal'
 import type { CommunicationOutcome } from '../types'
 
 const QUICK: { outcome: CommunicationOutcome; label: string; icon: React.ElementType; tone: string }[] = [
-  { outcome: 'connected', label: 'Connected', icon: PhoneCall, tone: 'text-emerald-400' },
+  { outcome: 'connected', label: 'Connected', icon: PhoneCall, tone: 'text-jubo-green' },
   { outcome: 'no_answer', label: 'No answer', icon: PhoneOff, tone: 'text-muted-foreground' },
   { outcome: 'voicemail', label: 'Voicemail', icon: Voicemail, tone: 'text-muted-foreground' },
   { outcome: 'left_message', label: 'Left msg', icon: MessageSquare, tone: 'text-muted-foreground' },
-  { outcome: 'follow_up_needed', label: 'Follow-up', icon: CalendarClock, tone: 'text-amber-400' },
+  { outcome: 'follow_up_needed', label: 'Follow-up', icon: CalendarClock, tone: 'text-jubo-gold' },
 ]
 
 export function CommunicationActions({ recordId, onChanged }: { recordId: string; onChanged?: () => void }) {

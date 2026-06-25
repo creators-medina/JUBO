@@ -62,7 +62,7 @@ export default async function BusinessPlanPage() {
         framedHero
         emptyState={
           <section className="rounded-2xl border border-dashed border-border bg-surface-1 p-10 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-jubo-navy/10 text-jubo-navy">
               <Target className="h-6 w-6" />
             </div>
             <p className="text-lg font-semibold text-foreground">Let&apos;s build your business plan.</p>

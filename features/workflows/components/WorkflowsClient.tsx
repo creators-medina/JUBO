@@ -12,19 +12,19 @@ import { templateById } from '../registry/templates'
 import type { WorkflowRow, WorkflowExecutionRow, WorkflowTriggerType } from '../types'
 
 const TRIGGER_META: Record<WorkflowTriggerType, { label: string; icon: React.ElementType; color: string }> = {
-  'record.created':        { label: 'Record created',     icon: Plus,          color: 'text-blue-400' },
-  'record.updated':        { label: 'Record updated',     icon: RefreshCw,     color: 'text-cyan-400' },
+  'record.created':        { label: 'Record created',     icon: Plus,          color: 'text-jubo-navy' },
+  'record.updated':        { label: 'Record updated',     icon: RefreshCw,     color: 'text-jubo-navy' },
   'record.field_changed':  { label: 'Status changes',     icon: RefreshCw,     color: 'text-teal-400' },
-  'record.group_changed':  { label: 'Stage changes',      icon: ArrowRightLeft, color: 'text-violet-400' },
-  'record.checklist_completed': { label: 'Checklist completed', icon: ListChecks, color: 'text-emerald-400' },
-  'no_activity_detected':  { label: 'No activity',        icon: AlertTriangle, color: 'text-amber-400' },
-  'next_action_overdue':   { label: 'Next action overdue', icon: Clock,        color: 'text-red-400' },
-  'communication.logged':  { label: 'Communication logged', icon: MessageSquare, color: 'text-blue-400' },
-  'sms.received':          { label: 'SMS received',        icon: MessageSquare, color: 'text-emerald-400' },
-  'sms.sent':              { label: 'SMS sent',            icon: Send,          color: 'text-blue-400' },
-  'sms.failed':            { label: 'SMS failed',          icon: AlertTriangle, color: 'text-red-400' },
-  'conversation.unread':   { label: 'Conversation unread', icon: Inbox,         color: 'text-amber-400' },
-  'no_reply_timeout':      { label: 'No reply timeout',    icon: Clock,         color: 'text-orange-400' },
+  'record.group_changed':  { label: 'Stage changes',      icon: ArrowRightLeft, color: 'text-jubo-navy' },
+  'record.checklist_completed': { label: 'Checklist completed', icon: ListChecks, color: 'text-jubo-green' },
+  'no_activity_detected':  { label: 'No activity',        icon: AlertTriangle, color: 'text-jubo-gold' },
+  'next_action_overdue':   { label: 'Next action overdue', icon: Clock,        color: 'text-jubo-red' },
+  'communication.logged':  { label: 'Communication logged', icon: MessageSquare, color: 'text-jubo-navy' },
+  'sms.received':          { label: 'SMS received',        icon: MessageSquare, color: 'text-jubo-green' },
+  'sms.sent':              { label: 'SMS sent',            icon: Send,          color: 'text-jubo-navy' },
+  'sms.failed':            { label: 'SMS failed',          icon: AlertTriangle, color: 'text-jubo-red' },
+  'conversation.unread':   { label: 'Conversation unread', icon: Inbox,         color: 'text-jubo-gold' },
+  'no_reply_timeout':      { label: 'No reply timeout',    icon: Clock,         color: 'text-jubo-gold' },
 }
 
 interface Props {
@@ -55,8 +55,8 @@ export function WorkflowsClient({ organizationId, workflows, executions }: Props
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <header className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-            <Workflow className="w-4.5 h-4.5 text-primary" />
+          <div className="w-9 h-9 rounded-lg bg-jubo-navy/10 flex items-center justify-center flex-shrink-0">
+            <Workflow className="w-4.5 h-4.5 text-jubo-navy" />
           </div>
           <div>
             <h1 className="text-lg font-semibold text-foreground">Workflows</h1>
@@ -79,7 +79,7 @@ export function WorkflowsClient({ organizationId, workflows, executions }: Props
 
       {scanResult && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-1 border border-border text-xs text-muted-foreground">
-          <Check className="w-3.5 h-3.5 text-emerald-400" />
+          <Check className="w-3.5 h-3.5 text-jubo-green" />
           {scanResult}
         </div>
       )}
@@ -178,9 +178,9 @@ const ACTION_LABEL: Record<string, string> = {
 
 function ExecutionRow({ execution }: { execution: WorkflowExecutionRow }) {
   const statusColor =
-    execution.status === 'success' ? 'text-emerald-400' :
+    execution.status === 'success' ? 'text-jubo-green' :
     execution.status === 'skipped' ? 'text-muted-foreground' :
-    execution.status === 'partial' ? 'text-amber-400' : 'text-red-400'
+    execution.status === 'partial' ? 'text-jubo-gold' : 'text-jubo-red'
 
   const ran = (execution.actions_executed ?? []).filter(a => !('skipped' in a && (a as { skipped?: boolean }).skipped))
   const summary = ran.length > 0

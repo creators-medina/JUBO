@@ -9,10 +9,10 @@ import type { MortgageData } from '../types'
 function Badge({ tone, children }: { tone: 'neutral' | 'accent' | 'amber' | 'red' | 'emerald'; children: React.ReactNode }) {
   const map = {
     neutral: 'bg-surface-2 text-muted-foreground',
-    accent: 'bg-primary/15 text-primary',
-    amber: 'bg-amber-500/15 text-amber-300',
-    red: 'bg-red-500/15 text-red-300',
-    emerald: 'bg-emerald-500/15 text-emerald-300',
+    accent: 'bg-jubo-navy/10 text-jubo-navy',
+    amber: 'bg-jubo-gold-soft text-jubo-gold',
+    red: 'bg-jubo-red/10 text-jubo-red',
+    emerald: 'bg-jubo-green-soft text-jubo-green',
   }
   return <span className={cn('inline-flex items-center rounded px-1.5 py-0.5 text-2xs font-medium', map[tone])}>{children}</span>
 }

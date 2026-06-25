@@ -36,7 +36,7 @@ export function PersonCard({ recordId }: { recordId: string }) {
       {/* Header */}
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10"><User className="h-4.5 w-4.5 text-primary" /></div>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-jubo-navy/10"><User className="h-4.5 w-4.5 text-jubo-navy" /></div>
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-sm font-semibold text-foreground">{data.record.title}</h2>
             <p className="text-2xs text-muted-foreground">
@@ -57,7 +57,7 @@ export function PersonCard({ recordId }: { recordId: string }) {
           <ul className="space-y-1">
             {data.checklist.items.map((i) => (
               <li key={i.fieldId} className="flex items-center gap-2 text-xs">
-                {i.complete ? <CheckSquare className="h-3.5 w-3.5 text-emerald-400" /> : <Square className="h-3.5 w-3.5 text-muted-foreground" />}
+                {i.complete ? <CheckSquare className="h-3.5 w-3.5 text-jubo-green" /> : <Square className="h-3.5 w-3.5 text-muted-foreground" />}
                 <span className={i.complete ? 'text-foreground' : 'text-muted-foreground'}>{i.name}</span>
               </li>
             ))}
@@ -92,7 +92,7 @@ export function PersonCard({ recordId }: { recordId: string }) {
           <ul className="space-y-1">
             {data.tasks.map((t: any) => (
               <li key={t.id} className="flex items-center gap-2 text-xs">
-                {t.completed_at ? <CheckSquare className="h-3.5 w-3.5 text-emerald-400" /> : <Square className="h-3.5 w-3.5 text-muted-foreground" />}
+                {t.completed_at ? <CheckSquare className="h-3.5 w-3.5 text-jubo-green" /> : <Square className="h-3.5 w-3.5 text-muted-foreground" />}
                 <span className={t.completed_at ? 'text-muted-foreground line-through' : 'text-foreground'}>{t.title}</span>
               </li>
             ))}
@@ -164,7 +164,7 @@ function CommonRow({ item }: { item: PersonCardCommon }) {
           <span className="text-[10px] text-muted-foreground/70">{item.sourceBoardName}</span>
         )}
         {hasConflict && (
-          <button onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-amber-400 hover:bg-surface-1" title="Multiple values across boards">
+          <button onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-jubo-gold hover:bg-surface-1" title="Multiple values across boards">
             <AlertTriangle className="h-3 w-3" />
             {item.conflictCount} values
             {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}

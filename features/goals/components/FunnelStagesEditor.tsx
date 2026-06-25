@@ -149,7 +149,7 @@ function StageRow({
           <Save className="w-3 h-3" />
         </button>
       )}
-      <button onClick={onDelete} className="p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-red-500/10" title="Remove stage">
+      <button onClick={onDelete} className="p-1 rounded text-muted-foreground hover:text-jubo-red hover:bg-jubo-red/10" title="Remove stage">
         <Trash2 className="w-3 h-3" />
       </button>
     </div>

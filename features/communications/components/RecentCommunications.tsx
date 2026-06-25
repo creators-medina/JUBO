@@ -33,8 +33,8 @@ export function RecentCommunications({ logs, limit = 6 }: { logs: CommunicationL
                   <span className="text-sm font-medium text-foreground capitalize">{l.direction} {CHANNEL_LABEL[l.channel].toLowerCase()}</span>
                   {l.outcome && (
                     <span className={cn('rounded px-1.5 py-0.5 text-2xs font-medium',
-                      l.outcome === 'connected' || l.outcome === 'completed' ? 'bg-emerald-500/15 text-emerald-300'
-                      : l.outcome === 'follow_up_needed' ? 'bg-amber-500/15 text-amber-300'
+                      l.outcome === 'connected' || l.outcome === 'completed' ? 'bg-jubo-green-soft text-jubo-green'
+                      : l.outcome === 'follow_up_needed' ? 'bg-jubo-gold-soft text-jubo-gold'
                       : 'bg-surface-2 text-muted-foreground')}>
                       {OUTCOME_LABEL[l.outcome]}
                     </span>
@@ -43,7 +43,7 @@ export function RecentCommunications({ logs, limit = 6 }: { logs: CommunicationL
                 </div>
                 {(l.summary || l.subject) && <p className="mt-0.5 text-xs text-muted-foreground">{l.summary ?? l.subject}</p>}
                 {l.follow_up_at && (
-                  <p className="mt-0.5 inline-flex items-center gap-1 text-2xs text-amber-400">
+                  <p className="mt-0.5 inline-flex items-center gap-1 text-2xs text-jubo-gold">
                     <CalendarClock className="h-3 w-3" /> Follow-up {new Date(l.follow_up_at).toLocaleDateString()}
                   </p>
                 )}

@@ -45,8 +45,8 @@ export function GoalsPageClient({
       {/* Page header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Target className="w-4 h-4 text-primary" />
+          <div className="w-8 h-8 rounded-lg bg-jubo-navy/10 flex items-center justify-center">
+            <Target className="w-4 h-4 text-jubo-navy" />
           </div>
           <div>
             <h1 className="text-base font-semibold text-foreground">Performance & Goals</h1>
@@ -153,7 +153,7 @@ function TabButton({ active, onClick, icon: Icon, label, count }: { active: bool
       <Icon className="w-3.5 h-3.5" />
       {label}
       {count > 0 && (
-        <span className={cn('text-2xs px-1.5 py-0.5 rounded-full', active ? 'bg-primary/15 text-primary' : 'bg-surface-2 text-muted-foreground')}>
+        <span className={cn('text-2xs px-1.5 py-0.5 rounded-full', active ? 'bg-jubo-navy/15 text-jubo-navy' : 'bg-surface-2 text-muted-foreground')}>
           {count}
         </span>
       )}

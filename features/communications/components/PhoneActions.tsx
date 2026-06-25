@@ -8,10 +8,10 @@ import { quickCallOutcome } from '@/features/communications/actions'
 import { OUTCOME_LABEL, type CommunicationOutcome } from '@/features/communications/types'
 
 const QUICK: { outcome: CommunicationOutcome; label: string; icon: React.ElementType; tone?: string }[] = [
-  { outcome: 'connected', label: 'Connected', icon: PhoneCall, tone: 'text-emerald-400' },
+  { outcome: 'connected', label: 'Connected', icon: PhoneCall, tone: 'text-jubo-green' },
   { outcome: 'no_answer', label: 'No answer', icon: PhoneOff },
   { outcome: 'voicemail', label: 'Voicemail', icon: Voicemail },
-  { outcome: 'follow_up_needed', label: 'Follow-up', icon: CalendarClock, tone: 'text-amber-400' },
+  { outcome: 'follow_up_needed', label: 'Follow-up', icon: CalendarClock, tone: 'text-jubo-gold' },
 ]
 
 /**
@@ -56,7 +56,7 @@ export function PhoneActions({
       </a>
       <button onClick={copy} title="Copy number"
         className="inline-flex items-center rounded-lg border border-border bg-surface-1 px-2 py-1.5 text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
-        {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+        {copied ? <Check className="h-3.5 w-3.5 text-jubo-green" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
       {!compact && showOutcomes && QUICK.map((q) => (
         <button key={q.outcome} onClick={() => log(q.outcome)} disabled={pending}

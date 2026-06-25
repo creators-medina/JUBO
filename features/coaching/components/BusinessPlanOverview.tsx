@@ -182,7 +182,7 @@ export function PlanRow({ icon, label, value, suffix, hint, highlight }: {
   return (
     <div className={`flex items-center justify-between rounded-xl px-4 py-3 ${highlight ? 'border border-primary/40 bg-primary/5' : 'premium-card'}`}>
       <div className="flex items-center gap-3">
-        <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${highlight ? 'bg-primary/20 text-primary' : 'bg-surface-2 text-muted-foreground'}`}>
+        <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${highlight ? 'bg-jubo-navy/15 text-jubo-navy' : 'bg-surface-2 text-muted-foreground'}`}>
           {icon}
         </div>
         <div>
