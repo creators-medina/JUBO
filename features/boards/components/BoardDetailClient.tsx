@@ -743,7 +743,7 @@ function DragPreview({ data }: { data: any }) {
     return (
       <div
         style={{ width: kanbanWidth }}
-        className="jubo-los-scope relative block origin-center scale-[1.02] overflow-hidden rounded-xl border border-primary bg-card py-3 pl-4 pr-3.5 shadow-2xl cursor-grabbing"
+        className="jubo-los-scope relative block origin-center scale-[1.02] overflow-hidden rounded-xl border border-jubo-border-strong bg-jubo-card py-3 pl-4 pr-3.5 shadow-2xl cursor-grabbing"
       >
         <KanbanCardFace {...data.face} />
       </div>

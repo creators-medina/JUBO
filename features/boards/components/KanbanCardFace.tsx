@@ -169,7 +169,7 @@ export function KanbanCardFace({ title, statusLabel, statusColor, common, hasOwn
           </div>
           <div className="h-1 w-full overflow-hidden rounded-full bg-surface-3">
             <div
-              className={cn('h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none', checklistDone ? 'bg-emerald-400' : 'bg-primary')}
+              className={cn('h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none', checklistDone ? 'bg-jubo-green' : 'bg-jubo-gold')}
               style={{ width: `${checklist.percentage}%` }}
             />
           </div>
