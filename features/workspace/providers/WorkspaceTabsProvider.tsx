@@ -1,19 +1,17 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react'
-import { MAX_OPEN_WORKSPACES, type WorkspaceTab, type WorkspaceTabKey } from '../types'
+import { MAX_OPEN_WORKSPACES, type WorkspaceTab } from '../types'
 import { pushRecentItem } from '@/features/command/recent/useRecentItems'
 
 interface Ctx {
   tabs: WorkspaceTab[]
   activeRecordId: string | null
   isOpen: boolean
-  openWorkspace: (input: { recordId: string; title?: string; activeSubTab?: WorkspaceTabKey }) => void
+  openWorkspace: (input: { recordId: string; title?: string }) => void
   closeWorkspace: (recordId: string) => void
   closeAll: () => void
   activateWorkspace: (recordId: string) => void
-  setActiveSubTab: (recordId: string, tab: WorkspaceTabKey) => void
-  cycleSubTab: (direction: 1 | -1) => void
 }
 
 const WorkspaceTabsContext = createContext<Ctx | null>(null)
@@ -59,7 +57,7 @@ export function WorkspaceTabsProvider({ children }: { children: React.ReactNode 
     savePersisted({ tabs, activeRecordId })
   }, [tabs, activeRecordId, hydrated])
 
-  const openWorkspace = useCallback<Ctx['openWorkspace']>(({ recordId, title, activeSubTab }) => {
+  const openWorkspace = useCallback<Ctx['openWorkspace']>(({ recordId, title }) => {
     setTabs(prev => {
       const existing = prev.find(t => t.recordId === recordId)
       if (existing) {
@@ -71,8 +69,6 @@ export function WorkspaceTabsProvider({ children }: { children: React.ReactNode 
       const next: WorkspaceTab = {
         recordId,
         title: title ?? 'Loading…',
-        // Phase 39A — the V2 File Card ('card' tab) is the default landing.
-        activeSubTab: activeSubTab ?? 'card',
       }
       const trimmed = prev.length >= MAX_OPEN_WORKSPACES
         ? prev.slice(prev.length - (MAX_OPEN_WORKSPACES - 1))
@@ -109,22 +105,6 @@ export function WorkspaceTabsProvider({ children }: { children: React.ReactNode 
     setActiveRecordId(recordId)
   }, [])
 
-  const setActiveSubTab = useCallback<Ctx['setActiveSubTab']>((recordId, sub) => {
-    setTabs(prev => prev.map(t => t.recordId === recordId ? { ...t, activeSubTab: sub } : t))
-  }, [])
-
-  const cycleSubTab = useCallback<Ctx['cycleSubTab']>((direction) => {
-    if (!activeRecordId) return
-    setTabs(prev => {
-      const t = prev.find(x => x.recordId === activeRecordId)
-      if (!t) return prev
-      const tabOrder: WorkspaceTabKey[] = ['overview', 'activity', 'tasks', 'notes', 'data', 'pipeline']
-      const i = tabOrder.indexOf(t.activeSubTab)
-      const nextIdx = (i + direction + tabOrder.length) % tabOrder.length
-      return prev.map(x => x.recordId === activeRecordId ? { ...x, activeSubTab: tabOrder[nextIdx] } : x)
-    })
-  }, [activeRecordId])
-
   const isOpen = activeRecordId !== null
 
   const ctxValue = useMemo<Ctx>(() => ({
@@ -135,9 +115,7 @@ export function WorkspaceTabsProvider({ children }: { children: React.ReactNode 
     closeWorkspace,
     closeAll,
     activateWorkspace,
-    setActiveSubTab,
-    cycleSubTab,
-  }), [tabs, activeRecordId, isOpen, openWorkspace, closeWorkspace, closeAll, activateWorkspace, setActiveSubTab, cycleSubTab])
+  }), [tabs, activeRecordId, isOpen, openWorkspace, closeWorkspace, closeAll, activateWorkspace])
 
   return (
     <WorkspaceTabsContext.Provider value={ctxValue}>

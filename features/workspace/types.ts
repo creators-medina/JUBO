@@ -2,21 +2,9 @@
 // State shape kept small; large data (record/fields/activities/etc.) is loaded
 // lazily by each workspace tab on render.
 
-export type WorkspaceTabKey =
-  | 'overview'
-  | 'card'
-  | 'communicate'
-  | 'checklist'
-  | 'activity'
-  | 'tasks'
-  | 'notes'
-  | 'data'
-  | 'pipeline'
-
 export type WorkspaceTab = {
   recordId: string
-  title: string                            // cached label so the tab strip can render before the record loads
-  activeSubTab: WorkspaceTabKey
+  title: string                            // cached label so the open-workspaces list can render before the record loads
 }
 
 export type NoteRow = {
@@ -45,19 +33,5 @@ export type TimelineItem = {
   content: string | null
   metadata?: Record<string, unknown>
 }
-
-export const WORKSPACE_TAB_LABELS: Record<WorkspaceTabKey, string> = {
-  overview:    'Overview',
-  card:        'Card',
-  communicate: 'Communicate',
-  checklist:   'Checklist',
-  activity:    'Activity',
-  tasks:       'Tasks',
-  notes:       'Notes',
-  data:        'Data',
-  pipeline:    'Pipeline',
-}
-
-export const WORKSPACE_TABS: WorkspaceTabKey[] = ['overview', 'card', 'communicate', 'checklist', 'activity', 'tasks', 'notes', 'data', 'pipeline']
 
 export const MAX_OPEN_WORKSPACES = 10

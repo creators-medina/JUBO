@@ -8,6 +8,7 @@ import { MoveToBoardDialog } from '@/features/boards/components/MoveToBoardDialo
 import { createClient } from '@/lib/supabase/client'
 import { useWorkspaceTabs } from '../providers/WorkspaceTabsProvider'
 import { PersonFileCard } from '@/features/person-card/PersonFileCard'
+import { StageTracker } from '../command/StageTracker'
 import { useWorkspaceKeyboard } from '../hooks/useWorkspaceKeyboard'
 import { resolveWorkspaceTemplate } from '@/features/mortgage/templates/resolve'
 import { getContactHealth } from '@/features/communications/metrics'
@@ -46,14 +47,13 @@ export type Loaded = {
 }
 
 export function WorkspacePanel() {
-  const { tabs, activeRecordId, closeWorkspace, cycleSubTab, closeAll } = useWorkspaceTabs()
+  const { tabs, activeRecordId, closeWorkspace, closeAll } = useWorkspaceTabs()
   const activeTab = tabs.find(t => t.recordId === activeRecordId) ?? null
 
-  // Keyboard: Esc closes, Cmd+Shift+[ / ] cycles sub-tabs
+  // Keyboard: Esc closes the active workspace.
   useWorkspaceKeyboard({
     enabled: !!activeRecordId,
     onClose: closeAll,
-    onCycle: cycleSubTab,
   })
 
   if (!activeTab) return null
@@ -234,6 +234,13 @@ function WorkspaceContent({
             </button>
           </div>
         </header>
+
+        {/* Pipeline stage indicator (NOT tabs) — continues the navy header. */}
+        {data && (
+          <div className="flex flex-shrink-0 justify-start border-b border-jubo-navy2 bg-jubo-navy px-5 py-3 sm:justify-center">
+            <StageTracker groups={data.groups} currentGroupId={data.record.group_id ?? null} />
+          </div>
+        )}
 
         {showMove && data?.record?.board_id && (
           <MoveToBoardDialog

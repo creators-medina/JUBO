@@ -77,7 +77,6 @@ export type ActiveRecordContext = {
   nextActionCompletedAt: string | null
   organizationId: string
   groups: Array<{ id: string; name: string; color: string | null }>
-  activeSubTab?: string
 }
 
 // ── Command history ────────────────────────────────────────────────────────

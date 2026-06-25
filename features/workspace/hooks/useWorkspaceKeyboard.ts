@@ -5,19 +5,17 @@ import { useEffect } from 'react'
 interface Options {
   enabled: boolean
   onClose: () => void
-  onCycle: (direction: 1 | -1) => void
 }
 
 /**
  * Foundational workspace keyboard shortcuts:
  *   esc            → close active workspace
- *   ⌘⇧]            → next sub-tab
- *   ⌘⇧[            → previous sub-tab
  *
  * Skips when focus is inside an editable element (input, textarea, contentEditable)
- * so plain typing — including the `/` and `[`/`]` characters — doesn't fire shortcuts.
+ * so plain typing doesn't fire shortcuts. (The card's four tabs are managed
+ * inside PersonFileCard, so there is no outer sub-tab cycling.)
  */
-export function useWorkspaceKeyboard({ enabled, onClose, onCycle }: Options) {
+export function useWorkspaceKeyboard({ enabled, onClose }: Options) {
   useEffect(() => {
     if (!enabled) return
     const handler = (e: KeyboardEvent) => {
@@ -29,16 +27,9 @@ export function useWorkspaceKeyboard({ enabled, onClose, onCycle }: Options) {
       if (e.key === 'Escape' && !editable) {
         e.preventDefault()
         onClose()
-        return
-      }
-
-      const cmd = e.metaKey || e.ctrlKey
-      if (cmd && e.shiftKey) {
-        if (e.key === ']') { e.preventDefault(); onCycle(1); return }
-        if (e.key === '[') { e.preventDefault(); onCycle(-1); return }
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [enabled, onClose, onCycle])
+  }, [enabled, onClose])
 }

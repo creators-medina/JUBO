@@ -24,7 +24,6 @@ type ToastApi = {
 export type ContextualDeps = {
   toast: ToastApi
   close: () => void
-  setActiveSubTab: (recordId: string, tab: string) => void
 }
 
 const STATUS_OPTIONS: { value: RecordStatus; label: string }[] = [
@@ -78,7 +77,7 @@ function datePresets(): { label: string; date: Date }[] {
 
 export function contextualCommands(ctx: ActiveRecordContext | null, deps: ContextualDeps): CommandItem[] {
   if (!ctx) return []
-  const { toast, close, setActiveSubTab } = deps
+  const { toast, close } = deps
   const r = ctx
 
   const run = (
@@ -306,25 +305,6 @@ export function contextualCommands(ctx: ActiveRecordContext | null, deps: Contex
       },
     },
   })
-
-  // ── Tab navigation within the workspace ───────────────────────────────
-  const tabCmd = (tab: string, label: string, icon: string) => ({
-    id: `ctx:open-${tab}`,
-    type: 'action' as const,
-    title: label,
-    iconName: icon,
-    keywords: ['open', tab, 'tab'],
-    groupLabel: 'Workspace',
-    onSelect: () => {
-      recordCommandExecution({ commandId: `ctx:open-${tab}`, title: label, iconName: icon })
-      setActiveSubTab(r.recordId, tab)
-      close()
-    },
-  })
-  items.push(tabCmd('tasks',    'Open Tasks Tab',    'CheckSquare'))
-  items.push(tabCmd('activity', 'Open Activity Tab', 'Activity'))
-  items.push(tabCmd('notes',    'Open Notes Tab',    'FileText'))
-  items.push(tabCmd('pipeline', 'Open Pipeline Tab', 'Columns3'))
 
   // ── Mark needs attention (feeds /today) ───────────────────────────────
   items.push({

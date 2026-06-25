@@ -652,7 +652,8 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                     notesByRecord={notesByRecord}
                     onOpenNotes={(recordId) => {
                       const r = localRecords.find((x: any) => x.id === recordId)
-                      openWorkspace({ recordId, title: r?.title ?? 'Record', activeSubTab: 'notes' })
+                      // Notes now live inside the File Card's Overview; open the card.
+                      openWorkspace({ recordId, title: r?.title ?? 'Record' })
                     }}
                     selectedIds={selectedIds}
                     onToggleSelect={toggleSelect}

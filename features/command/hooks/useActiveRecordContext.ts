@@ -9,7 +9,6 @@ import type { ActiveRecordContext } from '../types'
 // a workspace-refresh event fires (so previews like priority/status stay live).
 export function useActiveRecordContext(
   recordId: string | null,
-  activeSubTab?: string,
 ): ActiveRecordContext | null {
   const [ctx, setCtx] = useState<ActiveRecordContext | null>(null)
   const [version, setVersion] = useState(0)
@@ -53,11 +52,10 @@ export function useActiveRecordContext(
         nextActionCompletedAt: (record as { next_action_completed_at?: string | null }).next_action_completed_at ?? null,
         organizationId: record.organization_id,
         groups: (groups ?? []) as ActiveRecordContext['groups'],
-        activeSubTab,
       })
     })()
     return () => { cancelled = true }
-  }, [recordId, activeSubTab, version])
+  }, [recordId, version])
 
   return ctx
 }

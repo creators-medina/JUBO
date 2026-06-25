@@ -31,7 +31,7 @@ import { resolveWorkspaceTemplate } from '@/features/mortgage/templates/resolve'
 import { isChecklistFieldType } from '@/features/fields/checklist'
 import { moveRecord } from '@/features/records/actions'
 import type { Loaded } from '../components/WorkspacePanel'
-import type { WorkspaceTabKey, TimelineItem } from '../types'
+import type { TimelineItem } from '../types'
 
 export function LosCommandCenter({
   recordId, data, onChanged, onSubTabChange,
@@ -40,7 +40,7 @@ export function LosCommandCenter({
   data: Loaded
   onChanged: () => void
   /** Phase C3 will re-wire compose/full-history navigation. */
-  onSubTabChange?: (t: WorkspaceTabKey) => void
+  onSubTabChange?: (t: string) => void
 }) {
   const nav = onSubTabChange ?? (() => {})
 

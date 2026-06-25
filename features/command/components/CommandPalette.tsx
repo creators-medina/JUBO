@@ -46,7 +46,7 @@ export function CommandPalette() {
   const toast = useToast()
   const {
     tabs, openWorkspace, activateWorkspace, closeWorkspace, closeAll,
-    activeRecordId, setActiveSubTab,
+    activeRecordId,
   } = useWorkspaceTabs()
   const { items: recents } = useRecentItems()
   const { topCommands } = useCommandHistory()
@@ -59,8 +59,7 @@ export function CommandPalette() {
   const [pageItems, setPageItems] = useState<CommandItem[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const activeTab = useMemo(() => tabs.find(t => t.recordId === activeRecordId) ?? null, [tabs, activeRecordId])
-  const recordCtx = useActiveRecordContext(isOpen ? activeRecordId : null, activeTab?.activeSubTab)
+  const recordCtx = useActiveRecordContext(isOpen ? activeRecordId : null)
 
   const activePage = pages[pages.length - 1] ?? null
 
@@ -112,14 +111,8 @@ export function CommandPalette() {
   })), [tabs, activeRecordId, activateWorkspace, close])
 
   const contextualItems: CommandItem[] = useMemo(
-    () => contextualCommands(recordCtx, {
-      toast,
-      close,
-      // Provider wants the narrow WorkspaceTabKey; the contextual builder is
-      // generic over string, so adapt here.
-      setActiveSubTab: (recordId, tab) => setActiveSubTab(recordId, tab as Parameters<typeof setActiveSubTab>[1]),
-    }),
-    [recordCtx, toast, close, setActiveSubTab],
+    () => contextualCommands(recordCtx, { toast, close }),
+    [recordCtx, toast, close],
   )
 
   const recentItems: CommandItem[] = useMemo(() => recents.slice(0, 6).map(r => ({
