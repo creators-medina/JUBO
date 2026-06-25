@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  UploadCloud, FileSpreadsheet, ArrowRight, ArrowLeft, Check, Loader2,
+  UploadCloud, ArrowRight, ArrowLeft, Check, Loader2,
   Columns3, Sparkles, AlertTriangle, ListChecks, Workflow, Sunrise, Plus,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -83,17 +83,22 @@ export function ImportWizard({
   const [createGroups, setCreateGroups] = useState(true)
   const [createTitleIdx, setCreateTitleIdx] = useState(0)
 
-  const dedupeKeys: DedupeKey[] = template?.dedupeKeys ?? ['email', 'phone']
+  // Memoized so their identity is stable across renders — these feed the
+  // dependency arrays of the effects/callbacks below (behavior unchanged).
+  const dedupeKeys: DedupeKey[] = useMemo(() => template?.dedupeKeys ?? ['email', 'phone'], [template])
   const recordType: RecordType = template?.recordType ?? 'lead'
 
   const sheet = parsed?.sheets[sheetIndex]
-  const headers = sheet?.headers ?? []
-  const rows = sheet?.rows ?? []
+  const headers = useMemo(() => sheet?.headers ?? [], [sheet])
+  const rows = useMemo(() => sheet?.rows ?? [], [sheet])
 
   // Preselect the template's target board if present.
   useEffect(() => {
     if (template?.targetBoardSlug && !boardId) {
       const match = boards.find((b) => b.slug === template.targetBoardSlug)
+      // One-way sync: preselect from the template only while unset; the user can
+      // override afterward, so this must stay an effect, not render-time derivation.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (match) setBoardId(match.id)
     }
   }, [template, boards, boardId])
@@ -112,7 +117,9 @@ export function ImportWizard({
   }, [boardId])
 
   // No boards yet → default to "Create new board" so the user isn't stuck.
+  // Reacts to `parsed` (only available after upload), so it must be an effect.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (boards.length === 0 && parsed) setMode('create')
   }, [boards.length, parsed])
 
@@ -151,12 +158,18 @@ export function ImportWizard({
           include: true,
         }
       })
+    // Seeds the user-editable create-board form from the parsed sheet when the
+    // user enters create mode / changes sheet. This is one-way initialization
+    // the user then edits, so it must remain effect-driven (render-time
+    // derivation would clobber those edits on every render).
+    /* eslint-disable react-hooks/set-state-in-effect */
     setBoardSuggestion(sug)
     setNewBoardName(sug.name)
     setProposedFields(proposed)
     setGroupSuggestion(grp)
     setCreateGroups(grp !== null)
     setCreateTitleIdx(titleIdx)
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [mode, parsed, sheet, headers, rows])
 
   // ── File upload ─────────────────────────────────────────────────────────

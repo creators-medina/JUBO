@@ -28,7 +28,10 @@ export function IntegrationsClient({
   events: IntegrationEventRow[]
   workerRuns?: WorkerRunRow[]
 }) {
+  // Read the browser-only origin after mount so the SSR/first-client render
+  // stays empty and matches (no hydration mismatch); the effect is required.
   const [origin, setOrigin] = useState('')
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setOrigin(window.location.origin) }, [])
   const [pending, startTransition] = useTransition()
 
