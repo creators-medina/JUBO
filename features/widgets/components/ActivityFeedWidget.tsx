@@ -35,13 +35,13 @@ const ACTIVITY_VERB: Record<string, string> = {
 }
 
 const ACTIVITY_COLOR: Record<string, string> = {
-  creation:      'bg-blue-500/15 text-blue-400',
-  comment:       'bg-violet-500/15 text-violet-400',
-  note:          'bg-amber-500/15 text-amber-400',
-  call:          'bg-emerald-500/15 text-emerald-400',
-  email:         'bg-cyan-500/15 text-cyan-400',
-  status_change: 'bg-orange-500/15 text-orange-400',
-  field_change:  'bg-zinc-500/15 text-zinc-400',
+  creation:      'bg-jubo-navy/10 text-jubo-navy',
+  comment:       'bg-jubo-navy/10 text-jubo-navy',
+  note:          'bg-jubo-gold-soft text-jubo-gold',
+  call:          'bg-jubo-green-soft text-jubo-green',
+  email:         'bg-jubo-green-soft text-jubo-green',
+  status_change: 'bg-jubo-red/10 text-jubo-red',
+  field_change:  'bg-jubo-card-soft text-jubo-muted',
 }
 
 interface ActivityFeedWidgetProps {
@@ -61,7 +61,7 @@ export function ActivityFeedWidget({ data }: ActivityFeedWidgetProps) {
     <div className="space-y-0.5 -mx-2">
       {data.items.map(item => {
         const Icon = ACTIVITY_ICON[item.activity_type] ?? Activity
-        const colorClass = ACTIVITY_COLOR[item.activity_type] ?? 'bg-zinc-500/15 text-zinc-400'
+        const colorClass = ACTIVITY_COLOR[item.activity_type] ?? 'bg-jubo-card-soft text-jubo-muted'
         const verb = ACTIVITY_VERB[item.activity_type] ?? item.activity_type.replace('_', ' ')
 
         return (

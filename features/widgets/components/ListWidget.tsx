@@ -2,18 +2,18 @@ import { cn } from '@/lib/utils'
 import type { ListWidgetData, ListRecord } from '../types'
 
 const STATUS_DOT: Record<string, string> = {
-  active:   'bg-blue-400',
-  won:      'bg-emerald-400',
-  lost:     'bg-red-400',
-  on_hold:  'bg-amber-400',
-  archived: 'bg-zinc-500',
+  active:   'bg-jubo-navy',
+  won:      'bg-jubo-green',
+  lost:     'bg-jubo-red',
+  on_hold:  'bg-jubo-gold',
+  archived: 'bg-jubo-muted',
 }
 
 const PRIORITY_BADGE: Record<string, string> = {
-  urgent: 'text-red-400',
-  high:   'text-orange-400',
-  medium: 'text-amber-400',
-  low:    'text-blue-400',
+  urgent: 'text-jubo-red',
+  high:   'text-jubo-red',
+  medium: 'text-jubo-gold',
+  low:    'text-jubo-navy',
   none:   'text-muted-foreground',
 }
 
@@ -33,7 +33,7 @@ function RecordRow({ record, onClick }: RecordRowProps) {
     >
       <span className={cn(
         'w-1.5 h-1.5 rounded-full flex-shrink-0',
-        STATUS_DOT[record.status] ?? 'bg-zinc-500',
+        STATUS_DOT[record.status] ?? 'bg-jubo-muted',
       )} />
       <span className="flex-1 text-sm text-foreground truncate">
         {record.title}

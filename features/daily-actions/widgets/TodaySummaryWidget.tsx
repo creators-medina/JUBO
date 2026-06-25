@@ -4,9 +4,9 @@ import { cn } from '@/lib/utils'
 import type { TodaySummaryWidgetData, DailyProgressStatus } from '../types'
 
 const STATUS_TEXT: Record<DailyProgressStatus, string> = {
-  ahead:   'text-emerald-400',
-  on_pace: 'text-amber-400',
-  behind:  'text-red-400',
+  ahead:   'text-jubo-green',
+  on_pace: 'text-jubo-gold',
+  behind:  'text-jubo-red',
   unknown: 'text-muted-foreground',
 }
 
@@ -18,7 +18,7 @@ export function TodaySummaryWidget({ data }: { data: TodaySummaryWidgetData }) {
     : streak.currentStreak > 0
       ? `${streak.currentStreak}d`
       : '0d'
-  const streakAccent = streak.currentStreak >= 3 ? 'text-amber-400' : streak.currentStreak > 0 ? 'text-emerald-400' : 'text-muted-foreground'
+  const streakAccent = streak.currentStreak >= 3 ? 'text-jubo-gold' : streak.currentStreak > 0 ? 'text-jubo-green' : 'text-muted-foreground'
 
   return (
     <div className="h-full flex flex-col gap-3">
@@ -28,9 +28,9 @@ export function TodaySummaryWidget({ data }: { data: TodaySummaryWidgetData }) {
       </div>
 
       <div className="grid grid-cols-4 gap-2 flex-1">
-        <Cell label="Done"    value={summary.completed} icon={CheckCircle2} accent="text-emerald-400" />
+        <Cell label="Done"    value={summary.completed} icon={CheckCircle2} accent="text-jubo-green" />
         <Cell label="Total"   value={summary.total}     icon={ListChecks}   accent="text-foreground" />
-        <Cell label="Overdue" value={summary.overdue}   icon={AlertTriangle} accent={summary.overdue > 0 ? 'text-red-400' : 'text-muted-foreground'} />
+        <Cell label="Overdue" value={summary.overdue}   icon={AlertTriangle} accent={summary.overdue > 0 ? 'text-jubo-red' : 'text-muted-foreground'} />
         <Cell label="Streak"  value={streakLabel}       icon={Flame}        accent={streakAccent} />
       </div>
 

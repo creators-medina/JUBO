@@ -6,9 +6,9 @@ import { HelpTip } from '@/components/primitives/HelpTip'
 import type { TalkToPaceData } from '../types'
 
 const STATUS: Record<TalkToPaceData['status'], string> = {
-  ahead: 'text-emerald-400',
-  on_pace: 'text-amber-400',
-  behind: 'text-red-400',
+  ahead: 'text-jubo-green',
+  on_pace: 'text-jubo-gold',
+  behind: 'text-jubo-red',
 }
 
 export function TalkToPaceWidget({ data }: { data: TalkToPaceData }) {

@@ -6,9 +6,9 @@ import type { HotLeadsData } from '../types'
 import type { LeadTemperature } from '../../types'
 
 const TEMP: Record<LeadTemperature, { dot: string; label: string; cls: string }> = {
-  hot:     { dot: 'bg-red-400',    label: 'Hot',  cls: 'text-red-300' },
-  warm:    { dot: 'bg-amber-400',  label: 'Warm', cls: 'text-amber-300' },
-  cold:    { dot: 'bg-blue-400',   label: 'Cold', cls: 'text-blue-300' },
+  hot:     { dot: 'bg-jubo-red',    label: 'Hot',  cls: 'text-jubo-red' },
+  warm:    { dot: 'bg-jubo-gold',  label: 'Warm', cls: 'text-jubo-gold' },
+  cold:    { dot: 'bg-jubo-navy',   label: 'Cold', cls: 'text-jubo-navy' },
   dormant: { dot: 'bg-surface-3',  label: 'Dormant', cls: 'text-muted-foreground' },
 }
 

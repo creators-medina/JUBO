@@ -21,7 +21,7 @@ export function PaceForecastWidget({ data }: { data: PaceForecastData }) {
       ) : (
         <div className="flex-1 space-y-2">
           {data.rows.map((r) => {
-            const accent = r.onTrack ? 'text-emerald-400' : 'text-amber-400'
+            const accent = r.onTrack ? 'text-jubo-green' : 'text-jubo-gold'
             const pct = r.target > 0 ? Math.min(100, Math.round((r.projected / r.target) * 100)) : 0
             return (
               <div key={r.metric} className="space-y-1">
@@ -33,7 +33,7 @@ export function PaceForecastWidget({ data }: { data: PaceForecastData }) {
                   </span>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
-                  <div className={cn('h-full rounded-full', r.onTrack ? 'bg-emerald-400' : 'bg-amber-400')} style={{ width: `${pct}%` }} />
+                  <div className={cn('h-full rounded-full', r.onTrack ? 'bg-jubo-green' : 'bg-jubo-gold')} style={{ width: `${pct}%` }} />
                 </div>
               </div>
             )

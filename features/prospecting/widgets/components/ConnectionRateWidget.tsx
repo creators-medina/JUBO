@@ -7,7 +7,7 @@ import type { ConnectionRateData } from '../types'
 export function ConnectionRateWidget({ data }: { data: ConnectionRateData }) {
   const trendPts = Math.round(data.trend * 100)
   const TrendIcon = trendPts > 0 ? TrendingUp : trendPts < 0 ? TrendingDown : Minus
-  const trendCls = trendPts > 0 ? 'text-emerald-400' : trendPts < 0 ? 'text-red-400' : 'text-muted-foreground'
+  const trendCls = trendPts > 0 ? 'text-jubo-green' : trendPts < 0 ? 'text-jubo-red' : 'text-muted-foreground'
 
   return (
     <div className="flex h-full flex-col gap-3">

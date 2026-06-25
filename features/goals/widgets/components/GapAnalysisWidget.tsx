@@ -26,8 +26,8 @@ export function GapAnalysisWidget({ data }: Props) {
               <span className="flex-1 text-sm text-foreground truncate">{row.stage_name}</span>
               <span className={cn(
                 'text-xs font-medium tabular-nums',
-                behind && 'text-red-400',
-                ahead && 'text-emerald-400',
+                behind && 'text-jubo-red',
+                ahead && 'text-jubo-green',
                 !behind && !ahead && 'text-muted-foreground',
               )}>
                 {behind && <AlertTriangle className="inline w-3 h-3 mr-1" />}
@@ -37,7 +37,7 @@ export function GapAnalysisWidget({ data }: Props) {
             <div className="relative h-1.5 rounded-full bg-surface-2 overflow-hidden">
               <div
                 className={cn('absolute inset-y-0 left-0 rounded-full transition-all',
-                  behind ? 'bg-red-400/70' : ahead ? 'bg-emerald-400/70' : 'bg-amber-400/70')}
+                  behind ? 'bg-jubo-red' : ahead ? 'bg-jubo-green' : 'bg-jubo-gold')}
                 style={{ width: `${(pacePct / 200) * 100}%` }}
               />
               <div className="absolute inset-y-0 w-0.5 bg-foreground/30" style={{ left: '50%' }} />

@@ -69,7 +69,7 @@ export function GoalCard({ goal, funnel, stages, assumptions }: Props) {
               </button>
             )}
             <button onClick={handleArchive} disabled={isPending}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-red-400 hover:bg-surface-2 transition-colors disabled:opacity-50"
+              className="p-1.5 rounded-md text-muted-foreground hover:text-jubo-red hover:bg-surface-2 transition-colors disabled:opacity-50"
               title="Archive goal"
             >
               <Archive className="w-3.5 h-3.5" />
@@ -106,7 +106,7 @@ export function GoalCard({ goal, funnel, stages, assumptions }: Props) {
               )
             })}
             {!hasAssumptionChain && (
-              <p className="text-2xs text-amber-400 mt-2 flex items-center gap-1">
+              <p className="text-2xs text-jubo-gold mt-2 flex items-center gap-1">
                 <Minus className="w-3 h-3" /> Some stages are missing conversion rates — they were skipped.
               </p>
             )}
@@ -114,7 +114,7 @@ export function GoalCard({ goal, funnel, stages, assumptions }: Props) {
         )}
       </div>
 
-      {error && <p className="px-5 pb-3 text-xs text-red-400">{error}</p>}
+      {error && <p className="px-5 pb-3 text-xs text-jubo-red">{error}</p>}
     </div>
   )
 }

@@ -6,10 +6,10 @@ import { HelpTip } from '@/components/primitives/HelpTip'
 import type { ExecutionScoreData } from '../types'
 
 const TONE: Record<string, string> = {
-  excellent: 'text-emerald-400',
-  good: 'text-emerald-400',
-  fair: 'text-amber-400',
-  needs_work: 'text-red-400',
+  excellent: 'text-jubo-green',
+  good: 'text-jubo-green',
+  fair: 'text-jubo-gold',
+  needs_work: 'text-jubo-red',
 }
 
 export function ExecutionScoreWidget({ data }: { data: ExecutionScoreData }) {

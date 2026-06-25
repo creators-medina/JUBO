@@ -39,7 +39,7 @@ export function BoardSummaryWidget({ data }: BoardSummaryWidgetProps) {
               </span>
             </div>
           </div>
-          <div className="h-1.5 bg-surface-1 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-jubo-card-soft rounded-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-300"
               style={{

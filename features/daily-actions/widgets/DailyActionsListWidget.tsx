@@ -4,18 +4,18 @@ import { cn } from '@/lib/utils'
 import type { DailyActionsListWidgetData } from '../types'
 
 const PRIORITY_DOT: Record<string, string> = {
-  urgent: 'bg-red-400',
-  high:   'bg-orange-400',
-  medium: 'bg-amber-400',
-  low:    'bg-blue-400',
-  none:   'bg-zinc-500',
+  urgent: 'bg-jubo-red',
+  high:   'bg-jubo-red',
+  medium: 'bg-jubo-gold',
+  low:    'bg-jubo-navy',
+  none:   'bg-jubo-muted',
 }
 
 const PRIORITY_PILL: Record<string, string> = {
-  urgent: 'text-red-400',
-  high:   'text-orange-400',
-  medium: 'text-amber-400',
-  low:    'text-blue-400',
+  urgent: 'text-jubo-red',
+  high:   'text-jubo-red',
+  medium: 'text-jubo-gold',
+  low:    'text-jubo-navy',
   none:   'text-muted-foreground',
 }
 
@@ -46,7 +46,7 @@ export function DailyActionsListWidget({ data }: { data: DailyActionsListWidgetD
               a.completed_at && 'opacity-50',
             )}>
               {a.completed_at
-                ? <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                ? <CheckCircle2 className="w-3 h-3 text-jubo-green flex-shrink-0" />
                 : <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', PRIORITY_DOT[a.priority])} />
               }
 
@@ -69,7 +69,7 @@ export function DailyActionsListWidget({ data }: { data: DailyActionsListWidgetD
                   </span>
                 )}
                 {!a.completed_at && (
-                  <span className={cn('text-2xs tabular-nums', overdue ? 'text-red-400' : 'text-muted-foreground')}>
+                  <span className={cn('text-2xs tabular-nums', overdue ? 'text-jubo-red' : 'text-muted-foreground')}>
                     {overdue ? 'overdue' : (a.due_date === today ? 'today' : a.due_date)}
                   </span>
                 )}

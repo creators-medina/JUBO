@@ -5,9 +5,9 @@ import { cn } from '@/lib/utils'
 import type { PartnerGrowthData, PartnerStatus } from '../types'
 
 const DOT: Record<PartnerStatus, string> = {
-  active: 'bg-emerald-400',
-  cooling_off: 'bg-amber-400',
-  at_risk: 'bg-red-400',
+  active: 'bg-jubo-green',
+  cooling_off: 'bg-jubo-gold',
+  at_risk: 'bg-jubo-red',
   dormant: 'bg-surface-3',
 }
 
@@ -19,9 +19,9 @@ export function PartnerGrowthWidget({ data, onRecordClick }: { data: PartnerGrow
         <p className="text-xs font-medium text-foreground">Partner growth</p>
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <Cell label="Active" value={data.activePartners} accent="text-emerald-400" />
+        <Cell label="Active" value={data.activePartners} accent="text-jubo-green" />
         <Cell label="Needed" value={data.partnersNeeded} accent="text-foreground" />
-        <Cell label="Gap" value={data.partnerGap} accent={data.partnerGap > 0 ? 'text-amber-400' : 'text-emerald-400'} />
+        <Cell label="Gap" value={data.partnerGap} accent={data.partnerGap > 0 ? 'text-jubo-gold' : 'text-jubo-green'} />
       </div>
       <div className="mt-1 flex-1 space-y-1 overflow-y-auto">
         {data.leaders.length === 0 ? (

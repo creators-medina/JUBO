@@ -13,17 +13,17 @@ export function ProspectingSummaryWidget({ data }: { data: ProspectingSummaryDat
         <PhoneCall className="h-4 w-4 text-primary" />
         <p className="text-xs font-medium text-foreground">Prospecting today</p>
         {data.sessionActive && (
-          <span className="ml-auto inline-flex items-center gap-1 text-2xs text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Live
+          <span className="ml-auto inline-flex items-center gap-1 text-2xs text-jubo-green">
+            <span className="h-1.5 w-1.5 rounded-full bg-jubo-green" /> Live
           </span>
         )}
       </div>
 
       <div className="grid flex-1 grid-cols-4 gap-2">
         <Cell label="Calls"   value={data.callsToday}                              icon={PhoneCall}    accent="text-primary" />
-        <Cell label="Connect" value={data.connectsToday}                          icon={PhoneIncoming} accent="text-emerald-400" />
+        <Cell label="Connect" value={data.connectsToday}                          icon={PhoneIncoming} accent="text-jubo-green" />
         <Cell label="Rate"    value={`${Math.round(data.connectionRate * 100)}%`}  icon={Percent}      accent="text-foreground" />
-        <Cell label="To goal" value={data.remaining}                              icon={Target}       accent={data.remaining === 0 ? 'text-emerald-400' : 'text-amber-400'} />
+        <Cell label="To goal" value={data.remaining}                              icon={Target}       accent={data.remaining === 0 ? 'text-jubo-green' : 'text-jubo-gold'} />
       </div>
 
       <div className="space-y-1.5">

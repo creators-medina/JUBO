@@ -40,8 +40,8 @@ export function ActiveCallSessionWidget({ data }: { data: ActiveCallSessionData 
   return (
     <div className="flex h-full flex-col gap-3">
       <div className="flex items-center gap-2">
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Live
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-jubo-green">
+          <span className="h-1.5 w-1.5 rounded-full bg-jubo-green" /> Live
         </span>
         <span className="text-2xs text-muted-foreground">{durationLabel(data.startedAt)}</span>
         <button
@@ -55,7 +55,7 @@ export function ActiveCallSessionWidget({ data }: { data: ActiveCallSessionData 
 
       <div className="grid flex-1 grid-cols-3 gap-2">
         <Cell label="Calls" value={data.attempted} accent="text-primary" />
-        <Cell label="Connect" value={data.connected} accent="text-emerald-400" />
+        <Cell label="Connect" value={data.connected} accent="text-jubo-green" />
         <Cell label="Booked" value={data.meetings} accent="text-foreground" />
       </div>
 

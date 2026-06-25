@@ -13,9 +13,9 @@ export function PartnerHealthWidget({ data, onRecordClick }: { data: PartnerHeal
         <span className="ml-auto text-2xs text-muted-foreground">{data.total} total</span>
       </div>
       <div className="grid grid-cols-4 gap-1.5">
-        <Pill label="Active" value={data.active} accent="text-emerald-400" />
-        <Pill label="Cooling" value={data.coolingOff} accent="text-amber-400" />
-        <Pill label="At risk" value={data.atRisk} accent="text-red-400" />
+        <Pill label="Active" value={data.active} accent="text-jubo-green" />
+        <Pill label="Cooling" value={data.coolingOff} accent="text-jubo-gold" />
+        <Pill label="At risk" value={data.atRisk} accent="text-jubo-red" />
         <Pill label="Dormant" value={data.dormant} accent="text-muted-foreground" />
       </div>
       <div className="mt-1 flex-1 space-y-1 overflow-y-auto">

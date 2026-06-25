@@ -14,7 +14,7 @@ function fmt(n: number, currency: boolean): string {
 
 export function ProjectionWidget({ data }: { data: ProjectionData }) {
   const ahead = data.variancePercent >= 0
-  const accent = data.onTrack ? 'text-emerald-400' : 'text-amber-400'
+  const accent = data.onTrack ? 'text-jubo-green' : 'text-jubo-gold'
   const Icon = ahead ? TrendingUp : TrendingDown
   return (
     <div className="flex h-full flex-col gap-2">

@@ -17,9 +17,9 @@ function formatMetric(value: number, metric: string): string {
 }
 
 function paceIcon(pacePercent: number) {
-  if (pacePercent >= 105) return { Icon: TrendingUp,   color: 'text-emerald-400', label: 'Ahead' }
-  if (pacePercent <= 95)  return { Icon: TrendingDown, color: 'text-red-400',     label: 'Behind' }
-  return                       { Icon: Minus,         color: 'text-amber-400',   label: 'On pace' }
+  if (pacePercent >= 105) return { Icon: TrendingUp,   color: 'text-jubo-green', label: 'Ahead' }
+  if (pacePercent <= 95)  return { Icon: TrendingDown, color: 'text-jubo-red',     label: 'Behind' }
+  return                       { Icon: Minus,         color: 'text-jubo-gold',   label: 'On pace' }
 }
 
 export function GoalProgressWidget({ data }: Props) {
@@ -68,7 +68,7 @@ function ProgressBar({ percent, expectedPercent }: { percent: number; expectedPe
       <div className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all" style={{ width: `${Math.min(100, percent)}%` }} />
       {expectedPercent > 0 && expectedPercent < 100 && (
         <div
-          className="absolute inset-y-0 w-0.5 bg-amber-400/70"
+          className="absolute inset-y-0 w-0.5 bg-jubo-gold"
           style={{ left: `${Math.min(100, expectedPercent)}%` }}
           title={`Expected: ${Math.round(expectedPercent)}%`}
         />

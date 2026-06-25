@@ -137,10 +137,10 @@ function CurrentPace({ forecasts }: { forecasts: Forecast[] }) {
 
   const gap = f.target - f.projected   // positive = behind, negative = ahead
   const status = f.variancePercent >= 5
-    ? { label: 'Ahead', tone: 'text-emerald-400', bar: 'bg-emerald-400' }
+    ? { label: 'Ahead', tone: 'text-jubo-green', bar: 'bg-jubo-green' }
     : f.onTrack
-      ? { label: 'On pace', tone: 'text-emerald-400', bar: 'bg-emerald-400' }
-      : { label: 'Behind', tone: 'text-amber-400', bar: 'bg-amber-400' }
+      ? { label: 'On pace', tone: 'text-jubo-green', bar: 'bg-jubo-green' }
+      : { label: 'Behind', tone: 'text-jubo-gold', bar: 'bg-jubo-gold' }
   const isCurrency = f.metric === 'income'
   const fmt = (n: number) => isCurrency ? fmtCurrency(n) : Math.round(n).toLocaleString()
   const pct = f.target > 0 ? Math.max(0, Math.min(100, Math.round((f.projected / f.target) * 100))) : 0
@@ -151,7 +151,7 @@ function CurrentPace({ forecasts }: { forecasts: Forecast[] }) {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <PaceStat label="Projected" value={fmt(f.projected)} />
         <PaceStat label="Goal" value={fmt(f.target)} />
-        <PaceStat label={gap > 0 ? 'Gap (behind)' : 'Ahead by'} value={fmt(Math.abs(gap))} tone={gap > 0 ? 'text-amber-400' : 'text-emerald-400'} />
+        <PaceStat label={gap > 0 ? 'Gap (behind)' : 'Ahead by'} value={fmt(Math.abs(gap))} tone={gap > 0 ? 'text-jubo-gold' : 'text-jubo-green'} />
         <PaceStat label="Status" value={status.label} tone={status.tone} />
       </div>
       <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">

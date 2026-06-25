@@ -5,9 +5,9 @@ import { cn } from '@/lib/utils'
 import type { WeeklyScorecardData } from '../types'
 
 const STATUS_BG: Record<string, string> = {
-  ahead: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-  on_pace: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-  behind: 'bg-red-500/15 text-red-300 border-red-500/30',
+  ahead: 'bg-jubo-green-soft text-jubo-green border-jubo-green/30',
+  on_pace: 'bg-jubo-gold-soft text-jubo-gold border-jubo-gold/40',
+  behind: 'bg-jubo-red/10 text-jubo-red border-jubo-red/30',
   none: 'bg-surface-1 text-muted-foreground border-border',
 }
 
