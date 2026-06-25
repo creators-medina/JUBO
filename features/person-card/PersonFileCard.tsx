@@ -255,7 +255,9 @@ function Feed({ card, comms, filter }: { card: PersonCardData; comms: Communicat
 function Section({ title, children, noPad }: { title: string; children: React.ReactNode; noPad?: boolean }) {
   return (
     <div className="rounded-xl border border-border bg-card">
-      <p className="px-3 pt-3 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</p>
+      {/* Card section header — larger, stronger hierarchy; navy heading on the
+          cream card surface (dark/readable, not cream-on-cream). */}
+      <p className="px-3 pt-3 text-sm font-semibold tracking-tight text-jubo-navy">{title}</p>
       <div className={noPad ? '' : 'space-y-2 p-3'}>{children}</div>
     </div>
   )
