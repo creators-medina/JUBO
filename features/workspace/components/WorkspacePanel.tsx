@@ -151,7 +151,7 @@ function WorkspaceContent({
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-jubo-navy/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full md:max-w-[min(72rem,92vw)] bg-background border-l border-border flex flex-col h-full shadow-2xl">
         {/* Window chrome — borrower identity (left) + panel controls (right). The
             record's four-tab File Card (Overview / Loan & Property / Borrower /
