@@ -11,23 +11,36 @@ import { PersonFileCard } from '@/features/person-card/PersonFileCard'
 import { useWorkspaceKeyboard } from '../hooks/useWorkspaceKeyboard'
 import { resolveWorkspaceTemplate } from '@/features/mortgage/templates/resolve'
 import { getContactHealth } from '@/features/communications/metrics'
-import type { ContactHealth } from '@/features/communications/types'
+import type { ContactHealth, CommunicationLog } from '@/features/communications/types'
+import type { MortgageData } from '@/features/mortgage/types'
+import type {
+  RecordRow, FieldRow, FieldValueRow, ActivityRow, TaskRow, MovementRow, GroupRow,
+} from '../hooks/useWorkspaceData'
 import type { NoteRow } from '../types'
+
+// Minimal board shape (only the columns the chrome/header query selects).
+type BoardLite = { id: string; name: string; slug: string; board_type: string }
 
 // Shared shape for the loaded record bundle. Kept exported because the parked
 // LOS Command-Center (features/workspace/command/LosCommandCenter.tsx) types
 // against it for the Phase C3 harvest.
 export type Loaded = {
-  record: any
-  board: any
-  communications: any[]
-  fields: any[]
-  fieldValues: any[]
-  activities: any[]
-  tasks: any[]
-  movements: any[]
+  // RecordRow omits description (a real column); the parked LosCommandCenter reads it.
+  record: RecordRow & { description: string | null }
+  board: BoardLite | null
+  communications: CommunicationLog[]
+  fields: FieldRow[]
+  // value_bool: the parked LosCommandCenter reads it (a typo for value_boolean,
+  // undefined at runtime); typed here only so that dead file stays compilable.
+  fieldValues: (FieldValueRow & { value_bool?: boolean | null })[]
+  activities: ActivityRow[]
+  // TaskRow omits created_by (set at creation); the row + parked LosCommandCenter
+  // read it, including in a `?? `-fallback index, so model it as a non-null string.
+  tasks: (TaskRow & { created_by: string })[]
+  movements: MovementRow[]
   notes: NoteRow[]
-  groups: any[]
+  // GroupRow omits position (a real column); StageTracker sorts groups by it.
+  groups: (GroupRow & { position?: number | null })[]
   profiles: Record<string, string>
   currentUserId: string | null
 }
@@ -129,6 +142,9 @@ function WorkspaceContent({
     }
   }, [recordId, openWorkspace])
 
+  // Load the record bundle on mount and whenever the record changes (async
+  // data-load — load() sets loading/data; must run as an effect, not in render).
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [load])
 
   // Refetch when the page revalidates
@@ -141,12 +157,12 @@ function WorkspaceContent({
   const contactHealth: ContactHealth = data ? getContactHealth(data.communications) : 'unknown'
 
   // Header identity bits (role label + phone) from loaded data only.
-  const roleLabel = data ? (resolveWorkspaceTemplate(data as any)?.label ?? '') : ''
+  const roleLabel = data ? (resolveWorkspaceTemplate(data as unknown as MortgageData)?.label ?? '') : ''
   const phone = useMemo(() => {
     if (!data) return null
-    const f = data.fields.find((x: any) => x.slug === 'phone')
+    const f = data.fields.find((x) => x.slug === 'phone')
     if (!f) return null
-    return data.fieldValues.find((v: any) => v.field_id === f.id)?.value_text ?? null
+    return data.fieldValues.find((v) => v.field_id === f.id)?.value_text ?? null
   }, [data])
 
   return (
