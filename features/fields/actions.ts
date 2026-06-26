@@ -234,7 +234,9 @@ export async function getGroupVisibleFields(boardId: string): Promise<{
   visibilityMap: Record<string, string[]>
 }> {
   const supabase = await createClient()
-  const fields = await getBoardFields(boardId)
+  // Phase D3-LP — system loan fields (config.hidden_from_grid) power the File
+  // Card but never appear as board-grid columns.
+  const fields = (await getBoardFields(boardId)).filter((f: any) => !(f.config as any)?.hidden_from_grid)
   const fieldIds = fields.map((f: { id: string }) => f.id)
 
   let rows: FieldVisibilityRow[] = []
