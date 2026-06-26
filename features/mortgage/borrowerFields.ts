@@ -22,6 +22,7 @@ export interface BorrowerField {
   required?: boolean
   computed?: BorrowerComputed
   full?: boolean // span full width
+  sensitive?: boolean // SEC-LOCK — locked until secure storage exists (no write/no display)
 }
 
 const BASIC: BorrowerField[] = [
@@ -32,7 +33,7 @@ const BASIC: BorrowerField[] = [
   { slug: 'middle_name', label: 'Middle',     type: 'text', subtab: 'basic', section: 'Personal Info' },
   { slug: 'last_name',   label: 'Last Name',  type: 'text', subtab: 'basic', section: 'Personal Info', required: true },
   { slug: 'suffix',      label: 'Suffix',     type: 'text', subtab: 'basic', section: 'Personal Info' },
-  { slug: 'ssn_itin',    label: 'SSN / ITIN', type: 'ssn',  subtab: 'basic', section: 'Personal Info', required: true },
+  { slug: 'ssn_itin',    label: 'SSN / ITIN', type: 'ssn',  subtab: 'basic', section: 'Personal Info', required: true, sensitive: true },
   { slug: 'date_of_birth', label: 'Date of Birth', type: 'date', subtab: 'basic', section: 'Personal Info', required: true },
   { slug: 'age',         label: 'Age', type: 'number', subtab: 'basic', section: 'Personal Info', computed: 'age' },
   { slug: 'residency_type', label: 'Residency Type', type: 'select', subtab: 'basic', section: 'Personal Info', required: true, options: ['US Citizen', 'Permanent Resident', 'Non-Permanent Resident'] },

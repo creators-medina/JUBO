@@ -29,6 +29,7 @@ export interface LoanField {
   unit?: '%' | 'months'
   computed?: ComputedKey
   default?: string
+  sensitive?: boolean // SEC-LOCK — locked until secure storage exists (none set today)
 }
 
 /** UI percent maps to a numeric DB column; everything else is 1:1. */

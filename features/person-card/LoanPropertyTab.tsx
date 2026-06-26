@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase/client'
 import { upsertFieldValue } from '@/features/records/actions'
 import { ensureLoanPropertyFields } from '@/features/mortgage/loanFieldActions'
 import { LOAN_FIELDS, PITI_ROWS, type LoanField, type LoanSubtab } from '@/features/mortgage/loanFields'
+import { LockedField } from './LockedField'
 import { cn } from '@/lib/utils'
 
 type Vals = Record<string, { value_text: string | null; value_number: number | null; value_boolean: boolean | null; value_date: string | null }>
@@ -205,6 +206,12 @@ function FieldRow({
 }) {
   const v = vals[field.slug]
   const req = field.required ? <span className="text-jubo-red"> *</span> : null
+
+  // SEC-LOCK — sensitive fields are locked (no input/read/write). None today on
+  // the loan schema, but the guard keeps the mechanism uniform across all tabs.
+  if (field.sensitive) {
+    return <LockedField label={field.label} />
+  }
 
   // Computed cells are read-only, derived live.
   if (field.computed) {

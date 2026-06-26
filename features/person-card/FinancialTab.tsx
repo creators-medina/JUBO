@@ -16,6 +16,7 @@ import {
   getFinancials, addFinancialItem, saveFinancialItem, removeFinancialItem, type FinancialItem,
 } from './financialActions'
 import { getBorrowers, type BorrowerRow } from './borrowerActions'
+import { LockedField } from './LockedField'
 import { borrowerName } from '@/features/mortgage/borrowerFields'
 import {
   FIN_CATEGORIES, catDef, incomeMonthlyTotal, itemAmount, type FinCategory, type FinField,
@@ -165,6 +166,12 @@ function ItemRow({
 function FinInput({ field, data, onSave }: { field: FinField; data: Record<string, unknown>; onSave: (slug: string, value: unknown) => void }) {
   const v = data[field.slug]
   const full = field.full ? 'sm:col-span-2' : ''
+
+  // SEC-LOCK — sensitive fields (account numbers) are locked: no input, no read
+  // of a pre-existing value, no onSave call.
+  if (field.sensitive) {
+    return <LockedField label={field.label} className={full} />
+  }
 
   if (field.computed === 'income_monthly_total') {
     return (

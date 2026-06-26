@@ -17,6 +17,7 @@ export interface FinField {
   options?: string[]
   full?: boolean
   computed?: 'income_monthly_total'
+  sensitive?: boolean // SEC-LOCK — locked until secure storage exists (no write/no display)
 }
 
 export interface FinCategoryDef {
@@ -57,7 +58,7 @@ const ASSET: FinField[] = [
   { slug: 'asset_type', label: 'Asset Type', type: 'select', options: ['Checking', 'Savings', 'Money Market', 'Certificate of Deposit', 'Retirement', 'Brokerage / Stocks', 'Gift', 'Other'] },
   { slug: 'cash_market_value', label: 'Cash or Market Value', type: 'currency' },
   { slug: 'bank_institution', label: 'Bank / Institution', type: 'text', full: true },
-  { slug: 'account_number', label: 'Account Number', type: 'text' },
+  { slug: 'account_number', label: 'Account Number', type: 'text', sensitive: true },
   { slug: 'is_verified', label: 'Is Verified', type: 'boolean' },
   { slug: 'liquidity', label: 'Liquidity', type: 'boolean' },
 ]
@@ -70,7 +71,7 @@ const LIABILITY: FinField[] = [
   { slug: 'unpaid_balance', label: 'Unpaid Balance', type: 'currency' },
   { slug: 'monthly_payment', label: 'Monthly Payment', type: 'currency' },
   { slug: 'remaining_months', label: 'Remaining Months', type: 'number' },
-  { slug: 'account_number', label: 'Account Number', type: 'text' },
+  { slug: 'account_number', label: 'Account Number', type: 'text', sensitive: true },
   { slug: 'account_status', label: 'Account Status', type: 'select', options: ['Open', 'Closed', 'Paid', 'Collection'] },
   { slug: 'current_rating_type', label: 'Current Rating Type', type: 'select', options: ['Current', '30 Days Late', '60 Days Late', '90+ Days Late'] },
   { slug: 'will_be_paid_off', label: 'Will be paid off', type: 'boolean' },

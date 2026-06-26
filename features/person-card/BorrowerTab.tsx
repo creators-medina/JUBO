@@ -12,7 +12,8 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useState, useCallback } from 'react'
-import { Loader2, X, UserPlus, Lock } from 'lucide-react'
+import { Loader2, X, UserPlus } from 'lucide-react'
+import { LockedField } from './LockedField'
 import {
   getBorrowers, ensurePrimaryBorrower, addBorrower, removeBorrower, saveBorrower, type BorrowerRow,
 } from './borrowerActions'
@@ -135,6 +136,12 @@ function BorrowerInput({ field, data, onSave }: { field: BorrowerField; data: Re
   const req = field.required ? <span className="text-jubo-red"> *</span> : null
   const full = field.full ? 'sm:col-span-2' : ''
 
+  // SEC-LOCK — sensitive fields (SSN/ITIN, …) are locked: no input, no read of a
+  // pre-existing value, no onSave call. Shared LockedField renderer.
+  if (field.sensitive) {
+    return <LockedField label={field.label} className={full} />
+  }
+
   if (field.computed === 'age') {
     return (
       <Row className={full} label={field.label} req={req}>
@@ -178,21 +185,6 @@ function BorrowerInput({ field, data, onSave }: { field: BorrowerField; data: Re
       <Row className={full} label={field.label} req={req}>
         <input type="date" value={typeof v === 'string' ? v.split('T')[0] : ''} onChange={(e) => onSave(field.slug, e.target.value || null)}
           className="w-44 rounded-md border border-jubo-border bg-jubo-card px-2 py-1 text-xs text-jubo-text focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
-      </Row>
-    )
-  }
-
-  if (field.type === 'ssn') {
-    // Phase D3-BI-3 — SSN/ITIN is LOCKED by construction. record_borrowers.data
-    // is plaintext at rest, so no real SSN may be entered or stored until an
-    // encrypted-storage layer exists. The field stays in the layout (locked,
-    // disabled), never reads a pre-existing value, and never calls onSave.
-    return (
-      <Row className={full} label={field.label} req={req}>
-        <span className="flex w-44 items-center gap-1.5 rounded-md border border-dashed border-jubo-border bg-jubo-card-soft px-2 py-1 text-2xs text-jubo-muted"
-          title="Locked until encrypted storage is enabled">
-          <Lock className="h-3 w-3 flex-shrink-0" /> Secure SSN storage coming soon
-        </span>
       </Row>
     )
   }
