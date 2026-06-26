@@ -22,6 +22,7 @@ import { SMSComposeBox } from '@/features/conversations/compose/SMSComposeBox'
 import { NoteList } from '@/features/workspace/notes/NoteList'
 import { createNote } from '@/features/workspace/notes/actions'
 import { createTask } from '@/features/tasks/actions'
+import { LoanPropertyTab } from './LoanPropertyTab'
 import { upsertFieldValue, moveRecord } from '@/features/records/actions'
 // Phase C3 — harvested LOS Command-Center pieces (reused, not rebuilt).
 import { NextActionCard } from '@/features/workspace/components/NextActionCard'
@@ -248,7 +249,9 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
 
       {/* Loan-only tabs — never render on a generic board (also gated out of the
           tab strip above; the activeTab guard makes them unreachable there). */}
-      {isLoanLike && activeTab === 'loan' && <ArriveShell title="Loan & Property Info" sections={['Loan Info', 'Property Info', 'Title Info']} />}
+      {isLoanLike && activeTab === 'loan' && (
+        <LoanPropertyTab recordId={recordId} boardId={card.record.boardId} organizationId={card.record.organizationId} />
+      )}
       {isLoanLike && activeTab === 'borrower' && (
         <ArriveShell
           title="Borrower Info"
