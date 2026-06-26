@@ -13,7 +13,7 @@
 
 import { useEffect, useState, useCallback, useTransition } from 'react'
 import {
-  Loader2, CheckSquare, Square, Plug, ArrowUpRight, ArrowDownLeft, ChevronRight,
+  Loader2, CheckSquare, Square, Plug, ArrowUpRight, ArrowDownLeft,
   Home, Lock, MessageSquare, Mail, StickyNote, ListChecks,
 } from 'lucide-react'
 import { getFileCardData, type PersonCardData, type LoanCommandData } from './actions'
@@ -24,6 +24,7 @@ import { createNote } from '@/features/workspace/notes/actions'
 import { createTask } from '@/features/tasks/actions'
 import { LoanPropertyTab } from './LoanPropertyTab'
 import { BorrowerTab } from './BorrowerTab'
+import { FinancialTab } from './FinancialTab'
 import { upsertFieldValue, moveRecord } from '@/features/records/actions'
 // Phase C3 — harvested LOS Command-Center pieces (reused, not rebuilt).
 import { NextActionCard } from '@/features/workspace/components/NextActionCard'
@@ -256,7 +257,7 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
         <BorrowerTab recordId={recordId} />
       )}
       {isLoanLike && activeTab === 'financial' && (
-        <ArriveShell title="Financial Info" sections={['Monthly Income', 'Assets', 'Liabilities', 'Real Estate Owned']} addable />
+        <FinancialTab recordId={recordId} />
       )}
     </div>
   )
@@ -671,26 +672,3 @@ function MoveToStage({
   )
 }
 
-function ArriveShell({ title, sections, contact, addable }: { title: string; sections: string[]; contact?: { phone: string | null; email: string | null }; addable?: boolean }) {
-  return (
-    <div className="space-y-3">
-      {sections.map((s) => (
-        <div key={s} className="rounded-xl border border-border bg-card p-3">
-          <div className="flex items-center justify-between">
-            <p className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">{s}</p>
-            {addable && <span className="cursor-not-allowed rounded border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground/50">+ Add (coming soon)</span>}
-          </div>
-          {/* Bind values that genuinely exist; otherwise a clean coming-soon state. */}
-          {s === 'Contact' && contact ? (
-            <div className="mt-2 space-y-1">
-              <Field label="Phone" value={contact.phone} />
-              <Field label="Email" value={contact.email} />
-            </div>
-          ) : (
-            <p className="mt-2 flex items-center gap-1 text-2xs text-muted-foreground/60"><ChevronRight className="h-3 w-3" /> This section is being built.</p>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
