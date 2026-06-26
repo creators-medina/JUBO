@@ -353,7 +353,7 @@ function LoanHeroCard({ sv, cv, bind }: { sv: Acc; cv: Acc; bind: (k: string) =>
     <div className="jubo-los-card p-3.5">
       <div className="mb-1.5 flex items-center gap-1.5">
         <span className="h-1.5 w-1.5 rounded-full bg-jubo-red" aria-hidden />
-        <p className="jubo-los-section-label">Loan</p>
+        <p className="text-sm font-semibold tracking-tight text-jubo-navy">Loan</p>
       </div>
       <p className={cn('text-3xl font-bold tracking-tight', amount ? 'text-jubo-text' : 'text-muted-foreground/40')}>{amount ?? '—'}</p>
       {sub && <p className="mt-0.5 text-xs text-jubo-muted">{sub}</p>}
@@ -393,7 +393,7 @@ function PropertyCardMini({ sv, cv, bind }: { sv: Acc; cv: Acc; bind: (k: string
         <Home className="h-6 w-6" />
       </div>
       <div className="min-w-0">
-        <p className="jubo-los-section-label mb-0.5">Property</p>
+        <p className="mb-0.5 text-sm font-semibold tracking-tight text-jubo-navy">Property</p>
         <p className={cn('truncate text-sm font-medium', addr ? 'text-jubo-text' : 'text-muted-foreground/40')}>{addr ?? '—'}</p>
         {loc && <p className="truncate text-2xs text-jubo-muted">{loc}</p>}
         {line2 && <p className="truncate text-2xs text-jubo-muted">{line2}</p>}
@@ -413,7 +413,7 @@ function ConditionsCard({
   return (
     <div className="jubo-los-card p-3.5">
       <div className="mb-2 flex items-center justify-between">
-        <p className="jubo-los-section-label">Conditions</p>
+        <p className="text-sm font-semibold tracking-tight text-jubo-navy">Conditions</p>
         {checklist.hasChecklist && (
           <span className="rounded-full bg-jubo-gold-soft px-2 py-0.5 text-2xs font-semibold uppercase tracking-wider text-jubo-gold">{open} open</span>
         )}
