@@ -255,8 +255,10 @@ export async function moveRecord(recordId: string, toGroupId: string, boardId: s
  *
  * Reorder is position-only: it does NOT change group_id/status, so there's no
  * record_movement, no status reset, and no workflow dispatch (unlike moveRecord).
- * Caller passes only the records whose position actually changed (minimal writes,
- * fewer updated_at bumps). Direct update mirrors updateRecord/setPriority's RLS path.
+ * Caller passes only the records whose position actually changed (minimal writes).
+ * Direct update mirrors updateRecord/setPriority's RLS path; the records
+ * set_records_updated_at trigger (phase4f) preserves updated_at on position-only
+ * updates, so reordering never resets last-activity / staleness / attention.
  */
 export async function reorderRecords(boardId: string, updates: { id: string; position: number }[]) {
   if (updates.length === 0) return
