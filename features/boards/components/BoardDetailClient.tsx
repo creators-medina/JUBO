@@ -21,7 +21,7 @@ import { AutomationsModal } from '@/features/workflows/components/AutomationsMod
 import { BulkActionBar } from './BulkActionBar'
 import { DragOverlayRow } from './DragOverlayRow'
 import { useBoardRealtime } from '@/hooks/useBoardRealtime'
-import { moveRecord } from '@/features/records/actions'
+import { moveRecord, reorderRecords } from '@/features/records/actions'
 import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, isFieldVisibleInGroup, type FieldVisibilityRow } from '@/features/fields/visibility'
 import { computeGroupChecklist } from '@/features/fields/checklist'
 import { reorderFields } from '@/features/fields/actions'
@@ -225,14 +225,78 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     // record→drop pairs are handled here; field/column reorder is separate.
     const a = active.data.current
     const o = over.data.current
-    if (a?.type !== 'record' || o?.type !== 'drop') return
+    if (a?.type !== 'record' || !o) return
+
+    // Drop target is either a column ('drop') or another card ('record-drop', Kanban reorder).
+    const toGroupId: string | undefined = (o.type === 'drop' || o.type === 'record-drop') ? o.groupId : undefined
+    if (!toGroupId) return
+    // Same-board ONLY. Cross-board pipeline is deferred (37C) and unreachable in V1.
+    if (a.boardId !== o.boardId) return
 
     const recordId = a.recordId as string
     const fromGroupId = a.fromGroupId
-    const toGroupId = o.groupId
-    if (!toGroupId || fromGroupId === toGroupId) return
-    // Same-board ONLY. Cross-board pipeline is deferred (37C) and unreachable in V1.
-    if (a.boardId !== o.boardId) return
+
+    // ── Same-column REORDER (Phase 4F): dropped onto another card in the same group. ──
+    if (o.type === 'record-drop' && o.groupId === fromGroupId) {
+      const targetId = o.recordId as string
+      if (targetId === recordId) return
+
+      // Insert before/after the target by comparing the dragged card's center to the target's.
+      const ar = active.rect.current.translated
+      const orc = over.rect
+      const after = !!(ar && orc) && (ar.top + ar.height / 2) > (orc.top + orc.height / 2)
+
+      // Full (unfiltered) group order, in current position order from localRecords.
+      const groupIds: string[] = localRecords
+        .filter((r) => r.group_id === fromGroupId && !r.parent_record_id)
+        .map((r) => r.id)
+      const without = groupIds.filter((id) => id !== recordId)
+      let idx = without.indexOf(targetId)
+      if (idx === -1) return
+      if (after) idx += 1
+      without.splice(idx, 0, recordId)
+      const orderedIds = without
+      if (orderedIds.join() === groupIds.join()) return // no-op
+
+      // Persist only the records whose position actually changed (minimal writes).
+      const changed = orderedIds
+        .map((id, i) => ({ id, position: i }))
+        .filter(({ id, position }) => {
+          const rec = localRecords.find((r) => r.id === id)
+          return rec && rec.position !== position
+        })
+
+      // Optimistic: rewrite the group's records into the new order + positions.
+      // filteredByGroup preserves array order, so this reflects immediately.
+      isMutating.current = true
+      const posById = new Map(orderedIds.map((id, i) => [id, i]))
+      setLocalRecords(prev => {
+        const inGroup = new Map(
+          prev.filter((r) => r.group_id === fromGroupId && !r.parent_record_id).map((r) => [r.id, r]),
+        )
+        let k = 0
+        return prev.map((r) => {
+          if (r.group_id === fromGroupId && !r.parent_record_id) {
+            const id = orderedIds[k++]
+            return { ...inGroup.get(id), position: posById.get(id) }
+          }
+          return r
+        })
+      })
+
+      try {
+        await reorderRecords(a.boardId, changed)
+        router.refresh()
+      } catch {
+        setLocalRecords(serverRecords) // rollback
+      } finally {
+        isMutating.current = false
+      }
+      return
+    }
+
+    // ── Cross-column MOVE (column drop, or a card-drop in a different group). ──
+    if (fromGroupId === toGroupId) return // same-group column drop (empty area) — no-op
 
     // Optimistic move (powers both views; pending set neutralizes the stale status chip).
     isMutating.current = true
@@ -243,7 +307,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
       // The ONE rule: route through the moveRecord() wrapper (status reset +
       // record_movements + activity in the RPC, AND record.group_changed dispatch
       // in the wrapper) — never the raw move_record RPC.
-      await moveRecord(recordId, toGroupId, o.boardId)
+      await moveRecord(recordId, toGroupId, a.boardId)
       router.refresh()
     } catch {
       setLocalRecords(serverRecords) // rollback
@@ -251,7 +315,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     } finally {
       isMutating.current = false
     }
-  }, [serverRecords, router])
+  }, [serverRecords, router, localRecords])
 
   const handleOptimisticMove = useCallback((recordId: string, toGroupId: string) => {
     isMutating.current = true

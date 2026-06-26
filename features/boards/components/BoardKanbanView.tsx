@@ -180,6 +180,14 @@ function KanbanCard({
   })
   const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
 
+  // Phase 4F — per-card drop zone enables within-column REORDER. Dropping a card
+  // onto this one (same group) reorders; onto a card in another group still moves
+  // group (handled in BoardDetailClient.handleDragEnd). Distinct ID space.
+  const drop = useDroppable({
+    id: `kanban-card-drop:${record.id}`,
+    data: { type: 'record-drop', recordId: record.id, groupId: stage.groupId, boardId: stage.boardId },
+  })
+
   // Phase 3C — borrower preview on hover. Disabled while dragging so it never
   // competes with dnd-kit; the trigger's onPointerDown closes it AND bubbles to
   // the button's drag listeners (the trigger is an inner element), so click-to-
@@ -188,6 +196,12 @@ function KanbanCard({
 
   return (
     <>
+      {/* Drop wrapper (reorder target). A subtle navy ring marks the insertion
+          target while another card hovers over it; never on the card being dragged. */}
+      <div
+        ref={drop.setNodeRef}
+        className={cn('flex-shrink-0 rounded-xl', drop.isOver && !isDragging && 'ring-2 ring-jubo-navy/40')}
+      >
       <button
         ref={setNodeRef}
         style={style}
@@ -209,6 +223,7 @@ function KanbanCard({
           <KanbanCardFace {...face} />
         </div>
       </button>
+      </div>
       {hover.open && hover.rect && (
         <BorrowerPreviewPanel
           rect={hover.rect}

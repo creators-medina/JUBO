@@ -248,6 +248,28 @@ export async function moveRecord(recordId: string, toGroupId: string, boardId: s
   }
 }
 
+/**
+ * Persist a within-group reorder by writing each record's `position`. Position
+ * is the existing sortable column (records.position, indexed by group_id) that
+ * getRecordsByBoard already orders by — so this is durable across refreshes.
+ *
+ * Reorder is position-only: it does NOT change group_id/status, so there's no
+ * record_movement, no status reset, and no workflow dispatch (unlike moveRecord).
+ * Caller passes only the records whose position actually changed (minimal writes,
+ * fewer updated_at bumps). Direct update mirrors updateRecord/setPriority's RLS path.
+ */
+export async function reorderRecords(boardId: string, updates: { id: string; position: number }[]) {
+  if (updates.length === 0) return
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  await Promise.all(
+    updates.map((u) => supabase.from('records').update({ position: u.position }).eq('id', u.id)),
+  )
+  revalidatePath(`/boards/${boardId}`)
+}
+
 // ── Phase 32A — Cross-board movement ──────────────────────────────────────────
 
 export type MoveTargetBoard = {
