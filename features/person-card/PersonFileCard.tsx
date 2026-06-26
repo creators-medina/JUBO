@@ -14,11 +14,14 @@
 import { useEffect, useState, useCallback, useTransition } from 'react'
 import {
   Loader2, CheckSquare, Square, Plug, ArrowUpRight, ArrowDownLeft, ChevronRight,
+  Home, Lock, MessageSquare, Mail, StickyNote, ListChecks,
 } from 'lucide-react'
 import { getFileCardData, type PersonCardData, type LoanCommandData } from './actions'
 import type { CommunicateContext } from '@/features/communications/communicate'
 import { SMSComposeBox } from '@/features/conversations/compose/SMSComposeBox'
 import { NoteList } from '@/features/workspace/notes/NoteList'
+import { createNote } from '@/features/workspace/notes/actions'
+import { createTask } from '@/features/tasks/actions'
 import { upsertFieldValue, moveRecord } from '@/features/records/actions'
 // Phase C3 — harvested LOS Command-Center pieces (reused, not rebuilt).
 import { NextActionCard } from '@/features/workspace/components/NextActionCard'
@@ -128,37 +131,71 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
         </div>
       )}
 
-      {activeTab === 'overview' && (
-        <div className={cn(
-          'grid grid-cols-1 gap-4 lg:grid-cols-3',
-          // Warm LOS canvas for the loan shape (harvested styling); generic stays plain.
-          isLoanLike && 'jubo-los-page rounded-xl p-4',
-        )}>
-          {/* LEFT — snapshot/summary + real checklist */}
+      {/* ── LOAN-shape Overview (premium command layout, Phase C-POLISH) ── */}
+      {activeTab === 'overview' && isLoanLike && (
+        <div className="jubo-los-page grid grid-cols-1 gap-4 rounded-xl p-4 lg:grid-cols-3">
+          {/* LEFT — the loan file: hero loan, property, conditions. */}
           <div className="space-y-4">
-            {isLoanLike ? (
-              <>
-                <LosSection title="Loan">
-                  <Field label="Loan Amount" value={cv('loan_amount') ?? bind('loan_amount')} />
-                  <Field label="Purchase / Appraised Value" value={cv('purchase_price') ?? cv('appraised_value')} />
-                  <Field label="Interest Rate" value={sv('interest_rate')} />
-                  <Field label="Loan Program" value={sv('loan_type') ?? sv('loan_program') ?? bind('loan_type')} />
-                </LosSection>
-                <LosSection title="Property">
-                  <Field label="Address" value={sv('property_address') ?? bind('property_address')} />
-                  <Field label="Property Type" value={sv('property_type')} />
-                </LosSection>
-              </>
-            ) : (
-              // Generic board — real record fields, no loan framing.
-              <Section title="Record summary">
-                {card.thisBoard.length > 0 ? (
-                  card.thisBoard.slice(0, 12).map((f) => <Field key={f.fieldId} label={f.name} value={f.value || null} />)
-                ) : (
-                  <p className="text-2xs text-muted-foreground">No fields on this record yet.</p>
-                )}
-              </Section>
+            <LoanHeroCard sv={sv} cv={cv} bind={bind} />
+            <PropertyCardMini sv={sv} cv={cv} bind={bind} />
+            <ConditionsCard checklist={card.checklist} busy={busy} onToggle={toggleChecklist} />
+          </div>
+
+          {/* CENTER — conversation feed + 4-mode composer. */}
+          <div className="space-y-3">
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <div className="flex gap-1 border-b border-border px-3 py-2">
+                {(['all', 'comms', 'tasks', 'pipeline'] as Filter[]).map((f) => (
+                  <button key={f} onClick={() => setFilter(f)}
+                    className={cn('rounded-full px-2.5 py-0.5 text-2xs font-medium capitalize transition-colors',
+                      filter === f ? 'bg-jubo-navy text-white' : 'text-muted-foreground hover:text-foreground')}>{f}</button>
+                ))}
+              </div>
+              <Feed card={card} comms={comms} filter={filter} />
+              <div className="border-t border-border p-2.5">
+                <Composer
+                  recordId={recordId}
+                  boardId={card.record.boardId}
+                  orgId={card.record.organizationId}
+                  comms={comms}
+                  email={email}
+                  onChanged={load}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT — Next Step + signals + Tasks + Related + Move-To, then Notes. */}
+          <div className="space-y-4">
+            {loan && (
+              <CommandRail
+                recordId={recordId}
+                loan={loan}
+                templateKey={card.templateKey}
+                tasks={card.tasks}
+                onChanged={load}
+              />
             )}
+            <Section title="Notes">
+              {comms ? (
+                <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} />
+              ) : <div className="flex items-center gap-2 py-2 text-2xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> …</div>}
+            </Section>
+          </div>
+        </div>
+      )}
+
+      {/* ── GENERIC-shape Overview (unchanged) ── */}
+      {activeTab === 'overview' && !isLoanLike && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="space-y-4">
+            <Section title="Record summary">
+              {card.thisBoard.length > 0 ? (
+                card.thisBoard.slice(0, 12).map((f) => <Field key={f.fieldId} label={f.name} value={f.value || null} />)
+              ) : (
+                <p className="text-2xs text-muted-foreground">No fields on this record yet.</p>
+              )}
+            </Section>
             <Section title={`Checklist${card.checklist.hasChecklist ? ` · ${card.checklist.completedCount}/${card.checklist.totalCount} (${card.checklist.percentage}%)` : ''}`}>
               {card.checklist.hasChecklist ? (
                 <ul className="max-h-60 space-y-1 overflow-y-auto">
@@ -176,7 +213,6 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
             </Section>
           </div>
 
-          {/* CENTER — real comms feed */}
           <div className="space-y-3">
             <Section title="Activity & messages" noPad>
               <div className="flex gap-1 border-b border-border px-3 py-2">
@@ -200,42 +236,7 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
             </Section>
           </div>
 
-          {/* RIGHT — file summary + harvested LOS rail + real notes */}
           <div className="space-y-4">
-            {isLoanLike && (
-              <div className="jubo-los-card p-3">
-                <p className="jubo-los-section-label mb-2">File summary</p>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                  {/* Stored values bind real-if-present (slug → common-key), else
-                      placeholder. DTI/LTV show a real field value if one exists,
-                      otherwise stay an honest "computed later" placeholder — never
-                      calculated here (that's D2). */}
-                  <Metric label="FICO" value={sv('credit_score') ?? sv('fico') ?? bind('fico')} />
-                  <Metric label="Program" value={sv('loan_type') ?? sv('loan_program') ?? bind('loan_type')} />
-                  <Metric label="Loan Amount" value={cv('loan_amount') ?? bind('loan_amount')} />
-                  <Metric label="Occupancy" value={sv('occupancy') ?? bind('occupancy')} />
-                  <Metric label="DTI" value={sv('dti')} computed />
-                  <Metric label="LTV" value={sv('ltv')} computed />
-                  <Metric label="PI" value={sv('principal_interest')} computed />
-                  <Metric label="TI" value={sv('taxes_insurance')} computed />
-                  <Metric label="Income" value={cv('monthly_income') ?? cv('annual_income')} />
-                  <Metric label="Assets" value={cv('total_assets')} />
-                </div>
-              </div>
-            )}
-
-            {/* Harvested LOS rail — real Next Step, signals, tasks, file team,
-                move-to. All read the current-board command bundle (loan). */}
-            {isLoanLike && loan && (
-              <CommandRail
-                recordId={recordId}
-                loan={loan}
-                templateKey={card.templateKey}
-                tasks={card.tasks}
-                onChanged={load}
-              />
-            )}
-
             <Section title="Notes">
               {comms ? (
                 <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} />
@@ -262,30 +263,52 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
   )
 }
 
+function feedTag(activityType: string): string {
+  const t = activityType.toLowerCase()
+  if (t.includes('call')) return 'CALL'
+  if (t.includes('email')) return 'EMAIL'
+  if (t.includes('sms') || t.includes('text')) return 'SMS'
+  if (t.includes('meeting')) return 'MEETING'
+  if (t.includes('note')) return 'NOTE'
+  if (t.includes('task')) return 'TASK'
+  if (t.includes('status') || t.includes('movement') || t.includes('group')) return 'PIPELINE'
+  return 'EVENT'
+}
+
 function Feed({ card, comms, filter }: { card: PersonCardData; comms: CommunicateContext | undefined; filter: Filter }) {
-  type Item = { id: string; kind: 'sms' | 'activity'; ts: string; direction?: string; body?: string | null; label?: string; cat: Filter | 'other' }
+  type Item = { id: string; kind: 'sms' | 'activity'; ts: string; direction?: string; body?: string | null; label?: string; tag: string; cat: Filter | 'other' }
   const items: Item[] = []
-  for (const m of comms?.messages ?? []) items.push({ id: `s-${m.id}`, kind: 'sms', ts: m.occurred_at, direction: m.direction, body: m.body, cat: 'comms' })
-  for (const a of card.activities) items.push({ id: `a-${a.id}`, kind: 'activity', ts: a.created_at, label: a.content ?? a.activity_type, cat: activityCategory(a.activity_type) })
+  for (const m of comms?.messages ?? []) items.push({ id: `s-${m.id}`, kind: 'sms', ts: m.occurred_at, direction: m.direction, body: m.body, tag: 'SMS', cat: 'comms' })
+  for (const a of card.activities) items.push({ id: `a-${a.id}`, kind: 'activity', ts: a.created_at, label: a.content ?? a.activity_type, tag: feedTag(a.activity_type), cat: activityCategory(a.activity_type) })
   const shown = items
     .filter((i) => filter === 'all' || i.cat === filter)
     .sort((a, b) => (b.ts ?? '').localeCompare(a.ts ?? ''))
 
-  if (shown.length === 0) return <div className="px-3 py-6 text-center text-2xs text-muted-foreground">Nothing here yet.</div>
+  const fmtTs = (ts?: string) => (ts ? ts.split('T')[0] : '')
+
+  if (shown.length === 0) return <div className="px-3 py-8 text-center text-2xs text-muted-foreground">Nothing here yet.</div>
   return (
-    <div className="max-h-72 space-y-1.5 overflow-y-auto p-3">
+    <div className="max-h-72 space-y-2 overflow-y-auto p-3">
       {shown.map((i) => i.kind === 'sms' ? (
         <div key={i.id} className={cn('flex', i.direction === 'outbound' ? 'justify-end' : 'justify-start')}>
-          <div className={cn('max-w-[80%] rounded-lg px-2.5 py-1.5 text-xs', i.direction === 'outbound' ? 'bg-jubo-navy/10' : 'bg-surface-2')}>
-            <span className="mb-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-              {i.direction === 'outbound' ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownLeft className="h-2.5 w-2.5" />}{i.ts?.split('T')[0]}
-            </span>{i.body}
+          <div className="max-w-[82%]">
+            <div className={cn('mb-0.5 flex items-center gap-1 text-[10px] text-muted-foreground', i.direction === 'outbound' && 'justify-end')}>
+              {i.direction === 'outbound' ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownLeft className="h-2.5 w-2.5" />}
+              <span className="font-semibold tracking-wider">{i.tag}</span> · {fmtTs(i.ts)}
+            </div>
+            <div className={cn('rounded-2xl px-3 py-1.5 text-xs', i.direction === 'outbound' ? 'bg-jubo-navy text-white' : 'bg-surface-2 text-foreground')}>
+              {i.body}
+            </div>
           </div>
         </div>
       ) : (
-        <div key={i.id} className="flex items-start gap-2 text-2xs text-muted-foreground">
-          <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-border" />
-          <span><span className="text-foreground/80">{i.label}</span> · {i.ts?.split('T')[0]}</span>
+        <div key={i.id} className="flex items-start gap-2">
+          <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-jubo-border-strong" />
+          <div className="min-w-0 flex-1">
+            <span className="mr-1.5 rounded bg-surface-2 px-1 py-0.5 text-[9px] font-semibold tracking-wider text-muted-foreground">{i.tag}</span>
+            <span className="text-xs text-foreground/80">{i.label}</span>
+            <span className="ml-1 text-2xs text-muted-foreground">· {fmtTs(i.ts)}</span>
+          </div>
         </div>
       ))}
     </div>
@@ -312,16 +335,200 @@ function Field({ label, value }: { label: string; value: string | null }) {
   )
 }
 
-function Metric({ label, value, computed }: { label: string; value?: string | null; computed?: boolean }) {
-  // A real stored value always wins. `computed` only governs the placeholder:
-  // a derived metric (DTI/LTV/PI/TI) shows its honest "calculated later" caption
-  // when no real field value exists — it is NEVER computed here.
-  const hasReal = value != null && value !== ''
+// ── Phase C-POLISH — loan-shape Overview cards (premium command layout) ──────
+// All values bind real-if-present via the slug/common accessors, else an honest
+// "—" placeholder. Nothing is computed or fabricated (DTI/LTV come from a real
+// field only; deriving them is D2).
+
+type Acc = (slug: string) => string | null
+
+function LoanHeroCard({ sv, cv, bind }: { sv: Acc; cv: Acc; bind: (k: string) => string | null }) {
+  const amount = cv('loan_amount') ?? bind('loan_amount')
+  const program = sv('loan_type') ?? sv('loan_program') ?? bind('loan_type')
+  const rate = sv('interest_rate') ?? sv('note_rate')
+  const purpose = sv('loan_purpose') ?? sv('purpose')
+  const sub = [program, rate ? `@ ${rate}` : null, purpose].filter(Boolean).join(' · ')
+  const lock = [sv('lock_status'), sv('lock_expiration') ?? sv('lock_expires'), sv('lender') ?? sv('investor')].filter(Boolean)
+  return (
+    <div className="jubo-los-card p-3.5">
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 rounded-full bg-jubo-red" aria-hidden />
+        <p className="jubo-los-section-label">Loan</p>
+      </div>
+      <p className={cn('text-3xl font-bold tracking-tight', amount ? 'text-jubo-text' : 'text-muted-foreground/40')}>{amount ?? '—'}</p>
+      {sub && <p className="mt-0.5 text-xs text-jubo-muted">{sub}</p>}
+      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5">
+        <MetricMini label="Down" value={cv('down_payment') ?? sv('down_payment_percent') ?? sv('down_payment')} />
+        <MetricMini label="LTV" value={sv('ltv')} />
+        <MetricMini label="DTI" value={sv('dti')} />
+        <MetricMini label="Close" value={sv('target_close_date') ?? sv('close_date')} />
+      </div>
+      {lock.length > 0 && (
+        <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-jubo-gold-soft px-2.5 py-1 text-2xs font-medium text-jubo-gold">
+          <Lock className="h-3 w-3" /> {lock.join(' · ')}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MetricMini({ label, value }: { label: string; value: string | null }) {
+  const has = value != null && value !== ''
   return (
     <div className="min-w-0">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={cn('truncate text-xs', hasReal ? 'text-foreground' : 'text-muted-foreground/50')}>{hasReal ? value : '—'}</p>
-      {computed && !hasReal && <p className="text-[9px] text-muted-foreground/40">calculated once financials are added</p>}
+      <p className="text-[10px] uppercase tracking-wider text-jubo-muted">{label}</p>
+      <p className={cn('truncate text-sm font-semibold', has ? 'text-jubo-text' : 'text-muted-foreground/40')}>{has ? value : '—'}</p>
+    </div>
+  )
+}
+
+function PropertyCardMini({ sv, cv, bind }: { sv: Acc; cv: Acc; bind: (k: string) => string | null }) {
+  const addr = sv('property_address') ?? bind('property_address')
+  const loc = [sv('property_city'), sv('property_state')].filter(Boolean).join(', ')
+  const est = cv('property_value') ?? cv('appraised_value')
+  const line2 = [sv('property_type'), est ? `Est. ${est}` : null].filter(Boolean).join(' · ')
+  return (
+    <div className="jubo-los-card flex items-start gap-3 p-3.5">
+      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-jubo-card-soft text-jubo-muted">
+        <Home className="h-6 w-6" />
+      </div>
+      <div className="min-w-0">
+        <p className="jubo-los-section-label mb-0.5">Property</p>
+        <p className={cn('truncate text-sm font-medium', addr ? 'text-jubo-text' : 'text-muted-foreground/40')}>{addr ?? '—'}</p>
+        {loc && <p className="truncate text-2xs text-jubo-muted">{loc}</p>}
+        {line2 && <p className="truncate text-2xs text-jubo-muted">{line2}</p>}
+      </div>
+    </div>
+  )
+}
+
+function ConditionsCard({
+  checklist, busy, onToggle,
+}: {
+  checklist: PersonCardData['checklist']
+  busy: string | null
+  onToggle: (fieldId: string, complete: boolean) => void
+}) {
+  const open = checklist.totalCount - checklist.completedCount
+  return (
+    <div className="jubo-los-card p-3.5">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="jubo-los-section-label">Conditions</p>
+        {checklist.hasChecklist && (
+          <span className="rounded-full bg-jubo-gold-soft px-2 py-0.5 text-2xs font-semibold uppercase tracking-wider text-jubo-gold">{open} open</span>
+        )}
+      </div>
+      {checklist.hasChecklist ? (
+        <ul className="max-h-64 space-y-0.5 overflow-y-auto">
+          {checklist.items.map((i) => (
+            <li key={i.fieldId} className="border-b border-jubo-border last:border-0">
+              <button onClick={() => onToggle(i.fieldId, i.complete)} disabled={busy === i.fieldId}
+                className="flex w-full items-center gap-2.5 py-2 text-left text-xs transition-colors hover:bg-jubo-card-soft disabled:opacity-60">
+                {busy === i.fieldId ? <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-jubo-muted" /> : i.complete ? <CheckSquare className="h-4 w-4 flex-shrink-0 text-jubo-green" /> : <Square className="h-4 w-4 flex-shrink-0 text-jubo-border-strong" />}
+                <span className={cn('flex-1', i.complete ? 'text-jubo-muted line-through' : 'text-jubo-text')}>{i.name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="text-2xs text-jubo-muted">No conditions for this stage.</p>}
+    </div>
+  )
+}
+
+// 4-mode composer — SMS (real Twilio), Note (real), Task (real), Email (mailto:
+// opens the user's mail client; Jubo has no in-app email send, so this is an
+// honest open-in-mail action, never a fake "Send").
+function Composer({
+  recordId, boardId, orgId, comms, email, onChanged,
+}: {
+  recordId: string
+  boardId: string | null
+  orgId: string
+  comms: CommunicateContext | undefined
+  email: string | null
+  onChanged: () => void
+}) {
+  const [mode, setMode] = useState<'sms' | 'email' | 'note' | 'task'>('sms')
+  const [text, setText] = useState('')
+  const [pending, startTransition] = useTransition()
+
+  const MODES: { key: typeof mode; label: string; Icon: React.ElementType }[] = [
+    { key: 'sms', label: 'SMS', Icon: MessageSquare },
+    { key: 'email', label: 'Email', Icon: Mail },
+    { key: 'note', label: 'Note', Icon: StickyNote },
+    { key: 'task', label: 'Task', Icon: ListChecks },
+  ]
+
+  const saveNote = () => {
+    const content = text.trim()
+    if (!content) return
+    startTransition(async () => {
+      try { await createNote({ organization_id: orgId, record_id: recordId, content }); setText(''); onChanged() } catch {}
+    })
+  }
+  const addTask = () => {
+    const title = text.trim()
+    if (!title || !boardId) return
+    startTransition(async () => {
+      try { await createTask({ organization_id: orgId, record_id: recordId, board_id: boardId, title }); setText(''); onChanged() } catch {}
+    })
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex gap-1">
+        {MODES.map(({ key, label, Icon }) => (
+          <button key={key} onClick={() => setMode(key)}
+            className={cn('flex items-center gap-1 rounded-md px-2 py-1 text-2xs font-medium transition-colors',
+              mode === key ? 'bg-jubo-navy text-white' : 'text-muted-foreground hover:text-foreground')}>
+            <Icon className="h-3 w-3" />{label}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'sms' ? (
+        !comms ? (
+          <div className="flex items-center gap-2 py-1 text-2xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> …</div>
+        ) : !comms.twilioConnected ? (
+          <a href="/settings/communications" className="flex items-center gap-1.5 text-2xs text-muted-foreground hover:text-foreground"><Plug className="h-3 w-3" /> Connect Twilio to text</a>
+        ) : !comms.phone ? (
+          <p className="text-2xs text-muted-foreground">Add a phone number to enable texting.</p>
+        ) : (
+          <SMSComposeBox recordId={recordId} participantPhone={comms.phone} onSent={onChanged} compact />
+        )
+      ) : mode === 'email' ? (
+        email ? (
+          <div className="space-y-1.5">
+            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder={`Write an email to ${email}…`}
+              className="w-full resize-none rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-muted-foreground">Opens your mail app</span>
+              <a href={`mailto:${email}${text.trim() ? `?body=${encodeURIComponent(text)}` : ''}`}
+                className="rounded-md bg-jubo-navy px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-navy2">Open in mail</a>
+            </div>
+          </div>
+        ) : <p className="text-2xs text-muted-foreground">No email on file for this contact.</p>
+      ) : mode === 'note' ? (
+        <div className="space-y-1.5">
+          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="Write a note…"
+            className="w-full resize-none rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
+          <div className="flex justify-end">
+            <button onClick={saveNote} disabled={!text.trim() || pending}
+              className="rounded-md bg-jubo-navy px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-navy2 disabled:opacity-50">{pending ? 'Saving…' : 'Save note'}</button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="New task…"
+            onKeyDown={(e) => { if (e.key === 'Enter') addTask() }}
+            className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
+          <div className="flex items-center justify-between">
+            {!boardId && <span className="text-[10px] text-muted-foreground">No board — can’t add tasks</span>}
+            <button onClick={addTask} disabled={!text.trim() || pending || !boardId}
+              className="ml-auto rounded-md bg-jubo-navy px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-navy2 disabled:opacity-50">{pending ? 'Adding…' : 'Add task'}</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
