@@ -548,13 +548,16 @@ function LosSection({ title, children }: { title: string; children: React.ReactN
 // Real Next Step (NextActionCard), opportunity signals (computeOpportunitySignals),
 // a Tasks summary, the File Team (ParticipantRibbon), and Move-To (moveRecord) —
 // all pulled from the parked LosCommandCenter, reading the current-board bundle.
+// Narrow shape for the task fields the rail reads (source is any[]).
+type RailTask = { id: string; title: string; completed_at: string | null; due_date: string | null }
+
 function CommandRail({
   recordId, loan, templateKey, tasks, onChanged,
 }: {
   recordId: string
   loan: LoanCommandData
   templateKey: PersonCardData['templateKey']
-  tasks: any[]
+  tasks: RailTask[]
   onChanged: () => void
 }) {
   const signals = computeOpportunitySignals(loan, templateKey).slice(0, 3)
@@ -624,7 +627,7 @@ function CommandRail({
       <MoveToStage
         recordId={recordId}
         boardId={loan.record.board_id}
-        groups={loan.groups}
+        groups={loan.groups as MoveGroup[]}
         currentGroupId={loan.record.group_id ?? null}
         onMoved={onChanged}
       />
@@ -632,12 +635,15 @@ function CommandRail({
   )
 }
 
+// Narrow shape for the group fields the stage picker reads (source is AnyRow[]).
+type MoveGroup = { id: string; name: string; position?: number | null }
+
 function MoveToStage({
   recordId, boardId, groups, currentGroupId, onMoved,
 }: {
   recordId: string
   boardId: string
-  groups: any[]
+  groups: MoveGroup[]
   currentGroupId: string | null
   onMoved: () => void
 }) {
