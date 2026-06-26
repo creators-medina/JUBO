@@ -12,7 +12,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useState, useCallback } from 'react'
-import { Loader2, X, UserPlus } from 'lucide-react'
+import { Loader2, X, UserPlus, Lock } from 'lucide-react'
 import {
   getBorrowers, ensurePrimaryBorrower, addBorrower, removeBorrower, saveBorrower, type BorrowerRow,
 } from './borrowerActions'
@@ -183,9 +183,16 @@ function BorrowerInput({ field, data, onSave }: { field: BorrowerField; data: Re
   }
 
   if (field.type === 'ssn') {
+    // Phase D3-BI-3 — SSN/ITIN is LOCKED by construction. record_borrowers.data
+    // is plaintext at rest, so no real SSN may be entered or stored until an
+    // encrypted-storage layer exists. The field stays in the layout (locked,
+    // disabled), never reads a pre-existing value, and never calls onSave.
     return (
       <Row className={full} label={field.label} req={req}>
-        <SsnInput value={(v as string) ?? ''} onSave={(val) => onSave(field.slug, val)} />
+        <span className="flex w-44 items-center gap-1.5 rounded-md border border-dashed border-jubo-border bg-jubo-card-soft px-2 py-1 text-2xs text-jubo-muted"
+          title="Locked until encrypted storage is enabled">
+          <Lock className="h-3 w-3 flex-shrink-0" /> Secure SSN storage coming soon
+        </span>
       </Row>
     )
   }
@@ -215,24 +222,5 @@ function Row({ label, req, children, className }: { label: string; req: React.Re
       <span className="text-xs text-jubo-muted">{label}{req}</span>
       {children}
     </div>
-  )
-}
-
-// SSN — shows masked (•••-••-1234) when blurred; reveals raw for editing on focus.
-function SsnInput({ value, onSave }: { value: string; onSave: (v: string | null) => void }) {
-  const [focused, setFocused] = useState(false)
-  const [draft, setDraft] = useState(value)
-  const last4 = value.replace(/\D/g, '').slice(-4)
-  const masked = value ? `•••-••-${last4 || '••••'}` : ''
-  return (
-    <input
-      type="text"
-      value={focused ? draft : masked}
-      placeholder="•••-••-••••"
-      onFocus={() => { setDraft(value); setFocused(true) }}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => { setFocused(false); if (draft !== value) onSave(draft.trim() || null) }}
-      className="w-44 rounded-md border border-jubo-border bg-jubo-card px-2 py-1 text-xs text-jubo-text focus:outline-none focus:ring-1 focus:ring-jubo-navy"
-    />
   )
 }
