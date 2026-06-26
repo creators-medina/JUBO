@@ -23,6 +23,7 @@ import { NoteList } from '@/features/workspace/notes/NoteList'
 import { createNote } from '@/features/workspace/notes/actions'
 import { createTask } from '@/features/tasks/actions'
 import { LoanPropertyTab } from './LoanPropertyTab'
+import { BorrowerTab } from './BorrowerTab'
 import { upsertFieldValue, moveRecord } from '@/features/records/actions'
 // Phase C3 — harvested LOS Command-Center pieces (reused, not rebuilt).
 import { NextActionCard } from '@/features/workspace/components/NextActionCard'
@@ -85,7 +86,6 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
   }
 
   const bind = (key: string): string | null => card.common.find((c) => c.key === key)?.value || null
-  const phone = comms?.phone ?? null
   const email = comms?.email ?? null
   const boardId = card.record.boardId
 
@@ -253,11 +253,7 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
         <LoanPropertyTab recordId={recordId} boardId={card.record.boardId} organizationId={card.record.organizationId} />
       )}
       {isLoanLike && activeTab === 'borrower' && (
-        <ArriveShell
-          title="Borrower Info"
-          sections={['Basic Details', 'Declarations', 'Demographics', 'Address', 'Contact']}
-          contact={{ phone, email }}
-        />
+        <BorrowerTab recordId={recordId} />
       )}
       {isLoanLike && activeTab === 'financial' && (
         <ArriveShell title="Financial Info" sections={['Monthly Income', 'Assets', 'Liabilities', 'Real Estate Owned']} addable />
