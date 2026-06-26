@@ -14,6 +14,22 @@ import { cn } from '@/lib/utils'
 
 type Stage = { id: string; name: string; position?: number | null }
 
+// Display-only label mapping for the Client Journey. Collapses the stored board
+// group name to its journey PHASE for display — Lead / Loan / Funded — without
+// touching stored names, IDs, ordering, or movement. Unknown groups (e.g.
+// partner / past-client boards) fall back to their original name.
+export function displayJourneyStageName(name: string): string {
+  const n = name.trim().toLowerCase()
+  if (n.includes('funded') || n.includes('closed')) return 'Funded'
+  if (n.includes('processing') || n.includes('in process') || n.includes('submitted') ||
+      n.includes('condition') || n.includes('clear to close') || n.includes('ctc') ||
+      n.includes('underwrit')) return 'Loan'
+  if (n.includes('inquiry') || n.includes('lead') || n.includes('credit') ||
+      n.includes('preapprov') || n.includes('pre-approv') || n.includes('shopping') ||
+      n.includes('prequal') || n.includes('under contract')) return 'Lead'
+  return name
+}
+
 export function StageTracker({ groups, currentGroupId }: { groups: Stage[]; currentGroupId: string | null }) {
   const stages = [...groups].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
   if (stages.length < 2) return null
@@ -41,7 +57,7 @@ export function StageTracker({ groups, currentGroupId }: { groups: Stage[]; curr
                 {done ? <Check className="h-3.5 w-3.5" /> : i + 1}
               </span>
               {current && (
-                <span className="whitespace-nowrap text-sm font-bold tracking-tight text-white">{g.name}</span>
+                <span className="whitespace-nowrap text-sm font-bold tracking-tight text-white">{displayJourneyStageName(g.name)}</span>
               )}
             </div>
             {i < stages.length - 1 && (
