@@ -111,7 +111,7 @@ export function KanbanCardFace({ title, statusLabel, statusColor, amount, common
     <>
       {/* Top — borrower name (left) + loan amount (right). */}
       <div className="flex items-baseline justify-between gap-2">
-        <span className="min-w-0 truncate text-sm font-semibold leading-snug tracking-tight text-foreground">
+        <span className="min-w-0 truncate text-sm font-semibold leading-snug tracking-tight text-jubo-navy">
           {title || 'Untitled'}
         </span>
         {amount && (
