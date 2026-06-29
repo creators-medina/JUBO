@@ -89,15 +89,15 @@ export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean 
         href={`/boards/${board.id}`}
         title={collapsed ? board.name : undefined}
         className={cn(
-          'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors',
+          'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[15px] transition-colors',
           collapsed ? 'justify-center' : '',
           active
             ? 'bg-sidebar-item-active text-foreground'
-            : 'text-muted-foreground hover:bg-sidebar-item-hover hover:text-foreground'
+            : 'text-foreground/80 hover:bg-sidebar-item-hover hover:text-foreground'
         )}
       >
         <Columns3 className={cn('w-4 h-4 flex-shrink-0', BOARD_TYPE_ACCENT[board.board_type] ?? 'text-muted-foreground')} />
-        {!collapsed && <span className="truncate text-sm">{board.name}</span>}
+        {!collapsed && <span className="truncate text-[15px]">{board.name}</span>}
       </Link>
     )
   }
@@ -129,7 +129,7 @@ export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean 
         if (groupBoards.length === 0) return null
         return (
           <div key={group.key} className="space-y-0.5">
-            <p className="px-2 py-1 text-2xs font-medium text-muted-foreground uppercase tracking-wider">
+            <p className="px-2 py-1 text-xs font-semibold text-jubo-gold-soft/80 uppercase tracking-wider">
               {group.label}
             </p>
             {groupBoards.map(renderBoard)}

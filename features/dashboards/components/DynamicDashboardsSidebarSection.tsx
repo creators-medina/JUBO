@@ -43,7 +43,7 @@ export function DynamicDashboardsSidebarSection({
     <div className="space-y-0.5">
       {!collapsed && (
         <div className="flex items-center justify-between px-2 py-1">
-          <p className="text-2xs font-medium text-muted-foreground uppercase tracking-wider">Dashboards</p>
+          <p className="text-xs font-semibold text-jubo-gold-soft/80 uppercase tracking-wider">Dashboards</p>
           {onCreateClick && (
             <button
               onClick={onCreateClick}
@@ -64,11 +64,11 @@ export function DynamicDashboardsSidebarSection({
             href={`/dashboards/${dashboard.id}`}
             title={collapsed ? dashboard.name : undefined}
             className={cn(
-              'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors',
+              'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[15px] transition-colors',
               collapsed ? 'justify-center' : '',
               active
                 ? 'bg-sidebar-item-active text-foreground'
-                : 'text-muted-foreground hover:bg-sidebar-item-hover hover:text-foreground'
+                : 'text-foreground/80 hover:bg-sidebar-item-hover hover:text-foreground'
             )}
           >
             {dashboard.icon ? (
@@ -77,7 +77,7 @@ export function DynamicDashboardsSidebarSection({
               <LayoutDashboard className="w-4 h-4 flex-shrink-0" />
             )}
             {!collapsed && (
-              <span className="truncate text-sm">{dashboard.name}</span>
+              <span className="truncate text-[15px]">{dashboard.name}</span>
             )}
           </Link>
         )

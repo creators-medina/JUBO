@@ -99,7 +99,7 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, pha
                 title={`${s.name}: ${s.count}${s.value > 0 ? ` · ${formatVolume(s.value)}` : ''} (${pct(s.count)}%)`}
               >
                 <span className="text-3xl font-bold leading-none tabular-nums drop-shadow-sm">{s.count}</span>
-                <span className="mt-1 max-w-full truncate text-xs font-medium leading-tight opacity-95">{s.name}</span>
+                <span className="mt-1 max-w-full truncate text-sm font-semibold leading-tight opacity-95">{s.name}</span>
                 <span className="text-xs tabular-nums opacity-90">{formatVolume(s.value) || '—'}</span>
               </div>
             )

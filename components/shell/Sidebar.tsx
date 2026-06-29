@@ -84,9 +84,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <p className="font-semibold text-sm text-foreground leading-none truncate">Jubo</p>
+              <p className="font-semibold text-base text-foreground leading-none truncate">Jubo</p>
               {currentOrganization && (
-                <p className="text-2xs text-muted-foreground truncate mt-0.5">{currentOrganization.name}</p>
+                <p className="text-xs text-foreground/70 truncate mt-0.5">{currentOrganization.name}</p>
               )}
             </div>
           )}
