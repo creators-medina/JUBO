@@ -15,7 +15,7 @@ import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsPr
 import { BoardGroupTable } from './BoardGroupTable'
 import { BoardKanbanView, type Stage } from './BoardKanbanView'
 import { KanbanCardFace, formatCellValue } from './KanbanCardFace'
-import { BoardStageSummary } from './BoardStageSummary'
+import { BoardPhaseSummaryGraph } from './BoardPhaseSummaryGraph'
 import { BoardSettingsModal } from './BoardSettingsModal'
 import { AutomationsModal } from '@/features/workflows/components/AutomationsModal'
 import { BulkActionBar } from './BulkActionBar'
@@ -458,6 +458,16 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     }, {}),
   [filteredRecords, groups])
 
+  // Visible (post-filter/search) count per group — drives the phase summary graph
+  // so it always matches the cards/rows shown below. Equals the full board when
+  // no filter/search is active.
+  const filteredCountByGroup = useMemo(() =>
+    groups.reduce<Record<string, number>>((acc, g) => {
+      acc[g.id] = (filteredByGroup[g.id] ?? []).length
+      return acc
+    }, {}),
+  [filteredByGroup, groups])
+
   const totalByGroup = useMemo(() =>
     groups.reduce<Record<string, number>>((acc, g) => {
       acc[g.id] = topLevelRecords.filter((r: any) => r.group_id === g.id).length
@@ -657,12 +667,10 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
         <div className="flex flex-1 min-h-0 flex-col">
           {groups.length > 1 && (
             <div className="flex-shrink-0 px-4 pt-4">
-              <BoardStageSummary
+              <BoardPhaseSummaryGraph
                 groups={groups}
-                countByGroup={totalByGroup}
-                valueByGroup={valueByGroup}
-                hasValues={hasAnyValue}
-                emphasizedGroupId={emphasizedGroupId}
+                countByGroup={filteredCountByGroup}
+                phaseLabel={board.name}
               />
             </div>
           )}
