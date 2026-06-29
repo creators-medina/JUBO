@@ -129,7 +129,7 @@ export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean 
         if (groupBoards.length === 0) return null
         return (
           <div key={group.key} className="space-y-0.5">
-            <p className="px-2 py-1 text-xs font-semibold text-jubo-gold-soft/80 uppercase tracking-wider">
+            <p className="px-2 py-1 text-xs font-semibold text-foreground/70 uppercase tracking-wider">
               {group.label}
             </p>
             {groupBoards.map(renderBoard)}

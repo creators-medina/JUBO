@@ -43,7 +43,7 @@ export function DynamicDashboardsSidebarSection({
     <div className="space-y-0.5">
       {!collapsed && (
         <div className="flex items-center justify-between px-2 py-1">
-          <p className="text-xs font-semibold text-jubo-gold-soft/80 uppercase tracking-wider">Dashboards</p>
+          <p className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">Dashboards</p>
           {onCreateClick && (
             <button
               onClick={onCreateClick}
