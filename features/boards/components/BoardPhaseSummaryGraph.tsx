@@ -11,7 +11,7 @@
 
 import { Fragment } from 'react'
 import { cn } from '@/lib/utils'
-import { stageColor } from './BoardStageSummary'
+import { stageColor, formatVolume } from './BoardStageSummary'
 
 type StageGroup = { id: string; name: string; color?: string | null }
 
@@ -19,11 +19,13 @@ interface Props {
   groups: StageGroup[]
   /** Visible count per group id (pass filtered counts so it matches the board). */
   countByGroup: Record<string, number>
+  /** Visible loan volume per group id (sum of record value; filtered set). */
+  valueByGroup?: Record<string, number>
   /** Phase / board name, shown as the eyebrow descriptor. */
   phaseLabel?: string
 }
 
-export function BoardPhaseSummaryGraph({ groups, countByGroup, phaseLabel }: Props) {
+export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, phaseLabel }: Props) {
   if (groups.length < 2) return null
 
   const segments = groups.map((g, i) => ({
@@ -31,8 +33,10 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, phaseLabel }: Pro
     name: g.name,
     color: stageColor(g, i),
     count: countByGroup[g.id] ?? 0,
+    value: valueByGroup?.[g.id] ?? 0,
   }))
   const total = segments.reduce((s, x) => s + x.count, 0)
+  const totalValue = segments.reduce((s, x) => s + x.value, 0)
   const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0)
 
   // Segment width is proportional to count (so the heaviest stage dominates the
@@ -42,9 +46,10 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, phaseLabel }: Pro
   const minWeight = total > 0 ? Math.max(total * 0.06, 1) : 1
   const weight = (count: number) => Math.max(count, minWeight)
 
-  // Heaviest stage (most contacts) + the final stage, for the takeaway line.
+  // Heaviest stage (most contacts) + the stage holding the most loan volume, for
+  // the takeaway line.
   const heaviest = segments.reduce((a, b) => (b.count > a.count ? b : a), segments[0])
-  const last = segments[segments.length - 1]
+  const topVol = segments.reduce((a, b) => (b.value > a.value ? b : a), segments[0])
 
   const ARROW = 12 // px — chevron depth; degrades to a flat segment if unsupported.
 
@@ -85,33 +90,37 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, phaseLabel }: Pro
                   background: s.color,
                   flexGrow: weight(s.count),         // width ∝ count (floored so 0/small stay visible)
                   flexBasis: 0,
-                  minWidth: '5rem',                  // readability floor only (→ scroll when tight)
+                  minWidth: '5.75rem',               // readability floor only (→ scroll when tight)
                   marginLeft: isFirst ? 0 : -ARROW,  // nest into the previous arrow
                   clipPath: clip,
                   paddingLeft: isFirst ? undefined : ARROW + 12,
                   zIndex: segments.length - i,        // earlier segments overlap later ones
                 }}
-                title={`${s.name}: ${s.count} (${pct(s.count)}%)`}
+                title={`${s.name}: ${s.count}${s.value > 0 ? ` · ${formatVolume(s.value)}` : ''} (${pct(s.count)}%)`}
               >
-                <span className="text-2xl font-bold leading-none tabular-nums drop-shadow-sm">{s.count}</span>
-                <span className="mt-1 max-w-full truncate text-2xs font-medium leading-tight opacity-95">{s.name}</span>
-                <span className="text-2xs tabular-nums opacity-80">{pct(s.count)}%</span>
+                <span className="text-3xl font-bold leading-none tabular-nums drop-shadow-sm">{s.count}</span>
+                <span className="mt-1 max-w-full truncate text-xs font-medium leading-tight opacity-95">{s.name}</span>
+                <span className="text-xs tabular-nums opacity-90">{formatVolume(s.value) || '—'}</span>
               </div>
             )
           })}
         </div>
       </div>
 
-      {/* One-line takeaway. */}
-      <p className="mt-3 text-xs text-jubo-text-soft">
+      {/* One-line takeaway — contacts-led, with loan volume when present. */}
+      <p className="mt-3 text-sm text-jubo-text-soft">
         {total === 0 ? (
           'No contacts in this phase yet.'
         ) : (
           <>
             <span className="font-medium text-jubo-text">Heaviest at {heaviest.name}</span>
             {' — '}
-            {pct(heaviest.count)}% of the phase
-            {last && last.id !== heaviest.id ? <>; {pct(last.count)}% has reached {last.name}.</> : '.'}
+            {heaviest.count} {heaviest.count === 1 ? 'contact' : 'contacts'}
+            {heaviest.value > 0 ? ` totaling ${formatVolume(heaviest.value)}` : ''}
+            {'. '}
+            {totalValue > 0
+              ? <>{formatVolume(totalValue)} across the phase{topVol.id !== heaviest.id && topVol.value > 0 ? <> · most volume in {topVol.name} ({formatVolume(topVol.value)})</> : null}.</>
+              : null}
           </>
         )}
       </p>

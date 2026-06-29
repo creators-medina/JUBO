@@ -468,6 +468,16 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     }, {}),
   [filteredByGroup, groups])
 
+  // Visible (post-filter/search) loan volume per group — sum of existing record
+  // `value`, scoped to the same filtered set as the count (no new query) so the
+  // graph's amounts stay consistent with what's shown below.
+  const filteredValueByGroup = useMemo(() =>
+    groups.reduce<Record<string, number>>((acc, g) => {
+      acc[g.id] = (filteredByGroup[g.id] ?? []).reduce((sum: number, r: any) => sum + (Number(r.value) || 0), 0)
+      return acc
+    }, {}),
+  [filteredByGroup, groups])
+
   const totalByGroup = useMemo(() =>
     groups.reduce<Record<string, number>>((acc, g) => {
       acc[g.id] = topLevelRecords.filter((r: any) => r.group_id === g.id).length
@@ -670,6 +680,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
               <BoardPhaseSummaryGraph
                 groups={groups}
                 countByGroup={filteredCountByGroup}
+                valueByGroup={filteredValueByGroup}
                 phaseLabel={board.name}
               />
             </div>
