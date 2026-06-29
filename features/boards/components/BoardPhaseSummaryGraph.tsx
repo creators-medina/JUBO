@@ -35,6 +35,13 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, phaseLabel }: Pro
   const total = segments.reduce((s, x) => s + x.count, 0)
   const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0)
 
+  // Segment width is proportional to count (so the heaviest stage dominates the
+  // bar, like the reference). A small minimum WEIGHT floor keeps zero/low-count
+  // stages visible without flattening the proportions; the per-segment min-width
+  // below is only a readability floor that triggers horizontal scroll when tight.
+  const minWeight = total > 0 ? Math.max(total * 0.06, 1) : 1
+  const weight = (count: number) => Math.max(count, minWeight)
+
   // Heaviest stage (most contacts) + the final stage, for the takeaway line.
   const heaviest = segments.reduce((a, b) => (b.count > a.count ? b : a), segments[0])
   const last = segments[segments.length - 1]
@@ -76,9 +83,9 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, phaseLabel }: Pro
                 )}
                 style={{
                   background: s.color,
-                  flexGrow: s.count,                 // proportional to count
+                  flexGrow: weight(s.count),         // width ∝ count (floored so 0/small stay visible)
                   flexBasis: 0,
-                  minWidth: '6.5rem',                // readable floor for small/zero stages
+                  minWidth: '5rem',                  // readability floor only (→ scroll when tight)
                   marginLeft: isFirst ? 0 : -ARROW,  // nest into the previous arrow
                   clipPath: clip,
                   paddingLeft: isFirst ? undefined : ARROW + 12,
