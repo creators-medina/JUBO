@@ -13,6 +13,19 @@ import { Fragment } from 'react'
 import { cn } from '@/lib/utils'
 import { stageColor, formatVolume } from './BoardStageSummary'
 
+// Graph-only PASTEL palette — softer, lighter than the Kanban column colors
+// (which keep stageColor). Index-based fallback when a group has no own color.
+const PASTEL_STAGE = ['#bcd3ea', '#c8dcc4', '#ecdcb0', '#eccabf', '#d6cae6', '#bfdcd8', '#c4cdde']
+
+/** Pastel version of a stage color for the summary graph (Kanban columns are
+ *  untouched). A group's own color is softened toward white so it stays in the
+ *  same hue family as its column but reads light; otherwise a pastel fallback. */
+function pastelStageColor(group: { color?: string | null }, index: number): string {
+  return group.color
+    ? `color-mix(in srgb, ${stageColor(group, index)} 38%, #ffffff)`
+    : PASTEL_STAGE[index % PASTEL_STAGE.length]
+}
+
 type StageGroup = { id: string; name: string; color?: string | null }
 
 interface Props {
@@ -31,7 +44,7 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, pha
   const segments = groups.map((g, i) => ({
     id: g.id,
     name: g.name,
-    color: stageColor(g, i),
+    color: pastelStageColor(g, i),
     count: countByGroup[g.id] ?? 0,
     value: valueByGroup?.[g.id] ?? 0,
   }))
@@ -82,7 +95,8 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, pha
               <div
                 key={s.id}
                 className={cn(
-                  'relative flex min-h-[5rem] flex-col items-center justify-center px-3 py-2 text-center text-white',
+                  // Dark navy text — readable on the light pastel segment backgrounds.
+                  'relative flex min-h-[5rem] flex-col items-center justify-center px-3 py-2 text-center text-jubo-navy',
                   isFirst && 'rounded-l-lg',
                   isLast && 'rounded-r-lg',
                 )}
@@ -98,9 +112,9 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, pha
                 }}
                 title={`${s.name}: ${s.count}${s.value > 0 ? ` · ${formatVolume(s.value)}` : ''} (${pct(s.count)}%)`}
               >
-                <span className="text-3xl font-bold leading-none tabular-nums drop-shadow-sm">{s.count}</span>
-                <span className="mt-1 max-w-full truncate text-sm font-semibold leading-tight opacity-95">{s.name}</span>
-                <span className="text-xs tabular-nums opacity-90">{formatVolume(s.value) || '—'}</span>
+                <span className="text-3xl font-bold leading-none tabular-nums">{s.count}</span>
+                <span className="mt-1 max-w-full truncate text-sm font-semibold leading-tight text-jubo-navy/90">{s.name}</span>
+                <span className="text-xs tabular-nums text-jubo-navy/75">{formatVolume(s.value) || '—'}</span>
               </div>
             )
           })}

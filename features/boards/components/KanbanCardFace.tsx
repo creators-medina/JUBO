@@ -9,7 +9,7 @@
 // for the board and is simply surfaced with a clearer CRM hierarchy.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { Building2, CheckSquare, Clock, DollarSign, Mail, Phone, User } from 'lucide-react'
+import { Building2, Clock, Mail, Phone, User } from 'lucide-react'
 import { parseOptions } from '@/features/fields/status'
 import { computeGroupChecklist } from '@/features/fields/checklist'
 import { type VisibilityIndex } from '@/features/fields/visibility'
@@ -53,7 +53,8 @@ export type KanbanFace = {
   title: string
   statusLabel: string
   statusColor: string
-  common: { name: string; value: string; type?: string }[]
+  amount?: string            // loan amount / value — shown top-right
+  common: { name: string; value: string; type?: string }[]  // contact details (currency excluded)
   hasOwner: boolean
   updatedAt?: string | null
   checklist: { completedCount: number; totalCount: number; percentage: number; hasChecklist: boolean }
@@ -75,14 +76,19 @@ export function buildKanbanFace(opts: {
   const statusColor = statusLabel && dsf
     ? (parseOptions(dsf.config).find((o) => o.label === statusLabel)?.color || STATUS_EMPTY)
     : STATUS_EMPTY
+  // Loan amount / value → surfaced on the top-right (the one card accent value),
+  // so it isn't buried in the detail rows.
+  const currencyField = groupFields.find((f) => f.common_field_key_id && f.field_type === 'currency' && !f.is_default_status)
+  const amount = currencyField ? formatCellValue(currencyField, fvMap[currencyField.id]) : ''
+  // Contact details (email / phone / other) — currency excluded, kept compact.
   const common = groupFields
-    .filter((f) => f.common_field_key_id && f.field_type !== 'checklist' && !f.is_default_status)
+    .filter((f) => f.common_field_key_id && f.field_type !== 'checklist' && f.field_type !== 'currency' && !f.is_default_status)
     .sort((a, b) => (COMMON_PRIORITY[a.field_type] ?? 9) - (COMMON_PRIORITY[b.field_type] ?? 9))
     .map((f) => ({ name: f.name, value: formatCellValue(f, fvMap[f.id]), type: f.field_type }))
     .filter((c) => c.value)
-    .slice(0, 3)
+    .slice(0, 2)
   const checklist = computeGroupChecklist(allFields, groupId, visibilityIndex, fvMap)
-  return { title: record.title, statusLabel, statusColor, common, hasOwner: !!record.owner_user_id, updatedAt: record.updated_at, checklist }
+  return { title: record.title, statusLabel, statusColor, amount, common, hasOwner: !!record.owner_user_id, updatedAt: record.updated_at, checklist }
 }
 
 /** Icon for a secondary contact field — keeps the person's details scannable. */
@@ -90,97 +96,80 @@ function commonIcon(type?: string) {
   switch (type) {
     case 'email': return Mail
     case 'phone': return Phone
-    case 'currency': return DollarSign
     case 'relation': case 'user': return Building2
     default: return null
   }
 }
 
-export function KanbanCardFace({ title, statusLabel, statusColor, common, hasOwner, updatedAt, checklist }: KanbanFace) {
+// Condensed, uniform card: cream shell (from the card button), navy name, one
+// muted-green loan amount, taupe details, a subtle status dot, and a slim
+// checklist bar. Missing fields collapse their row entirely (no empty gaps).
+export function KanbanCardFace({ title, statusLabel, statusColor, amount, common, hasOwner, updatedAt, checklist }: KanbanFace) {
   const updatedLabel = formatRelativeTime(updatedAt)
   const checklistDone = checklist.hasChecklist && checklist.percentage === 100
   return (
     <>
-      {/* Colored left rail — keyed to the record's status color (existing data).
-          Sits inside the relative/overflow-hidden card shell. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 left-0 w-1.5"
-        style={{ background: `linear-gradient(180deg, ${statusColor}, color-mix(in srgb, ${statusColor} 60%, transparent))` }}
-      />
-
-      {/* PRIMARY — the person, and the most important element. No line-clamp:
-          the full contact/borrower name is always shown and wraps to as many
-          lines as needed (min-w-0 + break-words keep it inside the card). The
-          card height grows to fit; secondary metadata may truncate, the name
-          never does. */}
-      <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 break-words text-sm font-semibold leading-snug tracking-tight text-foreground">
+      {/* Top — borrower name (left) + loan amount (right). */}
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="min-w-0 truncate text-sm font-semibold leading-snug tracking-tight text-foreground">
           {title || 'Untitled'}
         </span>
-        {hasOwner && (
-          <span
-            className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-surface-2 text-muted-foreground/70"
-            aria-label="Assigned"
-          >
-            <User className="h-3 w-3" />
-          </span>
+        {amount && (
+          <span className="flex-shrink-0 text-sm font-semibold tabular-nums text-jubo-green">{amount}</span>
         )}
       </div>
 
-      {/* STATUS — easy-to-scan pill. */}
-      {statusLabel && (
-        <span
-          className="mt-2 inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold leading-none text-white shadow-sm"
-          style={{ backgroundColor: statusColor }}
-        >
-          {statusLabel}
-        </span>
-      )}
-
-      {/* SECONDARY — contact details (phone / email / company / source). */}
+      {/* Contact details — compact single wrapping row (email / phone / etc). */}
       {common.length > 0 && (
-        <div className="mt-2.5 space-y-1">
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] leading-tight text-muted-foreground">
           {common.map((c, i) => {
             const Icon = commonIcon(c.type)
             return (
-              <div key={i} className="flex items-center gap-1.5 text-[11px] leading-tight">
+              <span key={i} className="inline-flex min-w-0 items-center gap-1">
                 {Icon ? (
                   <Icon className="h-3 w-3 flex-shrink-0 text-muted-foreground/60" />
                 ) : (
                   <span className="flex-shrink-0 text-muted-foreground/70">{c.name}:</span>
                 )}
-                <span className="min-w-0 truncate text-foreground/90">{c.value}</span>
-              </div>
+                <span className="truncate">{c.value}</span>
+              </span>
             )
           })}
         </div>
       )}
 
-      {/* TERTIARY — checklist progress (visual bar, no new data). */}
-      {checklist.hasChecklist && (
-        <div className="mt-3 space-y-1">
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <CheckSquare className={cn('h-3 w-3', checklistDone ? 'text-emerald-400' : 'text-muted-foreground/70')} />
-              <span className="tabular-nums">{checklist.completedCount} / {checklist.totalCount}</span>
+      {/* Meta — status (subtle dot + muted label), last activity, owner — one row. */}
+      {(statusLabel || updatedLabel || hasOwner) && (
+        <div className="mt-1.5 flex items-center gap-2.5 text-[10px] text-muted-foreground">
+          {statusLabel && (
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <span aria-hidden className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: statusColor }} />
+              <span className="truncate text-jubo-text-soft">{statusLabel}</span>
             </span>
-            <span className="tabular-nums font-medium">{checklist.percentage}%</span>
-          </div>
-          <div className="h-1 w-full overflow-hidden rounded-full bg-surface-3">
+          )}
+          {updatedLabel && (
+            <span className="inline-flex flex-shrink-0 items-center gap-1">
+              <Clock className="h-2.5 w-2.5" />{updatedLabel}
+            </span>
+          )}
+          {hasOwner && (
+            <span className="ml-auto inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-surface-2 text-muted-foreground/70" aria-label="Assigned">
+              <User className="h-2.5 w-2.5" />
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Checklist — slim inline progress (bar + count). */}
+      {checklist.hasChecklist && (
+        <div className="mt-1.5 flex items-center gap-2">
+          <div className="h-1 flex-1 overflow-hidden rounded-full bg-surface-3">
             <div
               className={cn('h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none', checklistDone ? 'bg-jubo-green' : 'bg-jubo-gold')}
               style={{ width: `${checklist.percentage}%` }}
             />
           </div>
-        </div>
-      )}
-
-      {/* TERTIARY — last activity, derived from updated_at already on the record. */}
-      {updatedLabel && (
-        <div className="mt-3 flex items-center gap-1 text-[10px] text-muted-foreground/60">
-          <Clock className="h-2.5 w-2.5 flex-shrink-0" />
-          <span>{updatedLabel}</span>
+          <span className="flex-shrink-0 text-[10px] tabular-nums text-muted-foreground">{checklist.completedCount}/{checklist.totalCount}</span>
         </div>
       )}
     </>

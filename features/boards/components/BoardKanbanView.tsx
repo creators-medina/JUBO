@@ -210,10 +210,9 @@ function KanbanCard({
         type="button"
         onClick={onClick}
         className={cn(
-          // Warm LOS card. block (not flex) so the face's block rows stay full-width
-          // and the status pill stays content-width. relative+overflow-hidden clips
-          // the colored rail to the rounded corners.
-          'relative block w-full flex-shrink-0 min-h-[4rem] cursor-grab overflow-hidden rounded-xl border border-jubo-border bg-jubo-card py-3.5 pl-4 pr-3.5 text-left shadow-sm transition-[transform,opacity,border-color,box-shadow] duration-150 ease-out hover:border-jubo-border-strong hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
+          // Warm LOS card — condensed: tight, uniform padding (no left-rail offset).
+          // block (not flex) so the face's rows stay full-width; height fits content.
+          'relative block w-full flex-shrink-0 cursor-grab overflow-hidden rounded-xl border border-jubo-border bg-jubo-card px-3 py-2.5 text-left shadow-sm transition-[transform,opacity,border-color,box-shadow] duration-150 ease-out hover:border-jubo-border-strong hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
           isDragging && 'opacity-40',
         )}
       >
