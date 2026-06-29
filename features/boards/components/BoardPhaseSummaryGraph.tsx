@@ -12,16 +12,22 @@
 import { cn } from '@/lib/utils'
 import { stageColor, formatVolume } from './BoardStageSummary'
 
-// Graph-only PASTEL palette — softer, lighter than the Kanban column colors
-// (which keep stageColor). Index-based fallback when a group has no own color.
-const PASTEL_STAGE = ['#bcd3ea', '#c8dcc4', '#ecdcb0', '#eccabf', '#d6cae6', '#bfdcd8', '#c4cdde']
+// Graph-only soft palette for the ring FILL — lighter than the Kanban columns
+// (which keep stageColor) but saturated enough to read against the neutral ring
+// track. Index-based fallback when a group has no own color.
+const PASTEL_STAGE = ['#8fb5dd', '#92c08f', '#e0c06a', '#dc9a7e', '#b89bd2', '#7cc3b8', '#9fabd0']
 
-/** Pastel version of a stage color for the ring fill (Kanban columns are
+// Neutral track behind the ring fill — a warm cream-tan that stays distinct from
+// both the card surface (so the unfilled arc still reads as a ring) and the soft
+// fills (so the filled portion is legible).
+const RING_TRACK = '#f0e8da'
+
+/** Soft version of a stage color for the ring fill (Kanban columns are
  *  untouched). A group's own color is softened toward white so it stays in the
- *  same hue family as its column but reads light; otherwise a pastel fallback. */
+ *  same hue family as its column but reads light; otherwise a soft fallback. */
 function pastelStageColor(group: { color?: string | null }, index: number): string {
   return group.color
-    ? `color-mix(in srgb, ${stageColor(group, index)} 45%, #ffffff)`
+    ? `color-mix(in srgb, ${stageColor(group, index)} 55%, #ffffff)`
     : PASTEL_STAGE[index % PASTEL_STAGE.length]
 }
 
@@ -142,7 +148,7 @@ function StageRing({
       {/* Ring: conic fill over a tan track; inner cream disc holds the count. */}
       <div
         className="relative h-16 w-16 flex-shrink-0 rounded-full"
-        style={{ background: `conic-gradient(${color} ${deg}deg, var(--jubo-border) 0deg)` }}
+        style={{ background: `conic-gradient(${color} ${deg}deg, ${RING_TRACK} 0deg)` }}
         aria-hidden
       >
         <div className="absolute inset-[6px] flex items-center justify-center rounded-full bg-jubo-card">
