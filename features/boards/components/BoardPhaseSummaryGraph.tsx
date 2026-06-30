@@ -15,7 +15,7 @@ import { stageColor, formatVolume } from './BoardStageSummary'
 // Graph-only soft palette for the ring FILL — lighter than the Kanban columns
 // (which keep stageColor) but saturated enough to read against the neutral ring
 // track. Index-based fallback when a group has no own color.
-const PASTEL_STAGE = ['#8fb5dd', '#92c08f', '#e0c06a', '#dc9a7e', '#b89bd2', '#7cc3b8', '#9fabd0']
+const PASTEL_STAGE = ['#6f9bcb', '#74ab78', '#d2ab4f', '#cf8164', '#a07ec2', '#5fb0a4', '#8290c0']
 
 // Neutral track behind the ring fill — a warm cream-tan that stays distinct from
 // both the card surface (so the unfilled arc still reads as a ring) and the soft
@@ -27,7 +27,7 @@ const RING_TRACK = '#f0e8da'
  *  same hue family as its column but reads light; otherwise a soft fallback. */
 function pastelStageColor(group: { color?: string | null }, index: number): string {
   return group.color
-    ? `color-mix(in srgb, ${stageColor(group, index)} 55%, #ffffff)`
+    ? `color-mix(in srgb, ${stageColor(group, index)} 65%, #ffffff)`
     : PASTEL_STAGE[index % PASTEL_STAGE.length]
 }
 
