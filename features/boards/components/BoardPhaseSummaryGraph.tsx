@@ -69,7 +69,7 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, val
   const avgLoan = valuedTotal > 0 ? totalValue / valuedTotal : 0
 
   return (
-    <div className="rounded-xl border border-jubo-border bg-jubo-card p-4 shadow-sm sm:p-5">
+    <div className="rounded-xl border border-jubo-border bg-jubo-card p-4 shadow-sm">
       {/* Centered title area. */}
       <div className="flex flex-col items-center gap-1.5 text-center">
         <span className="inline-flex items-center rounded-full bg-jubo-gold-soft px-2 py-0.5 text-2xs font-semibold uppercase tracking-wider text-jubo-gold">
@@ -99,7 +99,7 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, val
       </div>
 
       {/* Stage breakdown — one circular ring per stage. Wraps for any count. */}
-      <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-5 border-t border-jubo-border/70 pt-5">
+      <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-4 border-t border-jubo-border/70 pt-4">
         {segments.map((s, i) => (
           <StageRing
             key={s.id}
@@ -120,7 +120,7 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, val
 /** One KPI block: big number, label, optional small hint line. */
 function KpiCard({ value, label, hint }: { value: string; label: string; hint?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-jubo-border bg-jubo-card-soft px-3 py-3 text-center">
+    <div className="flex flex-col items-center justify-center rounded-lg border border-jubo-border bg-jubo-card-soft px-3 py-2.5 text-center">
       <span className="text-3xl font-bold tabular-nums leading-none text-jubo-navy">{value}</span>
       <span className="mt-1.5 text-2xs font-semibold uppercase tracking-wider text-jubo-muted">{label}</span>
       {hint && <span className="mt-0.5 text-2xs tabular-nums text-jubo-text-soft">{hint}</span>}
