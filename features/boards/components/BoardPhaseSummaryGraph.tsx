@@ -27,7 +27,7 @@ const RING_TRACK = '#f0e8da'
  *  same hue family as its column but reads light; otherwise a soft fallback. */
 function pastelStageColor(group: { color?: string | null }, index: number): string {
   return group.color
-    ? `color-mix(in srgb, ${stageColor(group, index)} 82%, #ffffff)`
+    ? `color-mix(in srgb, ${stageColor(group, index)} 90%, #ffffff)`
     : PASTEL_STAGE[index % PASTEL_STAGE.length]
 }
 
