@@ -166,7 +166,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   // Kanban is the default/primary board view (client-only state, no persistence).
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('kanban')
   const stages = useMemo<Stage[]>(
-    () => groups.map((g: any) => ({ id: g.id, boardId: board.id, groupId: g.id, label: g.name, color: g.color ?? null })),
+    () => groups.map((g: any) => ({ id: g.id, boardId: board.id, groupId: g.id, label: g.name, color: g.color ?? null, roleLabel: g.role_label ?? null, guidanceNote: g.guidance_note ?? null })),
     [groups, board.id],
   )
 

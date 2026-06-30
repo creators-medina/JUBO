@@ -16,7 +16,7 @@ import { stageColor } from './BoardStageSummary'
 import { useHoverCard, BorrowerPreviewPanel } from './BoardHoverCard'
 import { cn } from '@/lib/utils'
 
-export type Stage = { id: string; boardId: string; groupId: string; label: string; color?: string | null }
+export type Stage = { id: string; boardId: string; groupId: string; label: string; color?: string | null; roleLabel?: string | null; guidanceNote?: string | null }
 
 interface Props {
   stages: Stage[]
@@ -96,19 +96,39 @@ function KanbanColumn({
       {/* Colored top accent — gives each lane a stable identity color. */}
       <div aria-hidden className="h-1 w-full flex-shrink-0" style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }} />
 
-      <div className="flex flex-shrink-0 items-center gap-2 border-b border-jubo-border px-3.5 py-3">
-        <span aria-hidden className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: accent }} />
-        <span className="truncate text-sm font-semibold tracking-tight text-jubo-text">{stage.label}</span>
-        <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-jubo-gold-soft px-1.5 text-2xs font-semibold tabular-nums text-jubo-gold">{count}</span>
-        {onAddRecord && (
-          <button
-            type="button"
-            onClick={() => onAddRecord(stage.groupId)}
-            title={`Add to ${stage.label}`}
-            className="ml-auto flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-jubo-muted transition-colors hover:bg-jubo-card hover:text-jubo-text"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
+      <div className="flex flex-shrink-0 flex-col gap-1 border-b border-jubo-border px-3.5 py-3">
+        <div className="flex items-center gap-2">
+          <span aria-hidden className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: accent }} />
+          <span className="truncate text-sm font-semibold tracking-tight text-jubo-text">{stage.label}</span>
+          <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-jubo-gold-soft px-1.5 text-2xs font-semibold tabular-nums text-jubo-gold">{count}</span>
+          {/* Subtle role/owner hint (e.g. "LO" / "LP1") — guidance, not assignment. */}
+          {stage.roleLabel && (
+            <span
+              className="inline-flex h-5 flex-shrink-0 items-center rounded-full border border-jubo-border bg-jubo-card px-1.5 text-[10px] font-semibold uppercase tracking-wide text-jubo-muted"
+              title={`Stage owner: ${stage.roleLabel}`}
+            >
+              {stage.roleLabel}
+            </span>
+          )}
+          {onAddRecord && (
+            <button
+              type="button"
+              onClick={() => onAddRecord(stage.groupId)}
+              title={`Add to ${stage.label}`}
+              className="ml-auto flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-jubo-muted transition-colors hover:bg-jubo-card hover:text-jubo-text"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        {/* Quiet Guidance Note — coaching/context for whoever works this stage.
+            Deliberately understated (small, muted, italic) so it informs without
+            shouting; clamped to keep the column header compact. Never part of the
+            checklist or its progress. */}
+        {stage.guidanceNote && (
+          <p className="line-clamp-2 text-[11px] italic leading-snug text-jubo-text-soft/80" title={stage.guidanceNote}>
+            {stage.guidanceNote}
+          </p>
         )}
       </div>
       {/* flex-1 + min-h-0 make this the column's internal scroll region (the

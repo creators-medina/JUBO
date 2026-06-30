@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, ChevronRight, Plus, Check, X, MoreVertical, GripVertical, Pencil, Palette, Copy, ArrowUp, ArrowDown, Archive, Trash2, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Check, X, MoreVertical, GripVertical, Pencil, Palette, Copy, ArrowUp, ArrowDown, Archive, Trash2, Loader2, Info } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { BoardRecordRow } from './BoardRecordRow'
 import { updateBoardGroup, duplicateBoardGroup, archiveBoardGroup, deleteBoardGroupHard } from '@/features/boards/actions'
@@ -87,6 +87,10 @@ export function BoardGroupTable({
   const [isPending, startTransition] = useTransition()
   const [showMenu, setShowMenu] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Phase 5J — stage role label + quiet Guidance Note (presentation metadata).
+  const [editingMeta, setEditingMeta] = useState(false)
+  const [roleDraft, setRoleDraft] = useState<string>(group.role_label ?? '')
+  const [guidanceDraft, setGuidanceDraft] = useState<string>(group.guidance_note ?? '')
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -141,6 +145,22 @@ export function BoardGroupTable({
     setShowColorPicker(false)
     await updateBoardGroup(group.id, boardId, { color: c })
     router.refresh()
+  }
+
+  // Save the stage's role label + Guidance Note. Empty → null (nothing renders).
+  // Guidance is metadata only — it never becomes a checklist item or affects
+  // checklist progress.
+  const saveMeta = () => {
+    startTransition(async () => {
+      try {
+        await updateBoardGroup(group.id, boardId, {
+          role_label: roleDraft.trim() || null,
+          guidance_note: guidanceDraft.trim() || null,
+        })
+        setEditingMeta(false)
+        router.refresh()
+      } catch (e) { groupFail(e, 'Could not save stage guidance') }
+    })
   }
 
   const avgValue = valueTotal > 0 && totalCount > 0 ? valueTotal / totalCount : 0
@@ -276,6 +296,7 @@ export function BoardGroupTable({
                 <div className="absolute right-0 top-6 z-50 w-44 rounded-lg border border-border bg-card p-1 shadow-xl text-left font-normal normal-case tracking-normal">
                   <GroupMenuItem icon={Pencil} label="Rename group" onClick={() => { closeMenu(); setEditingName(true) }} />
                   <GroupMenuItem icon={Palette} label="Change color" onClick={() => { closeMenu(); setShowColorPicker(true) }} />
+                  <GroupMenuItem icon={Info} label="Role & guidance" onClick={() => { closeMenu(); setRoleDraft(group.role_label ?? ''); setGuidanceDraft(group.guidance_note ?? ''); setEditingMeta(true) }} />
                   <GroupMenuItem icon={Copy} label="Duplicate group" onClick={onDuplicateGroup} />
                   {onMoveGroup && !isFirstGroup && <GroupMenuItem icon={ArrowUp} label="Move up" onClick={() => { closeMenu(); onMoveGroup(group.id, 'up') }} />}
                   {onMoveGroup && !isLastGroup && <GroupMenuItem icon={ArrowDown} label="Move down" onClick={() => { closeMenu(); onMoveGroup(group.id, 'down') }} />}
@@ -292,6 +313,49 @@ export function BoardGroupTable({
           </div>
         </div>
       </div>
+
+      {/* Stage role + Guidance Note editor (Phase 5J). Presentation metadata —
+          the role shows as a subtle badge and the note as quiet coaching text on
+          the Kanban column header; neither is a checklist item. */}
+      {editingMeta && (
+        <div className="relative z-30 mx-3 mb-3 ml-5 space-y-2 rounded-lg border border-border bg-surface-1 p-3">
+          <div className="flex items-center gap-2">
+            <label className="w-20 flex-shrink-0 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Role</label>
+            <input
+              value={roleDraft}
+              onChange={(e) => setRoleDraft(e.target.value)}
+              placeholder="e.g. LO, LP1"
+              maxLength={12}
+              className="flex-1 rounded border border-border bg-card px-2 py-1 text-xs text-foreground focus:border-jubo-navy focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Guidance note</label>
+            <textarea
+              value={guidanceDraft}
+              onChange={(e) => setGuidanceDraft(e.target.value)}
+              rows={3}
+              placeholder="Quiet coaching/context for this stage (not a checklist item)"
+              className="mt-1 w-full resize-y rounded border border-border bg-card px-2 py-1 text-xs leading-snug text-foreground focus:border-jubo-navy focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => { setRoleDraft(group.role_label ?? ''); setGuidanceDraft(group.guidance_note ?? ''); setEditingMeta(false) }}
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={saveMeta}
+              disabled={isPending}
+              className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {isPending ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Drop zone highlight when dragging over a collapsed group */}
       {isOver && collapsed && (
