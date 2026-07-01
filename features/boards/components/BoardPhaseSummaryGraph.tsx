@@ -83,7 +83,7 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, val
       </div>
 
       {/* Row 2 — compact KPI band: three inline metrics with thin dividers. */}
-      <div className="mx-auto mt-1.5 flex w-fit max-w-full flex-wrap items-stretch justify-center divide-x divide-jubo-border rounded-lg border border-jubo-border bg-jubo-card-soft">
+      <div className="mx-auto mt-2 flex w-fit max-w-full flex-wrap items-stretch justify-center divide-x divide-jubo-border/70">
         <Kpi value={String(total)} label="Contacts in phase" />
         <Kpi
           value={formatVolume(totalValue) || '$0'}
@@ -99,7 +99,7 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, val
 
       {/* Row 3 — compact per-stage row: small ring + count, name, and the stage's
           total dollar value (prominent). Percent lives in the tooltip. */}
-      <div className="mt-1.5 flex flex-wrap justify-center gap-x-3 gap-y-2">
+      <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-3">
         {segments.map((s, i) => (
           <StageStat
             key={s.id}
