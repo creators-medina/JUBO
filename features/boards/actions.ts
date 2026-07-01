@@ -76,6 +76,18 @@ export async function updateBoard(boardId: string, updates: {
   revalidatePath(`/boards/${boardId}`)
 }
 
+/** Persist a board's Top Phase Summary display prefs (Phase 5M). Presentation
+ *  only — this toggles what the header SHOWS (e.g. hide money); it never changes
+ *  records, loan values, stages, or any calculation. RLS scopes to the caller's org. */
+export async function updateBoardDisplaySettings(boardId: string, settings: Record<string, boolean>) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { error } = await supabase.from('boards').update({ display_settings: settings }).eq('id', boardId)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/boards/${boardId}`)
+}
+
 /**
  * Phase 35B — archive a board (soft delete). Sets is_archived = true so it
  * disappears from the sidebar, board lists, move destinations, and search,
