@@ -693,6 +693,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                 valueByGroup={filteredValueByGroup}
                 valuedCountByGroup={filteredValuedCountByGroup}
                 phaseLabel={board.name}
+                badge={board.board_type}
               />
             </div>
           )}
