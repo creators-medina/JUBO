@@ -71,7 +71,7 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, val
   const avgLoan = valuedTotal > 0 ? totalValue / valuedTotal : 0
 
   return (
-    <div className="rounded-xl border border-jubo-border bg-jubo-card px-4 py-2.5 shadow-sm">
+    <div className="border-b border-jubo-border/60 px-0.5 pb-2.5">
       {/* Row 1 — badge + title on ONE centered line (was stacked → saves height). */}
       <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-center">
         <span className="inline-flex items-center rounded-full bg-jubo-gold-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-jubo-gold">
@@ -83,7 +83,7 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, val
       </div>
 
       {/* Row 2 — compact KPI band: three inline metrics with thin dividers. */}
-      <div className="mx-auto mt-2 flex w-fit max-w-full flex-wrap items-stretch justify-center divide-x divide-jubo-border rounded-lg border border-jubo-border bg-jubo-card-soft">
+      <div className="mx-auto mt-1.5 flex w-fit max-w-full flex-wrap items-stretch justify-center divide-x divide-jubo-border rounded-lg border border-jubo-border bg-jubo-card-soft">
         <Kpi value={String(total)} label="Contacts in phase" />
         <Kpi
           value={formatVolume(totalValue) || '$0'}
@@ -99,7 +99,7 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, val
 
       {/* Row 3 — compact per-stage row: small ring + count, name, and the stage's
           total dollar value (prominent). Percent lives in the tooltip. */}
-      <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-2">
+      <div className="mt-1.5 flex flex-wrap justify-center gap-x-3 gap-y-2">
         {segments.map((s, i) => (
           <StageStat
             key={s.id}

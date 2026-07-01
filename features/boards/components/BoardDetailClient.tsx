@@ -686,7 +686,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
         {/* Board content */}
         <div className="flex flex-1 min-h-0 flex-col">
           {groups.length > 1 && (
-            <div className="flex-shrink-0 px-4 pt-4">
+            <div className="flex-shrink-0 px-4 pt-2">
               <BoardPhaseSummaryGraph
                 groups={groups}
                 countByGroup={filteredCountByGroup}
