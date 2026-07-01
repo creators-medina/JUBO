@@ -280,7 +280,10 @@ export function BoardGroupTable({
               {avgValue > 0 && <> · Avg <span className="font-medium text-foreground">{formatVolume(avgValue)}</span></>}
             </span>
           )}
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* Keep the action controls visible while the menu (or color picker) is
+              open — otherwise moving the cursor off the header row drops
+              group-hover and fades the open dropdown out mid-click. */}
+          <div className={cn('flex items-center gap-1 transition-opacity', (showMenu || showColorPicker) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
             <button onClick={onAddRecord} className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors" title={`Add ${entityNoun}`}>
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -293,7 +296,7 @@ export function BoardGroupTable({
                 {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MoreVertical className="w-3.5 h-3.5" />}
               </button>
               {showMenu && (
-                <div className="absolute right-0 top-6 z-50 w-44 rounded-lg border border-border bg-card p-1 shadow-xl text-left font-normal normal-case tracking-normal">
+                <div className="absolute right-0 top-7 z-[60] w-56 rounded-lg border border-border bg-card p-1.5 shadow-xl text-left font-normal normal-case tracking-normal">
                   <GroupMenuItem icon={Pencil} label="Rename group" onClick={() => { closeMenu(); setEditingName(true) }} />
                   <GroupMenuItem icon={Palette} label="Change color" onClick={() => { closeMenu(); setShowColorPicker(true) }} />
                   <GroupMenuItem icon={Info} label="Role & guidance" onClick={() => { closeMenu(); setRoleDraft(group.role_label ?? ''); setGuidanceDraft(group.guidance_note ?? ''); setEditingMeta(true) }} />
@@ -488,11 +491,11 @@ function GroupMenuItem({ icon: Icon, label, onClick, destructive }: {
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-surface-1',
+        'flex min-h-[36px] w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm hover:bg-surface-1',
         destructive ? 'text-destructive' : 'text-foreground',
       )}
     >
-      <Icon className={cn('h-3.5 w-3.5 flex-shrink-0', destructive ? 'text-destructive' : 'text-muted-foreground')} />
+      <Icon className={cn('h-4 w-4 flex-shrink-0', destructive ? 'text-destructive' : 'text-muted-foreground')} />
       {label}
     </button>
   )
