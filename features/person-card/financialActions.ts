@@ -109,7 +109,7 @@ async function ensureMirrorFields(supabase: SB, boardId: string, orgId: string):
       organization_id: orgId, board_id: boardId, name: label, slug, field_type: 'currency',
       position: 9100 + i, config: { hidden_from_grid: true, system: 'loan' },
     }))
-    await supabase.from('fields').upsert(rows, { onConflict: 'board_id,slug', ignoreDuplicates: true })
+    await supabase.from('fields').upsert(rows, { onConflict: 'organization_id,board_id,slug', ignoreDuplicates: true })
     const { data: refreshed } = await supabase.from('fields').select('id, slug').eq('board_id', boardId).in('slug', defs.map(([s]) => s))
     for (const f of refreshed ?? []) bySlug.set((f as any).slug, (f as any).id)
   }

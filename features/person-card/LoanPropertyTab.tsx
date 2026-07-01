@@ -63,7 +63,10 @@ export function LoanPropertyTab({ recordId, boardId, organizationId }: { recordI
     let active = true
     setLoading(true)
     ;(async () => {
-      if (boardId) { try { await ensureLoanPropertyFields(boardId, organizationId) } catch { /* read-only if provisioning fails */ } }
+      // Non-fatal, but NOT silent — a provisioning failure (e.g. onConflict/RLS)
+      // must be visible in the console, never swallowed. The tab still renders
+      // read-only if provisioning genuinely fails.
+      if (boardId) { try { await ensureLoanPropertyFields(boardId, organizationId) } catch (e) { console.error('ensureLoanPropertyFields failed', e) } }
       if (active) await load()
     })()
     return () => { active = false }

@@ -42,12 +42,13 @@ export function FinancialTab({ recordId }: { recordId: string }) {
 
   const save = useCallback((itemId: string, slug: string, value: unknown) => {
     setItems((prev) => prev?.map((it) => it.id === itemId ? { ...it, data: { ...it.data, [slug]: value } } : it) ?? prev)
-    saveFinancialItem(itemId, { [slug]: value }).catch(() => {})
+    // Non-silent — a save/mirror failure (e.g. field provisioning) is logged, not swallowed.
+    saveFinancialItem(itemId, { [slug]: value }).catch((e) => console.error('saveFinancialItem failed', e))
   }, [])
 
   const linkBorrower = useCallback((itemId: string, borrowerId: string | null) => {
     setItems((prev) => prev?.map((it) => it.id === itemId ? { ...it, borrower_id: borrowerId } : it) ?? prev)
-    saveFinancialItem(itemId, {}, borrowerId).catch(() => {})
+    saveFinancialItem(itemId, {}, borrowerId).catch((e) => console.error('saveFinancialItem failed', e))
   }, [])
 
   const add = async (category: FinCategory) => {

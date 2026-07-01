@@ -40,6 +40,6 @@ export async function ensureLoanPropertyFields(boardId: string, organizationId: 
   // per board); a lost race just no-ops instead of throwing.
   const { error } = await supabase
     .from('fields')
-    .upsert(rows, { onConflict: 'board_id,slug', ignoreDuplicates: true })
+    .upsert(rows, { onConflict: 'organization_id,board_id,slug', ignoreDuplicates: true })
   if (error) throw new Error(error.message)
 }
