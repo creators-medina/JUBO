@@ -2,12 +2,13 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, ListChecks } from 'lucide-react'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { createRecord } from '@/features/records/actions'
 import { createNote } from '@/features/workspace/notes/actions'
 import { parseOptions } from '@/features/fields/status'
+import { StageChecklistModal } from '@/features/boards/components/StageChecklistModal'
 import type { BoardType } from '@/types/database'
 
 interface Props {
@@ -46,6 +47,8 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
   // contact terminology, plus an optional first note (reuses the notes system).
   const isContact = boardType === 'crm'
   const [notesDraft, setNotesDraft] = useState('')
+  // Phase 5K — jump straight to the stage checklist editor from the intake form.
+  const [showChecklistEditor, setShowChecklistEditor] = useState(false)
 
   // ── Structural partition (no name/board-shape detection) ──
   const checklistFields = fields.filter((f) => f.field_type === 'checklist')
@@ -124,6 +127,7 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
   )
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="bg-card border-border max-w-lg max-h-[85vh] flex flex-col gap-0 p-0 overflow-hidden">
         {/* Sticky header */}
@@ -170,6 +174,19 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
                 {checklistFields.map((f) => <FieldRow key={f.id} field={f} />)}
               </CollapsibleSection>
             )}
+
+            {/* Edit this stage's checklist (add / rename / reorder / remove) — opens
+                the same Stage Checklist editor; does not change data by itself. */}
+            <div className="border-t border-border px-4 py-2">
+              <button
+                type="button"
+                onClick={() => setShowChecklistEditor(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-jubo-navy hover:underline"
+              >
+                <ListChecks className="h-3.5 w-3.5" />
+                Edit stage checklist
+              </button>
+            </div>
           </div>
 
           {/* Sticky footer */}
@@ -183,6 +200,16 @@ export function CreateRecordModal({ open, onClose, boardId, groupId, organizatio
         </form>
       </DialogContent>
     </Dialog>
+
+    {showChecklistEditor && (
+      <StageChecklistModal
+        open={showChecklistEditor}
+        onClose={() => setShowChecklistEditor(false)}
+        boardId={boardId}
+        group={{ id: groupId, name: groupName ?? 'This stage' }}
+      />
+    )}
+    </>
   )
 }
 

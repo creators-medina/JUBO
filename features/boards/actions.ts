@@ -82,6 +82,8 @@ export async function updateBoardGroup(groupId: string, boardId: string, updates
   name?: string
   color?: string
   position?: number
+  role_label?: string | null      // short role/owner hint per stage (e.g. "LO", "LP1")
+  guidance_note?: string | null   // quiet coaching/context text; never a checklist item
 }) {
   const supabase = await createClient()
   const { error } = await supabase.from('board_groups').update(updates).eq('id', groupId)

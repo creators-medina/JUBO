@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "restructure:initial-consult": "node scripts/restructure-initial-consult.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

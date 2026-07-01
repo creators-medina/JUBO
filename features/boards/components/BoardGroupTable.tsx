@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, ChevronRight, Plus, Check, X, MoreVertical, GripVertical, Pencil, Palette, Copy, ArrowUp, ArrowDown, Archive, Trash2, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Check, X, MoreVertical, GripVertical, Pencil, Palette, Copy, ArrowUp, ArrowDown, Archive, Trash2, Loader2, Info, ListChecks } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { BoardRecordRow } from './BoardRecordRow'
 import { updateBoardGroup, duplicateBoardGroup, archiveBoardGroup, deleteBoardGroupHard } from '@/features/boards/actions'
 import { EditableColumnHeader } from './EditableColumnHeader'
+import { StageChecklistModal } from './StageChecklistModal'
 import { formatVolume, stageColor } from './BoardStageSummary'
 import { cn } from '@/lib/utils'
 
@@ -87,6 +88,11 @@ export function BoardGroupTable({
   const [isPending, startTransition] = useTransition()
   const [showMenu, setShowMenu] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Phase 5J — stage role label + quiet Guidance Note (presentation metadata).
+  const [editingMeta, setEditingMeta] = useState(false)
+  const [roleDraft, setRoleDraft] = useState<string>(group.role_label ?? '')
+  const [guidanceDraft, setGuidanceDraft] = useState<string>(group.guidance_note ?? '')
+  const [showChecklist, setShowChecklist] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -141,6 +147,22 @@ export function BoardGroupTable({
     setShowColorPicker(false)
     await updateBoardGroup(group.id, boardId, { color: c })
     router.refresh()
+  }
+
+  // Save the stage's role label + Guidance Note. Empty → null (nothing renders).
+  // Guidance is metadata only — it never becomes a checklist item or affects
+  // checklist progress.
+  const saveMeta = () => {
+    startTransition(async () => {
+      try {
+        await updateBoardGroup(group.id, boardId, {
+          role_label: roleDraft.trim() || null,
+          guidance_note: guidanceDraft.trim() || null,
+        })
+        setEditingMeta(false)
+        router.refresh()
+      } catch (e) { groupFail(e, 'Could not save stage guidance') }
+    })
   }
 
   const avgValue = valueTotal > 0 && totalCount > 0 ? valueTotal / totalCount : 0
@@ -260,7 +282,10 @@ export function BoardGroupTable({
               {avgValue > 0 && <> · Avg <span className="font-medium text-foreground">{formatVolume(avgValue)}</span></>}
             </span>
           )}
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* Keep the action controls visible while the menu (or color picker) is
+              open — otherwise moving the cursor off the header row drops
+              group-hover and fades the open dropdown out mid-click. */}
+          <div className={cn('flex items-center gap-1 transition-opacity', (showMenu || showColorPicker) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100')}>
             <button onClick={onAddRecord} className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-surface-2 transition-colors" title={`Add ${entityNoun}`}>
               <Plus className="w-3.5 h-3.5" />
             </button>
@@ -273,9 +298,11 @@ export function BoardGroupTable({
                 {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MoreVertical className="w-3.5 h-3.5" />}
               </button>
               {showMenu && (
-                <div className="absolute right-0 top-6 z-50 w-44 rounded-lg border border-border bg-card p-1 shadow-xl text-left font-normal normal-case tracking-normal">
+                <div className="absolute right-0 top-7 z-[60] w-56 rounded-lg border border-border bg-card p-1.5 shadow-xl text-left font-normal normal-case tracking-normal">
                   <GroupMenuItem icon={Pencil} label="Rename group" onClick={() => { closeMenu(); setEditingName(true) }} />
                   <GroupMenuItem icon={Palette} label="Change color" onClick={() => { closeMenu(); setShowColorPicker(true) }} />
+                  <GroupMenuItem icon={Info} label="Role & guidance" onClick={() => { closeMenu(); setRoleDraft(group.role_label ?? ''); setGuidanceDraft(group.guidance_note ?? ''); setEditingMeta(true) }} />
+                  <GroupMenuItem icon={ListChecks} label="Edit checklist" onClick={() => { closeMenu(); setShowChecklist(true) }} />
                   <GroupMenuItem icon={Copy} label="Duplicate group" onClick={onDuplicateGroup} />
                   {onMoveGroup && !isFirstGroup && <GroupMenuItem icon={ArrowUp} label="Move up" onClick={() => { closeMenu(); onMoveGroup(group.id, 'up') }} />}
                   {onMoveGroup && !isLastGroup && <GroupMenuItem icon={ArrowDown} label="Move down" onClick={() => { closeMenu(); onMoveGroup(group.id, 'down') }} />}
@@ -292,6 +319,60 @@ export function BoardGroupTable({
           </div>
         </div>
       </div>
+
+      {/* Stage role + Guidance Note editor (Phase 5J). Presentation metadata —
+          the role shows as a subtle badge and the note as quiet coaching text on
+          the Kanban column header; neither is a checklist item. */}
+      {editingMeta && (
+        <div className="relative z-30 mx-3 mb-3 ml-5 space-y-2 rounded-lg border border-border bg-surface-1 p-3">
+          <div className="flex items-center gap-2">
+            <label className="w-20 flex-shrink-0 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Role</label>
+            <input
+              value={roleDraft}
+              onChange={(e) => setRoleDraft(e.target.value)}
+              placeholder="e.g. LO, LP1"
+              maxLength={12}
+              className="flex-1 rounded border border-border bg-card px-2 py-1 text-xs text-foreground focus:border-jubo-navy focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">Guidance note</label>
+            <textarea
+              value={guidanceDraft}
+              onChange={(e) => setGuidanceDraft(e.target.value)}
+              rows={3}
+              placeholder="Quiet coaching/context for this stage (not a checklist item)"
+              className="mt-1 w-full resize-y rounded border border-border bg-card px-2 py-1 text-xs leading-snug text-foreground focus:border-jubo-navy focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => { setRoleDraft(group.role_label ?? ''); setGuidanceDraft(group.guidance_note ?? ''); setEditingMeta(false) }}
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={saveMeta}
+              disabled={isPending}
+              className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            >
+              {isPending ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Stage checklist editor (Phase 5K) — add/rename/reorder/remove-from-stage,
+          plus a warning-gated delete-everywhere. Progress-safe except delete. */}
+      {showChecklist && (
+        <StageChecklistModal
+          open={showChecklist}
+          onClose={() => setShowChecklist(false)}
+          boardId={boardId}
+          group={{ id: group.id, name: group.name, role_label: group.role_label, guidance_note: group.guidance_note }}
+        />
+      )}
 
       {/* Drop zone highlight when dragging over a collapsed group */}
       {isOver && collapsed && (
@@ -424,11 +505,11 @@ function GroupMenuItem({ icon: Icon, label, onClick, destructive }: {
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-surface-1',
+        'flex min-h-[36px] w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm hover:bg-surface-1',
         destructive ? 'text-destructive' : 'text-foreground',
       )}
     >
-      <Icon className={cn('h-3.5 w-3.5 flex-shrink-0', destructive ? 'text-destructive' : 'text-muted-foreground')} />
+      <Icon className={cn('h-4 w-4 flex-shrink-0', destructive ? 'text-destructive' : 'text-muted-foreground')} />
       {label}
     </button>
   )

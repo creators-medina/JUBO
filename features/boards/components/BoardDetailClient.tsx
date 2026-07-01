@@ -166,7 +166,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   // Kanban is the default/primary board view (client-only state, no persistence).
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('kanban')
   const stages = useMemo<Stage[]>(
-    () => groups.map((g: any) => ({ id: g.id, boardId: board.id, groupId: g.id, label: g.name, color: g.color ?? null })),
+    () => groups.map((g: any) => ({ id: g.id, boardId: board.id, groupId: g.id, label: g.name, color: g.color ?? null, roleLabel: g.role_label ?? null, guidanceNote: g.guidance_note ?? null })),
     [groups, board.id],
   )
 
@@ -478,6 +478,16 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     }, {}),
   [filteredByGroup, groups])
 
+  // Visible records that actually carry a loan value — lets the header show a
+  // safe average (total value ÷ valued records), excluding $0/blank records so
+  // the average isn't diluted. Same filtered set, no new query.
+  const filteredValuedCountByGroup = useMemo(() =>
+    groups.reduce<Record<string, number>>((acc, g) => {
+      acc[g.id] = (filteredByGroup[g.id] ?? []).filter((r: any) => (Number(r.value) || 0) > 0).length
+      return acc
+    }, {}),
+  [filteredByGroup, groups])
+
   const totalByGroup = useMemo(() =>
     groups.reduce<Record<string, number>>((acc, g) => {
       acc[g.id] = topLevelRecords.filter((r: any) => r.group_id === g.id).length
@@ -681,6 +691,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                 groups={groups}
                 countByGroup={filteredCountByGroup}
                 valueByGroup={filteredValueByGroup}
+                valuedCountByGroup={filteredValuedCountByGroup}
                 phaseLabel={board.name}
               />
             </div>
