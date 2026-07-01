@@ -593,3 +593,163 @@ export async function reorderFields(boardId: string, orderedFieldIds: string[]):
   )
   revalidatePath(`/boards/${boardId}`)
 }
+
+// ── Phase 5K — Stage Checklist editor ───────────────────────────────────────
+// A focused, safe API over the existing model (checklist = field_type='checklist',
+// progress = field_values.value_boolean, stage scope = field_group_visibility).
+// Nothing here is a new storage concept and no migration is needed.
+
+export type StageChecklistItem = {
+  id: string
+  name: string
+  position: number
+  /** How many groups this item is scoped to (0 = common / shows on every stage). */
+  visibleGroupCount: number
+  isCommon: boolean
+  /** True when the item is scoped to EXACTLY this stage (removing it here would
+   *  otherwise drop its last visibility row and expose it everywhere). */
+  onlyHere: boolean
+  /** Records with a completed value for this item — surfaced in the delete warning. */
+  completedCount: number
+}
+
+const checklistSlug = (name: string) =>
+  name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'checklist-item'
+
+/** The checklist items visible in a stage, in board order, with the metadata the
+ *  editor needs (scope + completion counts). Read-only. */
+export async function getStageChecklist(boardId: string, groupId: string): Promise<{ items: StageChecklistItem[] }> {
+  const supabase = await createClient()
+  const fields = await getBoardFields(boardId)
+  const checklist = (fields as { id: string; name: string; field_type: string; position: number }[])
+    .filter((f) => f.field_type === 'checklist')
+  const ids = checklist.map((f) => f.id)
+  if (ids.length === 0) return { items: [] }
+
+  const [{ data: vis }, { data: vals }] = await Promise.all([
+    supabase.from('field_group_visibility').select('field_id, group_id').in('field_id', ids),
+    supabase.from('field_values').select('field_id').in('field_id', ids).eq('value_boolean', true),
+  ])
+  const byField = new Map<string, Set<string>>()
+  for (const v of (vis ?? []) as { field_id: string; group_id: string }[]) {
+    const s = byField.get(v.field_id) ?? new Set<string>()
+    s.add(v.group_id); byField.set(v.field_id, s)
+  }
+  const completed = new Map<string, number>()
+  for (const r of (vals ?? []) as { field_id: string }[]) completed.set(r.field_id, (completed.get(r.field_id) ?? 0) + 1)
+
+  const items = checklist
+    .filter((f) => { const set = byField.get(f.id); return !set || set.size === 0 || set.has(groupId) })
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    .map((f) => {
+      const set = byField.get(f.id)
+      const count = set?.size ?? 0
+      return {
+        id: f.id, name: f.name, position: f.position ?? 0,
+        visibleGroupCount: count, isCommon: count === 0,
+        onlyHere: count === 1 && !!set?.has(groupId),
+        completedCount: completed.get(f.id) ?? 0,
+      }
+    })
+  return { items }
+}
+
+/** Add a checklist item scoped to this stage only. Creates the field + a single
+ *  field_group_visibility row for `groupId`; never affects other items/progress. */
+export async function addStageChecklistItem(boardId: string, groupId: string, name: string): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const clean = name.trim()
+  if (!clean) throw new Error('Checklist item name is required')
+  if (clean.length > 60) throw new Error('Checklist item name is too long')
+
+  const { data: board } = await supabase.from('boards').select('organization_id').eq('id', boardId).maybeSingle()
+  const orgId = (board as { organization_id: string } | null)?.organization_id
+  if (!orgId) throw new Error('Board not found or access denied')
+
+  const { data: existing } = await supabase.from('fields').select('slug, position').eq('board_id', boardId)
+  const rows = (existing ?? []) as { slug: string; position: number }[]
+  const used = new Set(rows.map((r) => r.slug))
+  const base = checklistSlug(clean)
+  let slug = base
+  for (let i = 2; used.has(slug); i++) slug = `${base}-${i}`
+  const position = rows.reduce((m, r) => Math.max(m, r.position ?? 0), 0) + 1
+
+  const { data: field, error } = await supabase.from('fields')
+    .insert({ organization_id: orgId, board_id: boardId, entity_type: 'record', name: clean, slug, field_type: 'checklist', position, config: {} })
+    .select('id').single()
+  if (error) throw new Error(error.message)
+
+  const { error: visErr } = await supabase.from('field_group_visibility')
+    .insert({ organization_id: orgId, field_id: (field as { id: string }).id, group_id: groupId })
+  if (visErr) throw new Error(visErr.message)
+
+  revalidatePath(`/boards/${boardId}`)
+}
+
+/** SAFE removal — take the item off THIS stage without deleting the field or any
+ *  progress. Returns { removed:false, reason:'only-here' } when the item is scoped
+ *  to only this stage (removing its last visibility row would expose it on every
+ *  stage) so the caller can offer "Delete everywhere" instead. For a common item
+ *  (shows everywhere) it becomes visible in all OTHER groups except this one. */
+export async function removeChecklistItemFromStage(
+  boardId: string, groupId: string, fieldId: string,
+): Promise<{ removed: boolean; reason?: 'only-here' | 'single-stage-board' }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { data: field } = await supabase.from('fields')
+    .select('id, organization_id, field_type').eq('id', fieldId).maybeSingle()
+  const f = field as { id: string; organization_id: string; field_type: string } | null
+  if (!f) throw new Error('Field not found or access denied')
+  if (f.field_type !== 'checklist') throw new Error('Not a checklist item')
+
+  const { data: visRows } = await supabase.from('field_group_visibility').select('group_id').eq('field_id', fieldId)
+  const groupIds = new Set(((visRows ?? []) as { group_id: string }[]).map((r) => r.group_id))
+
+  if (groupIds.size === 0) {
+    // Common item → make it visible in every OTHER active group (never touches values).
+    const { data: groups } = await supabase.from('board_groups')
+      .select('id').eq('board_id', boardId).eq('is_archived', false)
+    const others = ((groups ?? []) as { id: string }[]).map((g) => g.id).filter((id) => id !== groupId)
+    if (others.length === 0) return { removed: false, reason: 'single-stage-board' }
+    const { error } = await supabase.from('field_group_visibility')
+      .upsert(others.map((id) => ({ organization_id: f.organization_id, field_id: fieldId, group_id: id })), { onConflict: 'field_id,group_id' })
+    if (error) throw new Error(error.message)
+    revalidatePath(`/boards/${boardId}`)
+    return { removed: true }
+  }
+
+  if (groupIds.size === 1 && groupIds.has(groupId)) {
+    // Only visible here — refuse; deleting the last row would expose it everywhere.
+    return { removed: false, reason: 'only-here' }
+  }
+
+  // Visible in ≥2 groups (or not visible here at all) → drop just this stage's row.
+  const { error } = await supabase.from('field_group_visibility')
+    .delete().eq('field_id', fieldId).eq('group_id', groupId)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/boards/${boardId}`)
+  return { removed: true }
+}
+
+/** Reorder the stage's checklist items among their existing column slots, leaving
+ *  every non-checklist column's position untouched. Progress/visibility unchanged. */
+export async function reorderStageChecklist(
+  boardId: string, orderedChecklistFieldIds: string[],
+): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const all = (await getBoardFields(boardId)) as { id: string; field_type: string }[]
+  const orderIds = all.map((f) => f.id)
+  const targetSet = new Set(orderedChecklistFieldIds)
+  // Slots (indices in the global order) currently held by these checklist fields.
+  const slots = orderIds.map((id, i) => (targetSet.has(id) ? i : -1)).filter((i) => i >= 0)
+  const next = [...orderIds]
+  slots.forEach((slot, k) => { next[slot] = orderedChecklistFieldIds[k] })
+  await reorderFields(boardId, next)
+}

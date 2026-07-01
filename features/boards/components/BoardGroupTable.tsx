@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, ChevronRight, Plus, Check, X, MoreVertical, GripVertical, Pencil, Palette, Copy, ArrowUp, ArrowDown, Archive, Trash2, Loader2, Info } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Check, X, MoreVertical, GripVertical, Pencil, Palette, Copy, ArrowUp, ArrowDown, Archive, Trash2, Loader2, Info, ListChecks } from 'lucide-react'
 import { useDroppable } from '@dnd-kit/core'
 import { BoardRecordRow } from './BoardRecordRow'
 import { updateBoardGroup, duplicateBoardGroup, archiveBoardGroup, deleteBoardGroupHard } from '@/features/boards/actions'
 import { EditableColumnHeader } from './EditableColumnHeader'
+import { StageChecklistModal } from './StageChecklistModal'
 import { formatVolume, stageColor } from './BoardStageSummary'
 import { cn } from '@/lib/utils'
 
@@ -91,6 +92,7 @@ export function BoardGroupTable({
   const [editingMeta, setEditingMeta] = useState(false)
   const [roleDraft, setRoleDraft] = useState<string>(group.role_label ?? '')
   const [guidanceDraft, setGuidanceDraft] = useState<string>(group.guidance_note ?? '')
+  const [showChecklist, setShowChecklist] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -300,6 +302,7 @@ export function BoardGroupTable({
                   <GroupMenuItem icon={Pencil} label="Rename group" onClick={() => { closeMenu(); setEditingName(true) }} />
                   <GroupMenuItem icon={Palette} label="Change color" onClick={() => { closeMenu(); setShowColorPicker(true) }} />
                   <GroupMenuItem icon={Info} label="Role & guidance" onClick={() => { closeMenu(); setRoleDraft(group.role_label ?? ''); setGuidanceDraft(group.guidance_note ?? ''); setEditingMeta(true) }} />
+                  <GroupMenuItem icon={ListChecks} label="Edit checklist" onClick={() => { closeMenu(); setShowChecklist(true) }} />
                   <GroupMenuItem icon={Copy} label="Duplicate group" onClick={onDuplicateGroup} />
                   {onMoveGroup && !isFirstGroup && <GroupMenuItem icon={ArrowUp} label="Move up" onClick={() => { closeMenu(); onMoveGroup(group.id, 'up') }} />}
                   {onMoveGroup && !isLastGroup && <GroupMenuItem icon={ArrowDown} label="Move down" onClick={() => { closeMenu(); onMoveGroup(group.id, 'down') }} />}
@@ -358,6 +361,17 @@ export function BoardGroupTable({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Stage checklist editor (Phase 5K) — add/rename/reorder/remove-from-stage,
+          plus a warning-gated delete-everywhere. Progress-safe except delete. */}
+      {showChecklist && (
+        <StageChecklistModal
+          open={showChecklist}
+          onClose={() => setShowChecklist(false)}
+          boardId={boardId}
+          group={{ id: group.id, name: group.name, role_label: group.role_label, guidance_note: group.guidance_note }}
+        />
       )}
 
       {/* Drop zone highlight when dragging over a collapsed group */}
