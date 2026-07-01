@@ -1,15 +1,17 @@
 'use client'
 
 // ─────────────────────────────────────────────────────────────────────────
-// BoardPhaseSummaryGraph (Phase 5H) — the pipeline header above the board. A
-// centered title + KPI row (total contacts, pipeline value, leading stage) over
-// a row of per-stage circular ring indicators. Replaces the old horizontal
-// segmented funnel bar. Presentational only — all metrics are derived from the
-// already-loaded, visible/filtered record set passed in as props (no queries,
-// no engine/schema changes). Works for any board/pipeline with ≥2 stages.
+// BoardPhaseSummaryGraph (Phase 5H → 5I compact) — the pipeline header above
+// the board, in a deliberately SHORT form so the cards below aren't pushed
+// down: badge + title on one centered line, a single compact KPI band
+// (contacts · pipeline value · leading stage), and a tight per-stage row where
+// every stage shows its count (in a small ring), name, and — prominently — its
+// total dollar value. Percent is kept but demoted to the hover tooltip to save
+// height. Presentational only — all metrics are derived from the already-loaded,
+// visible/filtered record set passed in as props (no queries, no engine/schema
+// changes). Works for any board/pipeline with ≥2 stages.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { cn } from '@/lib/utils'
 import { stageColor, formatVolume } from './BoardStageSummary'
 
 // Graph-only soft palette for the ring FILL — lighter than the Kanban columns
@@ -69,39 +71,37 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, val
   const avgLoan = valuedTotal > 0 ? totalValue / valuedTotal : 0
 
   return (
-    <div className="rounded-xl border border-jubo-border bg-jubo-card p-4 shadow-sm">
-      {/* Centered title area. */}
-      <div className="flex flex-col items-center gap-1.5 text-center">
-        <span className="inline-flex items-center rounded-full bg-jubo-gold-soft px-2 py-0.5 text-2xs font-semibold uppercase tracking-wider text-jubo-gold">
+    <div className="rounded-xl border border-jubo-border bg-jubo-card px-4 py-2.5 shadow-sm">
+      {/* Row 1 — badge + title on ONE centered line (was stacked → saves height). */}
+      <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-center">
+        <span className="inline-flex items-center rounded-full bg-jubo-gold-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-jubo-gold">
           Pipeline
         </span>
         {phaseLabel && (
-          <h3 className="text-lg font-bold leading-tight tracking-tight text-jubo-navy sm:text-xl">{phaseLabel}</h3>
+          <h3 className="text-base font-bold leading-tight tracking-tight text-jubo-navy">{phaseLabel}</h3>
         )}
       </div>
 
-      {/* KPI row — three centered metrics. */}
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <KpiCard
-          value={String(total)}
-          label="Contacts in phase"
-        />
-        <KpiCard
-          value={formatVolume(totalValue) || '—'}
+      {/* Row 2 — compact KPI band: three inline metrics with thin dividers. */}
+      <div className="mx-auto mt-2 flex w-fit max-w-full flex-wrap items-stretch justify-center divide-x divide-jubo-border rounded-lg border border-jubo-border bg-jubo-card-soft">
+        <Kpi value={String(total)} label="Contacts in phase" />
+        <Kpi
+          value={formatVolume(totalValue) || '$0'}
           label="Pipeline value"
           hint={avgLoan > 0 ? `Avg ${formatVolume(avgLoan)}` : undefined}
         />
-        <KpiCard
+        <Kpi
           value={total > 0 ? String(leading.count) : '—'}
-          label={total > 0 ? `At "${leading.name}"` : 'Leading stage'}
+          label={total > 0 ? `At “${leading.name}”` : 'Leading stage'}
           hint={total > 0 ? `${pct(leading.count)}% of contacts` : undefined}
         />
       </div>
 
-      {/* Stage breakdown — one circular ring per stage. Wraps for any count. */}
-      <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-4 border-t border-jubo-border/70 pt-4">
+      {/* Row 3 — compact per-stage row: small ring + count, name, and the stage's
+          total dollar value (prominent). Percent lives in the tooltip. */}
+      <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-2">
         {segments.map((s, i) => (
-          <StageRing
+          <StageStat
             key={s.id}
             color={s.color}
             count={s.count}
@@ -117,20 +117,24 @@ export function BoardPhaseSummaryGraph({ groups, countByGroup, valueByGroup, val
   )
 }
 
-/** One KPI block: big number, label, optional small hint line. */
-function KpiCard({ value, label, hint }: { value: string; label: string; hint?: string }) {
+/** One compact KPI: big number + a small label, with an optional inline hint
+ *  (kept on the label line so each metric stays a single tidy block). */
+function Kpi({ value, label, hint }: { value: string; label: string; hint?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-jubo-border bg-jubo-card-soft px-3 py-2.5 text-center">
-      <span className="text-3xl font-bold tabular-nums leading-none text-jubo-navy">{value}</span>
-      <span className="mt-1.5 text-2xs font-semibold uppercase tracking-wider text-jubo-muted">{label}</span>
-      {hint && <span className="mt-0.5 text-2xs tabular-nums text-jubo-text-soft">{hint}</span>}
+    <div className="flex min-w-[7rem] flex-col items-center justify-center px-4 py-1.5 text-center">
+      <span className="text-xl font-bold tabular-nums leading-none text-jubo-navy">{value}</span>
+      <span className="mt-1 max-w-[13rem] truncate text-[10px] font-semibold uppercase tracking-wider text-jubo-muted">
+        {label}
+        {hint && <span className="ml-1 font-medium normal-case tracking-normal text-jubo-text-soft">· {hint}</span>}
+      </span>
     </div>
   )
 }
 
-/** A single stage's circular ring + labels. CSS-only conic-gradient ring with a
- *  cream/tan neutral track and a centered navy count; no charting library. */
-function StageRing({
+/** A single stage's compact stat: a small conic-gradient ring holding the count,
+ *  then the stage name and its total dollar value. Percent is exposed via the
+ *  tooltip so it doesn't add a line. CSS-only ring; no charting library. */
+function StageStat({
   color, count, share, index, name, value, percent,
 }: {
   color: string
@@ -142,31 +146,28 @@ function StageRing({
   percent: number
 }) {
   const deg = Math.max(0, Math.min(1, share)) * 360
-  const volume = formatVolume(value)
+  const volume = formatVolume(value) || '$0'
   return (
-    <div className="flex w-28 flex-shrink-0 flex-col items-center text-center">
+    <div
+      className="flex w-24 flex-shrink-0 flex-col items-center text-center"
+      title={`${index + 1}. ${name}: ${count} contact${count === 1 ? '' : 's'} · ${volume} · ${percent}% of contacts`}
+    >
       {/* Ring: conic fill over a tan track; inner cream disc holds the count. */}
       <div
-        className="relative h-16 w-16 flex-shrink-0 rounded-full"
+        className="relative h-11 w-11 flex-shrink-0 rounded-full"
         style={{ background: `conic-gradient(${color} ${deg}deg, ${RING_TRACK} 0deg)` }}
         aria-hidden
       >
-        <div className="absolute inset-[6px] flex items-center justify-center rounded-full bg-jubo-card">
-          <span className="text-lg font-bold tabular-nums leading-none text-jubo-navy">{count}</span>
+        <div className="absolute inset-[4px] flex items-center justify-center rounded-full bg-jubo-card">
+          <span className="text-sm font-bold tabular-nums leading-none text-jubo-navy">{count}</span>
         </div>
       </div>
-      {/* Stage number. */}
-      <span className="mt-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-jubo-card-soft px-1.5 text-2xs font-semibold tabular-nums text-jubo-muted">
-        {index + 1}
+      {/* Stage number + name on one line. */}
+      <span className="mt-1 max-w-full truncate text-[11px] font-semibold leading-tight text-jubo-navy" title={name}>
+        <span className="tabular-nums text-jubo-muted">{index + 1}</span> {name}
       </span>
-      {/* Stage name. */}
-      <span className={cn('mt-1 max-w-full truncate text-xs font-semibold leading-tight text-jubo-navy')} title={name}>
-        {name}
-      </span>
-      {/* Stage loan value. */}
-      <span className="mt-0.5 text-2xs tabular-nums text-jubo-text-soft">{volume || '—'}</span>
-      {/* Percent of contacts. */}
-      <span className="text-2xs tabular-nums text-jubo-muted">{percent}% of contacts</span>
+      {/* Stage total dollar value — prominent, always shown ($0 when empty). */}
+      <span className="text-xs font-bold tabular-nums leading-tight text-jubo-navy">{volume}</span>
     </div>
   )
 }
