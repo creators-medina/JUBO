@@ -5,6 +5,22 @@ import { revalidatePath } from 'next/cache'
 import { ensureDefaultStatusField } from '@/features/fields/defaultStatus'
 import type { BoardType } from '@/types/database'
 
+/** Persist a new sidebar board order (Phase 5L). position = index in the passed
+ *  order. Position-only; RLS scopes each update to the caller's org, so boards
+ *  from other orgs can't be touched. Names/types/archived/records are untouched. */
+export async function reorderBoards(orderedBoardIds: string[]) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  await Promise.all(
+    orderedBoardIds.map((id, idx) =>
+      supabase.from('boards').update({ position: idx }).eq('id', id),
+    ),
+  )
+  // Sidebar lives in the app layout; revalidate broadly so any server render picks it up.
+  revalidatePath('/', 'layout')
+}
+
 export async function createBoard(data: {
   organization_id: string
   name: string
