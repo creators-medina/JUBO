@@ -25,36 +25,6 @@ const BOARD_TYPE_ACCENT: Record<string, string> = {
   custom: 'text-muted-foreground',
 }
 
-// Presentation-only grouping: boards are matched into visual groups by name.
-// This does NOT change board names, ids, routes, or any stored data.
-const CLIENT_JOURNEY_MATCHERS = [
-  'phase 1',
-  'phase 2',
-  'phase 2-3',
-  'phase 3',
-  'phase 4',
-  'lead capture',
-  'post closing',
-  'in process',
-]
-
-const RELATIONSHIPS_MATCHERS = ['realtor', 'partner', 'referral', 'past client']
-
-type BoardGroupKey = 'clientJourney' | 'relationships' | 'other'
-
-function groupKeyForBoard(board: Board): BoardGroupKey {
-  const name = board.name.toLowerCase()
-  if (CLIENT_JOURNEY_MATCHERS.some(m => name.includes(m))) return 'clientJourney'
-  if (RELATIONSHIPS_MATCHERS.some(m => name.includes(m))) return 'relationships'
-  return 'other'
-}
-
-const GROUP_ORDER: { key: BoardGroupKey; label: string }[] = [
-  { key: 'clientJourney', label: 'Client Journey' },
-  { key: 'relationships', label: 'Relationships' },
-  { key: 'other', label: 'Other Boards' },
-]
-
 // Drag payload key — distinct so it can't collide with other native DnD in the app.
 const DND_TYPE = 'text/jubo-board-id'
 
@@ -97,29 +67,22 @@ export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean 
 
   if (boards.length === 0 && collapsed) return null
 
-  const grouped: Record<BoardGroupKey, Board[]> = {
-    clientJourney: [],
-    relationships: [],
-    other: [],
-  }
-  for (const board of boards) {
-    grouped[groupKeyForBoard(board)].push(board)
-  }
-
-  // Reorder within the flat list (which preserves each group's relative order).
-  // Only allowed WITHIN the same visual group — groups are name-derived, so a
-  // cross-group move would need a rename, which we never do here.
+  // Reorder anywhere in the single flat list. The sidebar is now one ordered list
+  // driven purely by boards.position (no name-derived sections), so a board can be
+  // dropped above OR below any other board — including across what used to be
+  // separate visual sections. Names/types/routes are never touched.
   const reorder = (draggedId: string, targetId: string) => {
     if (draggedId === targetId) return
     const from = boards.findIndex(b => b.id === draggedId)
-    const toIdx = boards.findIndex(b => b.id === targetId)
-    if (from < 0 || toIdx < 0) return
-    if (groupKeyForBoard(boards[from]) !== groupKeyForBoard(boards[toIdx])) return
+    const to = boards.findIndex(b => b.id === targetId)
+    if (from < 0 || to < 0) return
     const prev = boards
-    const next = [...boards]
-    const [moved] = next.splice(from, 1)
-    const insertAt = next.findIndex(b => b.id === targetId)
-    next.splice(insertAt, 0, moved)
+    const next = boards.filter(b => b.id !== draggedId)
+    // Dropping downward lands the board just AFTER the target; dropping upward just
+    // BEFORE it — so every slot (including the very top and bottom) is reachable.
+    const targetIdx = next.findIndex(b => b.id === targetId)
+    const insertAt = from < to ? targetIdx + 1 : targetIdx
+    next.splice(insertAt, 0, boards[from])
     setBoards(next) // optimistic
     reorderBoards(next.map(b => b.id)).catch(() => setBoards(prev)) // rollback on failure
   }
@@ -127,8 +90,7 @@ export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean 
   const renderBoard = (board: Board, draggable: boolean) => {
     const active = pathname === `/boards/${board.id}`
     const isDragging = draggingId === board.id
-    const isOver = dragOverId === board.id && draggingId !== board.id
-        && draggingId != null && groupKeyForBoard(board) === groupKeyForBoard(boards.find(b => b.id === draggingId) ?? board)
+    const isOver = dragOverId === board.id && draggingId != null && draggingId !== board.id
     return (
       <div
         key={board.id}
@@ -193,26 +155,18 @@ export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean 
     )
   }
 
-  // Collapsed: render icons only, no group headers, no reordering.
+  // Collapsed: render icons only, no header, no reordering.
   if (collapsed) {
     return <div className="space-y-0.5">{boards.map(b => renderBoard(b, false))}</div>
   }
 
+  // Expanded: one unified, fully drag-reorderable list ordered by position.
   return (
-    <div className="space-y-3">
-      {GROUP_ORDER.map(group => {
-        const groupBoards = grouped[group.key]
-        if (groupBoards.length === 0) return null
-        return (
-          <div key={group.key} className="space-y-0.5">
-            <p className="px-2 py-1 text-xs font-semibold text-foreground/70 uppercase tracking-wider">
-              {group.label}
-            </p>
-            {/* Drag to reorder within this group; cross-group drops are ignored. */}
-            {groupBoards.map(b => renderBoard(b, true))}
-          </div>
-        )
-      })}
+    <div className="space-y-0.5">
+      <p className="px-2 py-1 text-xs font-semibold text-foreground/70 uppercase tracking-wider">
+        Boards
+      </p>
+      {boards.map(b => renderBoard(b, true))}
     </div>
   )
 }
