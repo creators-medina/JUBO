@@ -25,7 +25,7 @@ import { moveRecord, reorderRecords } from '@/features/records/actions'
 import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, isFieldVisibleInGroup, type FieldVisibilityRow } from '@/features/fields/visibility'
 import { computeGroupChecklist } from '@/features/fields/checklist'
 import { reorderFields } from '@/features/fields/actions'
-import { createSavedView, reorderBoardGroups, duplicateBoardStructure, archiveBoard } from '../actions'
+import { createSavedView, reorderBoardGroups, duplicateBoardStructure, archiveBoard, updateBoardDisplaySettings } from '../actions'
 import { addNotesColumn } from '@/features/fields/actions'
 import { isNotesField } from '../notes'
 import { updateSavedViewAttention } from '@/features/daily-actions/attention/actions'
@@ -67,6 +67,17 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   // Phase 35F — local field order for optimistic drag-to-reorder.
   const [localFields, setLocalFields] = useState(fields)
   useEffect(() => { setLocalFields(fields) }, [fields])
+
+  // Phase 5M — per-board summary display prefs (hide money, etc.). Toggling only
+  // changes what the header SHOWS; values/records/calculations are untouched.
+  const [displaySettings, setDisplaySettings] = useState<Record<string, boolean>>(
+    (board.display_settings as Record<string, boolean> | null) ?? {},
+  )
+  const handleChangeDisplaySettings = useCallback((next: Record<string, boolean>) => {
+    const prev = displaySettings
+    setDisplaySettings(next) // optimistic
+    updateBoardDisplaySettings(board.id, next).catch(() => setDisplaySettings(prev)) // rollback
+  }, [displaySettings, board.id])
 
   const handleReorderColumn = useCallback((draggedId: string, targetId: string) => {
     const ids = localFields.map((f: any) => f.id)
@@ -693,10 +704,13 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                 valueByGroup={filteredValueByGroup}
                 valuedCountByGroup={filteredValuedCountByGroup}
                 phaseLabel={board.name}
+                badge={board.board_type}
+                settings={displaySettings}
+                onChangeSettings={handleChangeDisplaySettings}
               />
             </div>
           )}
-          <div className="flex-1 overflow-y-auto overflow-x-auto px-4 py-4">
+          <div className="flex-1 overflow-y-auto overflow-x-auto px-4 pb-4 pt-2">
             {groups.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <EmptyState icon={Columns3} title="No groups yet" description="Add your first group to start organizing records in this board.">
