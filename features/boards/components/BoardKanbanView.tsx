@@ -7,12 +7,14 @@
 // the DragOverlay can render the identical "lifted card".
 // ─────────────────────────────────────────────────────────────────────────
 
-import { Plus } from 'lucide-react'
+import { useState } from 'react'
+import { ListChecks, Plus } from 'lucide-react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { type VisibilityIndex } from '@/features/fields/visibility'
 import { buildKanbanFace, KanbanCardFace } from './KanbanCardFace'
 import { stageColor } from './BoardStageSummary'
+import { StageChecklistModal } from './StageChecklistModal'
 import { useHoverCard, BorrowerPreviewPanel } from './BoardHoverCard'
 import { cn } from '@/lib/utils'
 
@@ -82,6 +84,11 @@ function KanbanColumn({
     data: { type: 'drop', groupId: stage.groupId, boardId: stage.boardId },
   })
 
+  // Phase 5K — the stage checklist editor is reachable straight from the Kanban
+  // column header (Kanban is the default view and has no ⋮ menu). Presentation
+  // only — opens a modal; no drag/drop change.
+  const [showChecklist, setShowChecklist] = useState(false)
+
   return (
     <div
       ref={setNodeRef}
@@ -110,16 +117,26 @@ function KanbanColumn({
               {stage.roleLabel}
             </span>
           )}
-          {onAddRecord && (
+          <div className="ml-auto flex flex-shrink-0 items-center gap-0.5">
             <button
               type="button"
-              onClick={() => onAddRecord(stage.groupId)}
-              title={`Add to ${stage.label}`}
-              className="ml-auto flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-jubo-muted transition-colors hover:bg-jubo-card hover:text-jubo-text"
+              onClick={() => setShowChecklist(true)}
+              title={`Edit ${stage.label} checklist`}
+              className="flex h-6 w-6 items-center justify-center rounded-md text-jubo-muted transition-colors hover:bg-jubo-card hover:text-jubo-text"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <ListChecks className="h-3.5 w-3.5" />
             </button>
-          )}
+            {onAddRecord && (
+              <button
+                type="button"
+                onClick={() => onAddRecord(stage.groupId)}
+                title={`Add to ${stage.label}`}
+                className="flex h-6 w-6 items-center justify-center rounded-md text-jubo-muted transition-colors hover:bg-jubo-card hover:text-jubo-text"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </div>
         {/* Quiet Guidance Note — coaching/context for whoever works this stage.
             Deliberately understated (small, muted, italic) so it informs without
@@ -169,6 +186,15 @@ function KanbanColumn({
           </button>
         )}
       </div>
+
+      {showChecklist && (
+        <StageChecklistModal
+          open={showChecklist}
+          onClose={() => setShowChecklist(false)}
+          boardId={stage.boardId}
+          group={{ id: stage.groupId, name: stage.label, role_label: stage.roleLabel, guidance_note: stage.guidanceNote }}
+        />
+      )}
     </div>
   )
 }
