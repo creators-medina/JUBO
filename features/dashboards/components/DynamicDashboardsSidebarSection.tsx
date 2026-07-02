@@ -17,9 +17,15 @@ interface DashboardItem {
 export function DynamicDashboardsSidebarSection({
   collapsed,
   onCreateClick,
+  hideHeader = false,
+  filter = '',
 }: {
   collapsed: boolean
   onCreateClick?: () => void
+  /** Suppress the built-in "Dashboards" header (the shell renders its own). */
+  hideHeader?: boolean
+  /** Case-insensitive name filter from the sidebar jump box. */
+  filter?: string
 }) {
   const { currentOrganization } = useOrganization()
   const pathname = usePathname()
@@ -39,9 +45,12 @@ export function DynamicDashboardsSidebarSection({
 
   if (dashboards.length === 0 && collapsed) return null
 
+  const q = filter.trim().toLowerCase()
+  const visible = q ? dashboards.filter(d => d.name.toLowerCase().includes(q)) : dashboards
+
   return (
     <div className="space-y-0.5">
-      {!collapsed && (
+      {!collapsed && !hideHeader && (
         <div className="flex items-center justify-between px-2 py-1">
           <p className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">Dashboards</p>
           {onCreateClick && (
@@ -56,7 +65,7 @@ export function DynamicDashboardsSidebarSection({
         </div>
       )}
 
-      {dashboards.map(dashboard => {
+      {visible.map(dashboard => {
         const active = pathname === `/dashboards/${dashboard.id}`
         return (
           <Link
