@@ -12,11 +12,15 @@ export async function reorderBoards(orderedBoardIds: string[]) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  await Promise.all(
+  const results = await Promise.all(
     orderedBoardIds.map((id, idx) =>
       supabase.from('boards').update({ position: idx }).eq('id', id),
     ),
   )
+  // supabase-js reports failures via { error } without throwing — surface them so
+  // the caller's optimistic-UI rollback actually fires instead of silently reverting.
+  const failed = results.find((r) => r.error)
+  if (failed?.error) throw new Error(failed.error.message)
   // Sidebar lives in the app layout; revalidate broadly so any server render picks it up.
   revalidatePath('/', 'layout')
 }
@@ -161,11 +165,13 @@ export async function reorderBoardGroups(boardId: string, orderedGroupIds: strin
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  await Promise.all(
+  const results = await Promise.all(
     orderedGroupIds.map((id, idx) =>
       supabase.from('board_groups').update({ position: idx }).eq('id', id).eq('board_id', boardId),
     ),
   )
+  const failed = results.find((r) => r.error)
+  if (failed?.error) throw new Error(failed.error.message)
   revalidatePath(`/boards/${boardId}`)
 }
 
