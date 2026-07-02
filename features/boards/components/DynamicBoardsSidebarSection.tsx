@@ -1,12 +1,35 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+// ─────────────────────────────────────────────────────────────────────────
+// DynamicBoardsSidebarSection — the workflow-first board nav (Board Redesign
+// reference): a "Work Loans Pipeline" summary card, then two segmented
+// sections built around what a loan officer does all day:
+//   • GENERATE   — leads & partners (Conversations + every non-pipeline board)
+//   • WORK LOANS — active pipeline (boards with board_type 'pipeline', plus
+//                  journey-named boards), with real counts and dollar totals.
+//
+// All numbers are REAL: one org-scoped, RLS-protected, read-only query over
+// records (board_id, value, parent_record_id) drives the per-board count
+// pills, the rolled-up section counts, and the pipeline card (sum / count /
+// avg of records.value — the same money source the board header uses).
+// Nothing is written except the existing boards.position reorder.
+//
+// Sections are PRESENTATION-ONLY (derived from stored board_type + name
+// fallback; never persisted). Drag-to-reorder therefore works WITHIN a
+// section — the reorder is computed on the full flat list so the global
+// boards.position order is preserved — and cross-section drops are ignored
+// rather than faked (honest cross-section placement needs a stored category;
+// proposed as a separate backend phase).
+// ─────────────────────────────────────────────────────────────────────────
+
+import { useEffect, useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Columns3, Plus } from 'lucide-react'
+import { Columns3, MessageSquare, Plus, UserPlus, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useOrganization } from '@/providers/OrganizationProvider'
 import { reorderBoards } from '@/features/boards/actions'
+import { formatVolume } from './BoardStageSummary'
 import { cn } from '@/lib/utils'
 
 interface Board {
@@ -17,21 +40,29 @@ interface Board {
   position?: number
 }
 
-const BOARD_TYPE_ACCENT: Record<string, string> = {
-  pipeline: 'text-violet-400',
-  crm: 'text-blue-400',
-  operations: 'text-amber-400',
-  recruiting: 'text-emerald-400',
-  custom: 'text-muted-foreground',
+type RecordRow = { board_id: string | null; value: number | null; parent_record_id: string | null }
+
+// Work Loans = the active loan pipeline. Primary signal is the STORED
+// board_type ('pipeline'); the name matchers only catch journey boards that
+// were created under another type. Everything else reads as Generate.
+const WORK_LOAN_NAME_MATCHERS = [
+  'phase', 'lead capture', 'post closing', 'post-closing', 'in process', 'underwrit', 'initial consult',
+]
+
+function isWorkLoansBoard(b: Board): boolean {
+  if (b.board_type === 'pipeline') return true
+  const n = b.name.toLowerCase()
+  return WORK_LOAN_NAME_MATCHERS.some((m) => n.includes(m))
 }
 
 // Drag payload key — distinct so it can't collide with other native DnD in the app.
 const DND_TYPE = 'text/jubo-board-id'
 
-export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean }) {
+export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collapsed: boolean; filter?: string }) {
   const { currentOrganization } = useOrganization()
   const pathname = usePathname()
   const [boards, setBoards] = useState<Board[]>([])
+  const [recordRows, setRecordRows] = useState<RecordRow[]>([])
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
 
@@ -40,9 +71,8 @@ export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean 
     const supabase = createClient()
     let cancelled = false
     ;(async () => {
-      // Prefer the persisted sidebar order (boards.position, added in phase5l).
-      // Fall back to created_at if the column isn't present yet (pre-migration),
-      // so the sidebar never breaks on a deploy that precedes the migration.
+      // Boards in the persisted sidebar order (boards.position, phase5l), with a
+      // created_at fallback if the column isn't in the DB yet (pre-migration).
       const withPos = await supabase
         .from('boards')
         .select('id, name, board_type, color, position')
@@ -61,36 +91,74 @@ export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean 
         rows = (fallback.data ?? []) as Board[]
       }
       if (!cancelled) setBoards(rows)
+
+      // READ-ONLY aggregate source: three tiny columns per active record,
+      // org-scoped by RLS. Drives counts + pipeline value; never written.
+      const recs = await supabase
+        .from('records')
+        .select('board_id, value, parent_record_id')
+        .eq('organization_id', currentOrganization.id)
+        .eq('is_archived', false)
+      if (!cancelled) setRecordRows(((recs.data ?? []) as RecordRow[]))
     })()
     return () => { cancelled = true }
   }, [currentOrganization])
 
-  if (boards.length === 0 && collapsed) return null
+  // Per-board rollups from the records read (top-level records only).
+  const statsByBoard = useMemo(() => {
+    const m = new Map<string, { count: number; value: number; valued: number }>()
+    for (const r of recordRows) {
+      if (!r.board_id || r.parent_record_id) continue
+      const s = m.get(r.board_id) ?? { count: 0, value: 0, valued: 0 }
+      s.count += 1
+      const v = Number(r.value) || 0
+      if (v > 0) { s.value += v; s.valued += 1 }
+      m.set(r.board_id, s)
+    }
+    return m
+  }, [recordRows])
 
-  // Reorder anywhere in the single flat list. The sidebar is now one ordered list
-  // driven purely by boards.position (no name-derived sections), so a board can be
-  // dropped above OR below any other board — including across what used to be
-  // separate visual sections. Names/types/routes are never touched.
+  const generateBoards = useMemo(() => boards.filter((b) => !isWorkLoansBoard(b)), [boards])
+  const workLoanBoards = useMemo(() => boards.filter(isWorkLoansBoard), [boards])
+
+  const q = filter.trim().toLowerCase()
+  const matches = (name: string) => !q || name.toLowerCase().includes(q)
+
+  const sectionCount = (list: Board[]) => list.reduce((s, b) => s + (statsByBoard.get(b.id)?.count ?? 0), 0)
+  const pipeline = useMemo(() => {
+    let value = 0, count = 0, valued = 0
+    for (const b of workLoanBoards) {
+      const s = statsByBoard.get(b.id)
+      if (!s) continue
+      value += s.value; count += s.count; valued += s.valued
+    }
+    return { value, count, avg: valued > 0 ? value / valued : 0 }
+  }, [workLoanBoards, statsByBoard])
+
+  // Reorder within the flat list (preserves global boards.position semantics).
+  // Cross-section drops are ignored: sections are derived, not stored, so a
+  // cross-section move can't persist honestly without a backend category.
   const reorder = (draggedId: string, targetId: string) => {
     if (draggedId === targetId) return
-    const from = boards.findIndex(b => b.id === draggedId)
-    const to = boards.findIndex(b => b.id === targetId)
+    const from = boards.findIndex((b) => b.id === draggedId)
+    const to = boards.findIndex((b) => b.id === targetId)
     if (from < 0 || to < 0) return
+    if (isWorkLoansBoard(boards[from]) !== isWorkLoansBoard(boards[to])) return
     const prev = boards
-    const next = boards.filter(b => b.id !== draggedId)
-    // Dropping downward lands the board just AFTER the target; dropping upward just
-    // BEFORE it — so every slot (including the very top and bottom) is reachable.
-    const targetIdx = next.findIndex(b => b.id === targetId)
+    const next = boards.filter((b) => b.id !== draggedId)
+    const targetIdx = next.findIndex((b) => b.id === targetId)
     const insertAt = from < to ? targetIdx + 1 : targetIdx
     next.splice(insertAt, 0, boards[from])
     setBoards(next) // optimistic
-    reorderBoards(next.map(b => b.id)).catch(() => setBoards(prev)) // rollback on failure
+    reorderBoards(next.map((b) => b.id)).catch(() => setBoards(prev)) // rollback on failure
   }
 
   const renderBoard = (board: Board, draggable: boolean) => {
     const active = pathname === `/boards/${board.id}`
     const isDragging = draggingId === board.id
     const isOver = dragOverId === board.id && draggingId != null && draggingId !== board.id
+      && isWorkLoansBoard(board) === isWorkLoansBoard(boards.find((b) => b.id === draggingId) ?? board)
+    const count = statsByBoard.get(board.id)?.count ?? 0
     return (
       <div
         key={board.id}
@@ -118,7 +186,7 @@ export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean 
           'rounded-md',
           draggable && 'cursor-grab active:cursor-grabbing',
           isDragging && 'opacity-40',
-          isOver && 'ring-1 ring-inset ring-jubo-navy/40',
+          isOver && 'ring-1 ring-inset ring-white/30',
         )}
       >
         <Link
@@ -126,47 +194,199 @@ export function DynamicBoardsSidebarSection({ collapsed }: { collapsed: boolean 
           draggable={false}
           title={collapsed ? board.name : undefined}
           className={cn(
-            'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[15px] transition-colors',
+            'relative flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[14px] transition-colors',
             collapsed ? 'justify-center' : '',
             active
-              ? 'bg-sidebar-item-active text-foreground'
-              : 'text-foreground/80 hover:bg-sidebar-item-hover hover:text-foreground'
+              ? 'bg-sidebar-item-active text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-[#e6c478] before:content-[\'\']'
+              : 'text-foreground/75 hover:bg-sidebar-item-hover hover:text-foreground',
           )}
         >
-          <Columns3 className={cn('w-4 h-4 flex-shrink-0', BOARD_TYPE_ACCENT[board.board_type] ?? 'text-muted-foreground')} />
-          {!collapsed && <span className="truncate text-[15px]">{board.name}</span>}
+          <span
+            className="h-2 w-2 flex-shrink-0 rounded-full"
+            style={{ background: board.color || 'rgba(255,255,255,0.35)' }}
+            aria-hidden
+          />
+          {!collapsed && (
+            <>
+              <span className="min-w-0 flex-1 truncate">{board.name}</span>
+              <span className="flex-shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground/70">
+                {count}
+              </span>
+            </>
+          )}
         </Link>
       </div>
     )
+  }
+
+  if (boards.length === 0 && collapsed) return null
+
+  // Collapsed: icons-only flat list (no card, no headers, no reordering).
+  if (collapsed) {
+    return <div className="space-y-0.5">{boards.map((b) => renderBoard(b, false))}</div>
   }
 
   if (boards.length === 0) {
-    if (collapsed) return null
     return (
-      <div className="space-y-0.5">
-        <Link
-          href="/boards"
-          className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-item-hover transition-colors"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Create first board
-        </Link>
-      </div>
+      <Link
+        href="/boards"
+        className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-sidebar-item-hover hover:text-foreground"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Create first board
+      </Link>
     )
   }
 
-  // Collapsed: render icons only, no header, no reordering.
-  if (collapsed) {
-    return <div className="space-y-0.5">{boards.map(b => renderBoard(b, false))}</div>
-  }
+  const visGenerate = generateBoards.filter((b) => matches(b.name))
+  const visWorkLoans = workLoanBoards.filter((b) => matches(b.name))
+  const showConversations = matches('conversations')
 
-  // Expanded: one unified, fully drag-reorderable list ordered by position.
   return (
-    <div className="space-y-0.5">
-      <p className="px-2 py-1 text-xs font-semibold text-foreground/70 uppercase tracking-wider">
-        Boards
-      </p>
-      {boards.map(b => renderBoard(b, true))}
+    <div className="space-y-4">
+      {/* Work Loans Pipeline card — real totals from records.value (read-only). */}
+      {!q && (
+        <div className="rounded-xl border border-[#e6c478]/25 bg-white/[0.04] px-3 py-2.5 shadow-sm">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#e6c478]">Work Loans Pipeline</p>
+          <p className="mt-1 text-2xl font-bold leading-none tabular-nums text-foreground">
+            {formatVolume(pipeline.value) || '$0'}
+          </p>
+          {/* Value distribution across pipeline boards — real shares, not decoration. */}
+          {pipeline.value > 0 && (
+            <div className="mt-2 flex h-1 gap-0.5 overflow-hidden rounded-full">
+              {workLoanBoards.map((b, i) => {
+                const v = statsByBoard.get(b.id)?.value ?? 0
+                if (v <= 0) return null
+                return (
+                  <div
+                    key={b.id}
+                    title={`${b.name}: ${formatVolume(v)}`}
+                    style={{
+                      width: `${Math.max((v / pipeline.value) * 100, 3)}%`,
+                      background: b.color || (i % 2 ? '#7ea6d9' : '#e6c478'),
+                    }}
+                  />
+                )
+              })}
+            </div>
+          )}
+          <div className="mt-2 flex items-baseline justify-between text-xs text-foreground/70">
+            <span className="tabular-nums">{pipeline.count} active {pipeline.count === 1 ? 'loan' : 'loans'}</span>
+            {pipeline.avg > 0 && <span className="tabular-nums">Avg {formatVolume(pipeline.avg)}</span>}
+          </div>
+        </div>
+      )}
+
+      {/* GENERATE — leads & partners. */}
+      {(visGenerate.length > 0 || showConversations) && (
+        <div className="space-y-0.5">
+          <SectionHeader
+            icon={<UserPlus className="h-3.5 w-3.5" />}
+            chipClass="bg-emerald-400/15 text-emerald-300"
+            label="Generate"
+            sublabel="Leads & partners"
+            count={sectionCount(generateBoards)}
+            addHref="/boards"
+            addTitle="Add board"
+          />
+          {showConversations && (
+            <Link
+              href="/conversations"
+              className={cn(
+                'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[14px] transition-colors',
+                pathname.startsWith('/conversations')
+                  ? 'bg-sidebar-item-active text-foreground'
+                  : 'text-foreground/75 hover:bg-sidebar-item-hover hover:text-foreground',
+              )}
+            >
+              <MessageSquare className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate">Conversations</span>
+            </Link>
+          )}
+          {visGenerate.map((b) => renderBoard(b, !q))}
+        </div>
+      )}
+
+      {/* WORK LOANS — active pipeline. */}
+      {visWorkLoans.length > 0 && (
+        <div className="space-y-0.5">
+          <SectionHeader
+            icon={<FileText className="h-3.5 w-3.5" />}
+            chipClass="bg-sky-400/15 text-sky-300"
+            label="Work Loans"
+            sublabel="Active pipeline"
+            count={sectionCount(workLoanBoards)}
+            addHref="/boards"
+            addTitle="Add board"
+          />
+          {visWorkLoans.map((b) => renderBoard(b, !q))}
+        </div>
+      )}
+
+      {/* All Boards — kept available (route preserved), de-emphasized. */}
+      {!q && (
+        <Link
+          href="/boards"
+          className={cn(
+            'flex items-center gap-2 rounded-md px-2 py-1 text-2xs transition-colors',
+            pathname === '/boards'
+              ? 'text-foreground'
+              : 'text-muted-foreground hover:bg-sidebar-item-hover hover:text-foreground',
+          )}
+        >
+          <Columns3 className="h-3 w-3 flex-shrink-0" />
+          All Boards
+        </Link>
+      )}
+    </div>
+  )
+}
+
+/** Reference-style section header: colored icon chip, uppercase label with a
+ *  plain-language subline, a real rolled-up count, and a quick-add link. */
+export function SectionHeader({
+  icon, chipClass, label, sublabel, count, addHref, addTitle, onAdd,
+}: {
+  icon: React.ReactNode
+  chipClass: string
+  label: string
+  sublabel: string
+  count?: number
+  addHref?: string
+  addTitle?: string
+  onAdd?: () => void
+}) {
+  return (
+    <div className="flex items-center gap-2 px-2 pb-1 pt-1.5">
+      <span className={cn('flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md', chipClass)}>
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1 leading-tight">
+        <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-foreground/90">{label}</p>
+        <p className="truncate text-[10px] text-foreground/50">{sublabel}</p>
+      </div>
+      {typeof count === 'number' && count > 0 && (
+        <span className="flex-shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground/70">
+          {count}
+        </span>
+      )}
+      {onAdd ? (
+        <button
+          onClick={onAdd}
+          title={addTitle}
+          className="flex-shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-sidebar-item-hover hover:text-foreground"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      ) : addHref ? (
+        <Link
+          href={addHref}
+          title={addTitle}
+          className="flex-shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-sidebar-item-hover hover:text-foreground"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </Link>
+      ) : null}
     </div>
   )
 }
