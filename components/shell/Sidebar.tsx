@@ -41,6 +41,7 @@ import { DynamicDashboardsSidebarSection } from '@/features/dashboards/component
 import { CreateDashboardModal } from '@/features/dashboards/components/CreateDashboardModal'
 import { useOrganization } from '@/providers/OrganizationProvider'
 import { useAuth } from '@/providers/AuthProvider'
+import { useSidebarSectionCollapsed } from '@/hooks/useSidebarSectionCollapsed'
 
 // Utility links pinned above the workflow sections (routes unchanged).
 const UTILITY_ITEMS = [
@@ -78,6 +79,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [showCreateDashboard, setShowCreateDashboard] = useState(false)
   const [filter, setFilter] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
+
+  // Monday-style collapsible groups (localStorage-persisted, default open).
+  const insightsSection = useSidebarSectionCollapsed('insights')
+  const setupSection = useSidebarSectionCollapsed('setup')
 
   // ⌘K / Ctrl+K focuses the jump box (real shortcut, not a decorative hint).
   useEffect(() => {
@@ -118,6 +123,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const visInsights = matchItems(INSIGHTS_ITEMS)
   const visSetup = matchItems(SETUP_ITEMS)
   const visUtility = matchItems(UTILITY_ITEMS)
+
+  // Keep the active route discoverable: open its section on route changes
+  // (stable callbacks → a manual collapse on the same route is respected).
+  const insightsActive = pathname.startsWith('/dashboards/') || INSIGHTS_ITEMS.some((i) => pathname.startsWith(i.href))
+  const setupActive = SETUP_ITEMS.some((i) => pathname.startsWith(i.href)) || pathname.startsWith('/settings')
+  const forceOpenInsights = insightsSection.forceOpen
+  const forceOpenSetup = setupSection.forceOpen
+  useEffect(() => { if (insightsActive) forceOpenInsights() }, [insightsActive, pathname, forceOpenInsights])
+  useEffect(() => { if (setupActive) forceOpenSetup() }, [setupActive, pathname, forceOpenSetup])
 
   return (
     <aside
@@ -195,8 +209,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 sublabel="Dashboards"
                 onAdd={() => setShowCreateDashboard(true)}
                 addTitle="New dashboard"
+                isCollapsed={insightsSection.collapsed && !q}
+                onToggle={insightsSection.toggle}
               />
             )}
+            {(collapsed || !insightsSection.collapsed || !!q) && (<>
             <DynamicDashboardsSidebarSection
               collapsed={collapsed}
               onCreateClick={() => setShowCreateDashboard(true)}
@@ -213,6 +230,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 collapsed={collapsed}
               />
             ))}
+            </>)}
           </div>
         )}
 
@@ -225,9 +243,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 chipClass="bg-amber-400/15 text-amber-300"
                 label="Setup"
                 sublabel="Automations & tools"
+                isCollapsed={setupSection.collapsed && !q}
+                onToggle={setupSection.toggle}
               />
             )}
-            {visSetup.map((item) => (
+            {(collapsed || !setupSection.collapsed || !!q) && visSetup.map((item) => (
               <SidebarItem
                 key={item.href}
                 href={item.href}
