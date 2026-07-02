@@ -586,11 +586,15 @@ export async function reorderFields(boardId: string, orderedFieldIds: string[]):
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
-  await Promise.all(
+  const results = await Promise.all(
     orderedFieldIds.map((id, idx) =>
       supabase.from('fields').update({ position: idx }).eq('id', id).eq('board_id', boardId),
     ),
   )
+  // supabase-js reports failures via { error } without throwing — surface them so
+  // the caller's optimistic-UI rollback actually fires instead of silently reverting.
+  const failed = results.find((r) => r.error)
+  if (failed?.error) throw new Error(failed.error.message)
   revalidatePath(`/boards/${boardId}`)
 }
 
