@@ -24,7 +24,9 @@ export function AppShell({ children, pageTitle }: AppShellProps) {
       <CommandPaletteProvider>
         <WorkspaceTabsProvider>
           <AnalyticsProvider>
-          <div className="flex h-screen w-screen overflow-hidden bg-background">
+          {/* w-full (not w-screen): 100vw includes the scrollbar gutter on
+              classic-scrollbar systems, which clips ~15px off the right edge. */}
+          <div className="flex h-screen w-full overflow-hidden bg-background">
             <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
             <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
               <TopHeader title={pageTitle} />

@@ -136,7 +136,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'jubo-navy-chrome relative flex h-full flex-col border-r border-sidebar-border bg-sidebar-bg transition-all duration-200 ease-in-out',
+        // flex-shrink-0: the sidebar must never yield width to the board area,
+        // even in edge cases (zoom levels, unusual viewports) the flex row
+        // could otherwise squeeze it and clip the right edge of its content.
+        'jubo-navy-chrome relative flex h-full flex-shrink-0 flex-col border-r border-sidebar-border bg-sidebar-bg transition-all duration-200 ease-in-out',
         collapsed ? 'w-14' : 'w-64'
       )}
     >
