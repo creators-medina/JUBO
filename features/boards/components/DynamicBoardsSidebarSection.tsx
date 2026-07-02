@@ -25,10 +25,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Columns3, MessageSquare, Plus, UserPlus, FileText } from 'lucide-react'
+import { ChevronDown, Columns3, MessageSquare, Plus, UserPlus, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useOrganization } from '@/providers/OrganizationProvider'
 import { reorderBoards } from '@/features/boards/actions'
+import { useSidebarSectionCollapsed } from '@/hooks/useSidebarSectionCollapsed'
 import { formatVolume } from './BoardStageSummary'
 import { cn } from '@/lib/utils'
 
@@ -65,6 +66,10 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   const [recordRows, setRecordRows] = useState<RecordRow[]>([])
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+
+  // Monday-style collapsible groups (localStorage-persisted, default open).
+  const generateSection = useSidebarSectionCollapsed('generate')
+  const workLoansSection = useSidebarSectionCollapsed('workloans')
 
   useEffect(() => {
     if (!currentOrganization) return
@@ -120,6 +125,18 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
 
   const generateBoards = useMemo(() => boards.filter((b) => !isWorkLoansBoard(b)), [boards])
   const workLoanBoards = useMemo(() => boards.filter(isWorkLoansBoard), [boards])
+
+  // Keep the active board discoverable: force its section open when the route
+  // points inside it (runs on route/board changes only — a manual collapse on
+  // the same route is respected because toggle/forceOpen are stable callbacks).
+  const forceOpenGenerate = generateSection.forceOpen
+  const forceOpenWorkLoans = workLoansSection.forceOpen
+  useEffect(() => {
+    const activeBoard = boards.find((b) => pathname === `/boards/${b.id}`)
+    if (!activeBoard) return
+    if (isWorkLoansBoard(activeBoard)) forceOpenWorkLoans()
+    else forceOpenGenerate()
+  }, [pathname, boards, forceOpenGenerate, forceOpenWorkLoans])
 
   const q = filter.trim().toLowerCase()
   const matches = (name: string) => !q || name.toLowerCase().includes(q)
@@ -277,7 +294,8 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
         </div>
       )}
 
-      {/* GENERATE — leads & partners. */}
+      {/* GENERATE — leads & partners. Collapsible; the jump filter reveals
+          matches even in a collapsed group (searching should never hide hits). */}
       {(visGenerate.length > 0 || showConversations) && (
         <div className="space-y-0.5">
           <SectionHeader
@@ -288,7 +306,10 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
             count={sectionCount(generateBoards)}
             addHref="/boards"
             addTitle="Add board"
+            isCollapsed={generateSection.collapsed && !q}
+            onToggle={generateSection.toggle}
           />
+          {(!generateSection.collapsed || q) && (<>
           {showConversations && (
             <Link
               href="/conversations"
@@ -304,10 +325,11 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
             </Link>
           )}
           {visGenerate.map((b) => renderBoard(b, !q))}
+          </>)}
         </div>
       )}
 
-      {/* WORK LOANS — active pipeline. */}
+      {/* WORK LOANS — active pipeline. Collapsible like Generate. */}
       {visWorkLoans.length > 0 && (
         <div className="space-y-0.5">
           <SectionHeader
@@ -318,8 +340,10 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
             count={sectionCount(workLoanBoards)}
             addHref="/boards"
             addTitle="Add board"
+            isCollapsed={workLoansSection.collapsed && !q}
+            onToggle={workLoansSection.toggle}
           />
-          {visWorkLoans.map((b) => renderBoard(b, !q))}
+          {(!workLoansSection.collapsed || q) && visWorkLoans.map((b) => renderBoard(b, !q))}
         </div>
       )}
 
@@ -342,10 +366,13 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   )
 }
 
-/** Reference-style section header: colored icon chip, uppercase label with a
- *  plain-language subline, a real rolled-up count, and a quick-add link. */
+/** Monday-style collapsible group header: chevron + colored icon chip +
+ *  uppercase label with a plain-language subline + real rolled-up count, and a
+ *  quick-add action. The label area is one toggle button; the quick-add is a
+ *  SIBLING element, so adding never collapses the group. Count and quick-add
+ *  stay visible while collapsed. */
 export function SectionHeader({
-  icon, chipClass, label, sublabel, count, addHref, addTitle, onAdd,
+  icon, chipClass, label, sublabel, count, addHref, addTitle, onAdd, isCollapsed, onToggle,
 }: {
   icon: React.ReactNode
   chipClass: string
@@ -355,13 +382,24 @@ export function SectionHeader({
   addHref?: string
   addTitle?: string
   onAdd?: () => void
+  /** When provided (with onToggle), the header toggles its group. */
+  isCollapsed?: boolean
+  onToggle?: () => void
 }) {
-  return (
-    <div className="flex items-center gap-2 px-2 pb-1 pt-1.5">
+  const labelBlock = (
+    <>
+      {onToggle && (
+        <ChevronDown
+          className={cn(
+            'h-3.5 w-3.5 flex-shrink-0 text-foreground/40 transition-transform duration-150',
+            isCollapsed && '-rotate-90',
+          )}
+        />
+      )}
       <span className={cn('flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md', chipClass)}>
         {icon}
       </span>
-      <div className="min-w-0 flex-1 leading-tight">
+      <div className="min-w-0 flex-1 text-left leading-tight">
         <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-foreground/90">{label}</p>
         <p className="truncate text-[10px] text-foreground/50">{sublabel}</p>
       </div>
@@ -369,6 +407,24 @@ export function SectionHeader({
         <span className="flex-shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground/70">
           {count}
         </span>
+      )}
+    </>
+  )
+
+  return (
+    <div className="flex items-center gap-1 px-1 pb-1 pt-1.5">
+      {onToggle ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={!isCollapsed}
+          title={isCollapsed ? `Expand ${label}` : `Collapse ${label}`}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-0.5 transition-colors hover:bg-sidebar-item-hover"
+        >
+          {labelBlock}
+        </button>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-2 px-1 py-0.5">{labelBlock}</div>
       )}
       {onAdd ? (
         <button
