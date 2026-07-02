@@ -587,21 +587,21 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
 
         {/* Search + filter bar */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0 flex-wrap">
-          {/* Table | Kanban toggle — left-aligned (Phase 37B-1, client-only, no persistence). */}
+          {/* Kanban | Table toggle — left-aligned (Phase 37B-1, client-only, no persistence). */}
           <div className="inline-flex items-center rounded-md border border-border bg-jubo-card-soft p-0.5">
-            <button
-              onClick={() => setViewMode('table')}
-              className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs transition-colors', viewMode === 'table' ? 'bg-jubo-navy text-white' : 'text-jubo-text-soft hover:text-jubo-text')}
-              title="Table view"
-            >
-              <Rows3 className="w-3 h-3" /> Table
-            </button>
             <button
               onClick={() => setViewMode('kanban')}
               className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs transition-colors', viewMode === 'kanban' ? 'bg-jubo-navy text-white' : 'text-jubo-text-soft hover:text-jubo-text')}
               title="Kanban view"
             >
               <LayoutGrid className="w-3 h-3" /> Kanban
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs transition-colors', viewMode === 'table' ? 'bg-jubo-navy text-white' : 'text-jubo-text-soft hover:text-jubo-text')}
+              title="Table view"
+            >
+              <Rows3 className="w-3 h-3" /> Table
             </button>
           </div>
           <div className="relative">
