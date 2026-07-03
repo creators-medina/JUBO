@@ -8,10 +8,13 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { ListChecks, Plus } from 'lucide-react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { type VisibilityIndex } from '@/features/fields/visibility'
+import { updateBoardGroup } from '@/features/boards/actions'
+import { InlineRenameText } from '@/components/primitives/InlineRenameText'
 import { buildKanbanFace, KanbanCardFace } from './KanbanCardFace'
 import { stageColor } from './BoardStageSummary'
 import { StageChecklistModal } from './StageChecklistModal'
@@ -31,10 +34,12 @@ interface Props {
   pendingMoveIds?: Set<string>
   onSelectRecord: (recordId: string, title: string) => void
   onAddRecord?: (groupId: string) => void
+  /** Inline card-title rename (records.title via the existing updateRecord). */
+  onRenameRecord?: (recordId: string, title: string) => Promise<void>
 }
 
 export function BoardKanbanView({
-  stages, recordsByGroup, totalByGroup, fieldsByGroup, fieldValuesIndex, fields, visibilityIndex, pendingMoveIds, onSelectRecord, onAddRecord,
+  stages, recordsByGroup, totalByGroup, fieldsByGroup, fieldValuesIndex, fields, visibilityIndex, pendingMoveIds, onSelectRecord, onAddRecord, onRenameRecord,
 }: Props) {
   // Stage-stepper data for the hover preview (id = group id so it matches each
   // record's group_id; position preserves lane order). Built once for all cards.
@@ -56,6 +61,7 @@ export function BoardKanbanView({
           pendingMoveIds={pendingMoveIds}
           onSelectRecord={onSelectRecord}
           onAddRecord={onAddRecord}
+          onRenameRecord={onRenameRecord}
         />
       ))}
     </div>
@@ -63,7 +69,7 @@ export function BoardKanbanView({
 }
 
 function KanbanColumn({
-  stage, accent, count, records, groupFields, fields, fieldValuesIndex, visibilityIndex, previewGroups, pendingMoveIds, onSelectRecord, onAddRecord,
+  stage, accent, count, records, groupFields, fields, fieldValuesIndex, visibilityIndex, previewGroups, pendingMoveIds, onSelectRecord, onAddRecord, onRenameRecord,
 }: {
   stage: Stage
   accent: string
@@ -77,7 +83,9 @@ function KanbanColumn({
   pendingMoveIds?: Set<string>
   onSelectRecord: (recordId: string, title: string) => void
   onAddRecord?: (groupId: string) => void
+  onRenameRecord?: (recordId: string, title: string) => Promise<void>
 }) {
+  const router = useRouter()
   // Phase 37B-2 — column is a drop target. Distinct ID space ('kanban-stage:').
   const { setNodeRef, isOver } = useDroppable({
     id: `kanban-stage:${stage.id}`,
@@ -106,7 +114,17 @@ function KanbanColumn({
       <div className="flex flex-shrink-0 flex-col gap-1 border-b border-jubo-border px-3.5 py-3">
         <div className="flex items-center gap-2">
           <span aria-hidden className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: accent }} />
-          <span className="truncate text-sm font-semibold tracking-tight text-jubo-text">{stage.label}</span>
+          {/* Inline stage rename — existing updateBoardGroup action (name only);
+              position, color, checklist, and records are untouched. */}
+          <InlineRenameText
+            value={stage.label}
+            className="min-w-0 truncate text-sm font-semibold tracking-tight text-jubo-text"
+            inputClassName="text-sm font-semibold"
+            onSave={async (next) => {
+              await updateBoardGroup(stage.groupId, stage.boardId, { name: next })
+              router.refresh()
+            }}
+          />
           <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-jubo-gold-soft px-1.5 text-2xs font-semibold tabular-nums text-jubo-gold">{count}</span>
           {/* Subtle role/owner hint (e.g. "LO" / "LP1") — guidance, not assignment. */}
           {stage.roleLabel && (
@@ -172,6 +190,7 @@ function KanbanColumn({
               previewGroups={previewGroups}
               pending={pendingMoveIds?.has(record.id) ?? false}
               onClick={() => onSelectRecord(record.id, record.title ?? 'Record')}
+              onRename={onRenameRecord ? (title) => onRenameRecord(record.id, title) : undefined}
             />
           ))
         )}
@@ -200,7 +219,7 @@ function KanbanColumn({
 }
 
 function KanbanCard({
-  stage, record, groupFields, fields, fieldValueMap, visibilityIndex, previewGroups, pending, onClick,
+  stage, record, groupFields, fields, fieldValueMap, visibilityIndex, previewGroups, pending, onClick, onRename,
 }: {
   stage: Stage
   record: any
@@ -211,7 +230,12 @@ function KanbanCard({
   previewGroups: { id: string; name: string; position: number }[]
   pending: boolean
   onClick: () => void
+  onRename?: (title: string) => Promise<void>
 }) {
+  // While the title is being renamed inline, the card renders as a plain <div>
+  // (no drag listeners, no click-to-open) so typing can't start a drag or open
+  // the record — restored the moment editing ends.
+  const [renaming, setRenaming] = useState(false)
   // Phase 37B-2 — draggable card. Distinct ID space ('kanban-card:'); payload is
   // addressed by FULL (boardId, groupId) via `stage` for the board-aware dispatcher.
   // Face is computed ONCE here for the real card; the overlay reuses this exact
@@ -248,6 +272,27 @@ function KanbanCard({
         ref={drop.setNodeRef}
         className={cn('flex-shrink-0 rounded-xl', drop.isOver && !isDragging && 'ring-2 ring-jubo-navy/40')}
       >
+      {renaming ? (
+        // Rename shell — same visual card, but NOT a button and NOT draggable
+        // (an input can't live inside a button, and drag must not start mid-type).
+        // The editor mounts straight into edit mode; closing it restores the card.
+        <div className="relative block w-full flex-shrink-0 overflow-hidden rounded-xl border border-jubo-border-strong bg-jubo-card px-3 py-2.5 text-left shadow-md">
+          <KanbanCardFace
+            {...face}
+            renameEditor={
+              <InlineRenameText
+                value={record.title ?? ''}
+                defaultEditing
+                doubleClick={false}
+                className="min-w-0 flex-1 text-sm font-semibold text-jubo-navy"
+                inputClassName="text-sm font-semibold"
+                onSave={(next) => onRename?.(next)}
+                onEditingChange={(ed) => { if (!ed) setRenaming(false) }}
+              />
+            }
+          />
+        </div>
+      ) : (
       <button
         ref={setNodeRef}
         style={style}
@@ -265,9 +310,10 @@ function KanbanCard({
         {/* tabIndex −1: the card button is already the tab stop; we only want the
             div's pointer handlers, not a nested focusable inside the button. */}
         <div ref={hover.ref} {...hover.triggerProps} tabIndex={-1} className="outline-none">
-          <KanbanCardFace {...face} />
+          <KanbanCardFace {...face} onTitleRenameStart={onRename ? () => setRenaming(true) : undefined} />
         </div>
       </button>
+      )}
       </div>
       {hover.open && hover.rect && (
         <BorrowerPreviewPanel

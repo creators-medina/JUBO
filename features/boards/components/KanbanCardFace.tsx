@@ -105,16 +105,26 @@ function commonIcon(type?: string) {
 // Condensed, uniform card: cream shell (from the card button), navy name, one
 // muted-green loan amount, taupe details, a subtle status dot, and a slim
 // checklist bar. Missing fields collapse their row entirely (no empty gaps).
-export function KanbanCardFace({ title, statusLabel, statusColor, amount, common, hasOwner, updatedAt, checklist }: KanbanFace) {
+// Optional rename hooks: onTitleRenameStart arms right-click on the name;
+// renameEditor swaps the name for a host-provided inline editor.
+export function KanbanCardFace({
+  title, statusLabel, statusColor, amount, common, hasOwner, updatedAt, checklist, onTitleRenameStart, renameEditor,
+}: KanbanFace & { onTitleRenameStart?: () => void; renameEditor?: React.ReactNode }) {
   const updatedLabel = formatRelativeTime(updatedAt)
   const checklistDone = checklist.hasChecklist && checklist.percentage === 100
   return (
     <>
       {/* Top — borrower name (left) + loan amount (right). */}
       <div className="flex items-baseline justify-between gap-2">
-        <span className="min-w-0 truncate text-sm font-semibold leading-snug tracking-tight text-jubo-navy">
-          {title || 'Untitled'}
-        </span>
+        {renameEditor ?? (
+          <span
+            className="min-w-0 truncate text-sm font-semibold leading-snug tracking-tight text-jubo-navy"
+            title={onTitleRenameStart ? 'Right-click to rename' : undefined}
+            onContextMenu={onTitleRenameStart ? (e) => { e.preventDefault(); e.stopPropagation(); onTitleRenameStart() } : undefined}
+          >
+            {title || 'Untitled'}
+          </span>
+        )}
         {amount && (
           <span className="flex-shrink-0 text-sm font-semibold tabular-nums text-jubo-green">{amount}</span>
         )}

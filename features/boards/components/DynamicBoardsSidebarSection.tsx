@@ -23,15 +23,20 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useMemo, useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronDown, Columns3, MessageSquare, Plus, UserPlus, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useOrganization } from '@/providers/OrganizationProvider'
-import { reorderBoards } from '@/features/boards/actions'
+import { reorderBoards, updateBoard } from '@/features/boards/actions'
 import { useSidebarSectionCollapsed } from '@/hooks/useSidebarSectionCollapsed'
+import { InlineRenameText } from '@/components/primitives/InlineRenameText'
 import { formatVolume } from './BoardStageSummary'
 import { cn } from '@/lib/utils'
+
+/** Cross-component board-rename signal (e.g. renamed from the board page
+ *  header) so this client-fetched list updates without a full reload. */
+export const BOARD_RENAMED_EVENT = 'jubo:board-renamed'
 
 interface Board {
   id: string
@@ -62,10 +67,13 @@ const DND_TYPE = 'text/jubo-board-id'
 export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collapsed: boolean; filter?: string }) {
   const { currentOrganization } = useOrganization()
   const pathname = usePathname()
+  const router = useRouter()
   const [boards, setBoards] = useState<Board[]>([])
   const [recordRows, setRecordRows] = useState<RecordRow[]>([])
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  // Board currently being renamed inline — pauses that item's drag + navigation.
+  const [renamingBoardId, setRenamingBoardId] = useState<string | null>(null)
 
   // Monday-style collapsible groups (localStorage-persisted, default open).
   const generateSection = useSidebarSectionCollapsed('generate')
@@ -108,6 +116,31 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
     })()
     return () => { cancelled = true }
   }, [currentOrganization])
+
+  // Reflect renames made elsewhere (board page header) without a reload.
+  useEffect(() => {
+    const onRenamed = (e: Event) => {
+      const { boardId, name } = (e as CustomEvent<{ boardId: string; name: string }>).detail ?? {}
+      if (!boardId || !name) return
+      setBoards((prev) => prev.map((b) => (b.id === boardId ? { ...b, name } : b)))
+    }
+    window.addEventListener(BOARD_RENAMED_EVENT, onRenamed)
+    return () => window.removeEventListener(BOARD_RENAMED_EVENT, onRenamed)
+  }, [])
+
+  // Sidebar inline rename — the existing updateBoard action (boards.name only),
+  // optimistic with rollback; router.refresh syncs the board page header.
+  const renameBoard = async (boardId: string, name: string) => {
+    const prev = boards
+    setBoards(prev.map((b) => (b.id === boardId ? { ...b, name } : b)))
+    try {
+      await updateBoard(boardId, { name })
+      router.refresh()
+    } catch (e) {
+      setBoards(prev) // rollback
+      throw e
+    }
+  }
 
   // Per-board rollups from the records read (top-level records only).
   const statsByBoard = useMemo(() => {
@@ -176,10 +209,11 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
     const isOver = dragOverId === board.id && draggingId != null && draggingId !== board.id
       && isWorkLoansBoard(board) === isWorkLoansBoard(boards.find((b) => b.id === draggingId) ?? board)
     const count = statsByBoard.get(board.id)?.count ?? 0
+    const renaming = renamingBoardId === board.id
     return (
       <div
         key={board.id}
-        draggable={draggable}
+        draggable={draggable && !renaming}
         onDragStart={draggable ? (e) => {
           e.dataTransfer.setData(DND_TYPE, board.id)
           e.dataTransfer.effectAllowed = 'move'
@@ -210,6 +244,7 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
           href={`/boards/${board.id}`}
           draggable={false}
           title={collapsed ? board.name : undefined}
+          onClick={renaming ? (e) => e.preventDefault() : undefined}
           className={cn(
             'relative flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[14px] transition-colors',
             collapsed ? 'justify-center' : '',
@@ -225,7 +260,16 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
           />
           {!collapsed && (
             <>
-              <span className="min-w-0 flex-1 truncate">{board.name}</span>
+              {/* Right-click / two-finger click to rename (single click keeps
+                  navigating, so double-click is disabled here by design). */}
+              <InlineRenameText
+                value={board.name}
+                doubleClick={false}
+                className="min-w-0 flex-1 truncate"
+                inputClassName="text-[13px]"
+                onEditingChange={(ed) => setRenamingBoardId(ed ? board.id : null)}
+                onSave={(next) => renameBoard(board.id, next)}
+              />
               <span className="flex-shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground/70">
                 {count}
               </span>
