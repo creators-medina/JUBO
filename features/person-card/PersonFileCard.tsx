@@ -14,10 +14,11 @@
 import { useEffect, useState, useCallback, useTransition } from 'react'
 import {
   Loader2, CheckSquare, Square, Plug, ArrowUpRight, ArrowDownLeft,
-  MessageSquare, Mail, StickyNote, ListChecks,
+  MessageSquare, Mail, StickyNote, ListChecks, GripVertical, ChevronsUpDown, RotateCcw,
 } from 'lucide-react'
 import { getFileCardData, type PersonCardData, type LoanCommandData } from './actions'
-import { deriveLoanMetrics, LoanSummaryStrip, FileSnapshotPanel, SnapshotCard, MetricCell, nameInitials } from './FileSummary'
+import { deriveLoanMetrics, LoanSummaryStrip, FileSnapshotPanel, MetricCell, nameInitials } from './FileSummary'
+import { useOverviewLayout, type CardSize } from './useOverviewLayout'
 import type { CommunicateContext } from '@/features/communications/communicate'
 import { SMSComposeBox } from '@/features/conversations/compose/SMSComposeBox'
 import { NoteList } from '@/features/workspace/notes/NoteList'
@@ -43,6 +44,20 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'financial', label: 'Financial Info' },
 ]
 
+// Phase D7 — the reorderable secondary Overview cards, in priority order
+// (this is also the small-screen stacking order after Checklist + Conversation).
+// Even indexes render in the left zone, odd indexes in the right zone on xl.
+const OVERVIEW_CARD_ORDER = ['nextstep', 'tasks', 'financial', 'move', 'documents', 'notes']
+
+const CARD_TITLES: Record<string, string> = {
+  nextstep: 'Next Step',
+  tasks: 'Tasks',
+  financial: 'Financial',
+  move: 'Move to Stage',
+  documents: 'Documents',
+  notes: 'Notes',
+}
+
 function activityCategory(t: string): Filter | 'other' {
   if (['call', 'email', 'sms', 'comment', 'note', 'meeting'].includes(t)) return 'comms'
   if (['status_change', 'field_change', 'creation', 'integration_event'].includes(t)) return 'pipeline'
@@ -58,6 +73,12 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
   const [tab, setTab] = useState<Tab>('overview')
   const [filter, setFilter] = useState<Filter>('all')
   const [busy, setBusy] = useState<string | null>(null)
+  // Phase D7 — customizable Overview layout (order + sizes, localStorage-only).
+  // Conversation and the Phase Checklist are pinned; the six secondary cards
+  // reorder. Declared before the loading early-returns (rules of hooks).
+  const overviewLayout = useOverviewLayout(OVERVIEW_CARD_ORDER)
+  const [dragCard, setDragCard] = useState<string | null>(null)
+  const [dragOverCard, setDragOverCard] = useState<string | null>(null)
 
   // Phase C4 — ONE resolver per open. getFileCardData reads each table once and
   // returns the same three shapes the card consumes ({ card, comms, loan }).
@@ -112,6 +133,108 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
     upsertFieldValue(fieldId, card.record.id, boardId, { value_boolean: !complete }).then(load).finally(() => setBusy(null))
   }
 
+
+  // Secondary-card content by key — every card reuses the existing actions
+  // and data; nothing here adds a write path.
+  const railTasks = card.tasks as RailTask[]
+  const openTasks = railTasks.filter((t) => !t.completed_at)
+  const upcomingTasks = [...openTasks]
+    .sort((a, b) => {
+      if (!a.due_date && !b.due_date) return 0
+      if (!a.due_date) return 1
+      if (!b.due_date) return -1
+      return a.due_date.localeCompare(b.due_date)
+    })
+    .slice(0, 6)
+  const signals = loan ? computeOpportunitySignals(loan, card.templateKey).slice(0, 3) : []
+
+  const renderOverviewCard = (key: string): React.ReactNode => {
+    switch (key) {
+      case 'nextstep':
+        return loan ? (
+          <div className="space-y-3">
+            <NextActionCard
+              recordId={recordId}
+              nextAction={rec.next_action ?? null}
+              nextActionDueAt={(loan.record as { next_action_due_at?: string | null }).next_action_due_at ?? null}
+              nextActionCompletedAt={rec.next_action_completed_at ?? null}
+            />
+            {signals.length > 0 && (
+              <div className="jubo-los-card space-y-1 px-3 py-2.5">
+                {signals.map((s) => (
+                  <div key={s.key} className="flex items-center gap-1.5 text-2xs">
+                    <span
+                      className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                      style={{ backgroundColor: s.level === 'urgent' ? 'var(--jubo-red)' : s.level === 'warning' ? 'var(--jubo-gold)' : s.level === 'positive' ? 'var(--jubo-green)' : 'var(--jubo-muted)' }}
+                      aria-hidden
+                    />
+                    <span className="truncate text-jubo-text">{s.label}</span>
+                    {s.detail && <span className="ml-auto flex-shrink-0 text-jubo-muted">{s.detail}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null
+      case 'tasks': {
+        const now = new Date()
+        return upcomingTasks.length === 0 ? (
+          <p className="text-2xs italic text-jubo-muted">No open tasks.</p>
+        ) : (
+          <div className="space-y-1">
+            {upcomingTasks.map((t) => {
+              const overdue = t.due_date && new Date(t.due_date) < now
+              return (
+                <div key={t.id} className="flex items-center gap-2">
+                  <span className="flex-1 truncate text-xs text-jubo-text">{t.title}</span>
+                  {t.due_date && (
+                    <span className={cn('text-2xs tabular-nums', overdue ? 'text-jubo-red' : 'text-jubo-muted')}>
+                      {new Date(t.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )
+      }
+      case 'financial':
+        return m ? (
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+            <MetricCell label="Income" value={m.income} />
+            <MetricCell label="Assets" value={m.assets} />
+            <MetricCell label="Liabilities" value={m.liabilities} />
+            <MetricCell label="DTI" value={m.dti} />
+            <MetricCell label="DSCR" value={m.dscr} />
+            <MetricCell label="Total PITI" value={m.totalPiti} />
+          </div>
+        ) : null
+      case 'move':
+        return loan ? (
+          <MoveToStage
+            recordId={recordId}
+            boardId={loan.record.board_id}
+            groups={loan.groups as MoveGroup[]}
+            currentGroupId={loan.record.group_id ?? null}
+            onMoved={load}
+          />
+        ) : null
+      case 'documents':
+        // No document storage exists in Jubo yet — honest empty state.
+        return (
+          <div className="rounded-lg border border-dashed border-jubo-border px-3 py-4 text-center text-2xs text-jubo-muted">
+            No documents yet — uploads aren’t available in Jubo yet.
+          </div>
+        )
+      case 'notes':
+        return comms ? (
+          <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} />
+        ) : <div className="flex items-center gap-2 py-2 text-2xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> …</div>
+      default:
+        return null
+    }
+  }
+
   return (
     // Pinned shell: the metric strip + tab strip stay fixed; only the tab
     // content below scrolls (the modal itself has a fixed height).
@@ -155,79 +278,85 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
         )}
         <div className={cn('min-w-0 space-y-4', m && activeTab === 'overview' ? 'min-h-0 xl:flex xl:flex-col' : 'min-h-0 xl:overflow-y-auto')}>
 
-      {/* ── LOAN-shape Overview (GHL-style: checklist · conversation · actions).
-             On xl the grid fills the tab height; left/right columns scroll
-             internally and the Conversation card fills its column, so the
-             composer is always visible without scrolling. ── */}
+      {/* ── LOAN-shape Overview (Phase D7): pinned Phase Checklist on top,
+             Conversation as the central hero, and six reorderable/resizable
+             secondary cards in the side zones (order + size in localStorage).
+             DOM order = small-screen priority: checklist → conversation →
+             actions → info cards. ── */}
       {activeTab === 'overview' && isLoanLike && (
-        <div className="jubo-los-page grid min-h-0 grid-cols-1 gap-4 rounded-xl p-4 lg:grid-cols-3 xl:h-full xl:flex-1 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.45fr)_minmax(0,0.95fr)]">
-          {/* LEFT — Phase Checklist · Financial · Documents. (Key Dates removed;
-              closing/lock dates remain in the metric strip, rail, and Loan tab.) */}
-          <div className="min-h-0 space-y-4 xl:overflow-y-auto">
-            <ConditionsCard checklist={card.checklist} stageName={m?.stage ?? null} busy={busy} onToggle={toggleChecklist} />
-            {m && (
-              <SnapshotCard title="Financial">
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-                  <MetricCell label="Income" value={m.income} />
-                  <MetricCell label="Assets" value={m.assets} />
-                  <MetricCell label="Liabilities" value={m.liabilities} />
-                  <MetricCell label="DTI" value={m.dti} />
-                  <MetricCell label="DSCR" value={m.dscr} />
-                  <MetricCell label="Total PITI" value={m.totalPiti} />
+        <div className="jubo-los-page flex min-h-0 flex-col gap-4 rounded-xl p-4 xl:h-full xl:flex-1">
+          {/* TOP — Phase Checklist, pinned full-width. */}
+          <PhaseChecklistCard
+            checklist={card.checklist}
+            stageName={m?.stage ?? null}
+            busy={busy}
+            onToggle={toggleChecklist}
+            customized={overviewLayout.customized}
+            onReset={overviewLayout.reset}
+          />
+
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.7fr)_minmax(0,0.9fr)]">
+            {/* CENTER (widest; first in DOM so it follows the checklist on
+                small screens) — the Conversation workspace, protected sizing. */}
+            <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-xl border border-border bg-card xl:col-start-2 xl:row-start-1 xl:min-h-0">
+              <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
+                <p className="text-base font-bold tracking-tight text-jubo-navy">Conversation</p>
+                <div className="flex gap-0.5 rounded-lg bg-jubo-card-soft p-0.5">
+                  {(['all', 'comms', 'pipeline'] as Filter[]).map((f) => (
+                    <button key={f} onClick={() => setFilter(f)}
+                      className={cn('rounded-md px-2.5 py-0.5 text-2xs font-medium capitalize transition-colors',
+                        filter === f ? 'bg-jubo-navy text-white' : 'text-muted-foreground hover:text-foreground')}>{f}</button>
+                  ))}
                 </div>
-              </SnapshotCard>
-            )}
-            {/* Documents — no document storage exists in Jubo yet; this is an
-                honest empty state, not a fake uploader (gap reported). */}
-            <SnapshotCard title="Documents" badge="0">
-              <div className="rounded-lg border border-dashed border-jubo-border px-3 py-4 text-center text-2xs text-jubo-muted">
-                No documents yet — uploads aren’t available in Jubo yet.
               </div>
-            </SnapshotCard>
-          </div>
+              <Feed card={card} comms={comms} filter={filter} borrowerName={borrowerName} ownerName={m?.ownerName ?? null} tall />
+              <div className="flex-shrink-0 border-t border-border p-2.5">
+                <Composer
+                  recordId={recordId}
+                  boardId={card.record.boardId}
+                  orgId={card.record.organizationId}
+                  comms={comms}
+                  email={email}
+                  onChanged={load}
+                />
+              </div>
+            </div>
 
-          {/* CENTER (widest) — the Conversation workspace, full column height
-              with the composer pinned at the bottom. */}
-          <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-xl border border-border bg-card xl:min-h-0">
-            <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
-              <p className="text-sm font-semibold tracking-tight text-jubo-navy">Conversation</p>
-              <div className="flex gap-0.5 rounded-lg bg-jubo-card-soft p-0.5">
-                {(['all', 'comms', 'pipeline'] as Filter[]).map((f) => (
-                  <button key={f} onClick={() => setFilter(f)}
-                    className={cn('rounded-md px-2.5 py-0.5 text-2xs font-medium capitalize transition-colors',
-                      filter === f ? 'bg-jubo-navy text-white' : 'text-muted-foreground hover:text-foreground')}>{f}</button>
+            {/* SIDE ZONES — reorderable/resizable secondary cards (even order
+                indexes left, odd right); each zone becomes a 2-col grid on
+                medium screens and scrolls internally on xl. */}
+            {[0, 1].map((zone) => (
+              <div
+                key={zone}
+                className={cn(
+                  'grid min-h-0 grid-cols-1 content-start gap-4 md:grid-cols-2 xl:grid-cols-1 xl:overflow-y-auto xl:row-start-1',
+                  zone === 0 ? 'xl:col-start-1' : 'xl:col-start-3',
+                )}
+              >
+                {overviewLayout.order.filter((_, i) => i % 2 === zone).map((key) => (
+                  <OverviewCard
+                    key={key}
+                    cardKey={key}
+                    title={CARD_TITLES[key] ?? key}
+                    badge={key === 'tasks' && openTaskCount > 0 ? String(openTaskCount) : key === 'documents' ? '0' : undefined}
+                    size={overviewLayout.sizeOf(key)}
+                    chrome={key !== 'nextstep'}
+                    onCycleSize={() => overviewLayout.cycleSize(key)}
+                    dragging={dragCard === key}
+                    dragOver={dragOverCard === key && dragCard !== null && dragCard !== key}
+                    onDragStartCard={(k) => setDragCard(k)}
+                    onDragEndCard={() => { setDragCard(null); setDragOverCard(null) }}
+                    onDragOverCard={(k) => setDragOverCard(k)}
+                    onDropCard={(dragged, target) => { setDragCard(null); setDragOverCard(null); overviewLayout.moveCard(dragged, target) }}
+                  >
+                    {renderOverviewCard(key)}
+                  </OverviewCard>
                 ))}
+                {/* File team — fixed (self-collapses when empty), kept out of
+                    the drag pool so an empty shell can never appear. */}
+                {zone === 1 && loan && <ParticipantRibbon data={loan} />}
               </div>
-            </div>
-            <Feed card={card} comms={comms} filter={filter} borrowerName={borrowerName} ownerName={m?.ownerName ?? null} tall />
-            <div className="flex-shrink-0 border-t border-border p-2.5">
-              <Composer
-                recordId={recordId}
-                boardId={card.record.boardId}
-                orgId={card.record.organizationId}
-                comms={comms}
-                email={email}
-                onChanged={load}
-              />
-            </div>
-          </div>
-
-          {/* RIGHT — Next Step + signals + Tasks + Move-To, then Notes. */}
-          <div className="min-h-0 space-y-4 xl:overflow-y-auto">
-            {loan && (
-              <CommandRail
-                recordId={recordId}
-                loan={loan}
-                templateKey={card.templateKey}
-                tasks={card.tasks}
-                onChanged={load}
-              />
-            )}
-            <Section title="Notes">
-              {comms ? (
-                <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} />
-              ) : <div className="flex items-center gap-2 py-2 text-2xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> …</div>}
-            </Section>
+            ))}
           </div>
         </div>
       )}
@@ -448,50 +577,143 @@ function Field({ label, value }: { label: string; value: string | null }) {
   )
 }
 
-function ConditionsCard({
-  checklist, stageName, busy, onToggle,
+function PhaseChecklistCard({
+  checklist, stageName, busy, onToggle, customized, onReset,
 }: {
   checklist: PersonCardData['checklist']
-  /** Current stage/phase name — the checklist is already stage-scoped. */
   stageName?: string | null
   busy: string | null
   onToggle: (fieldId: string, complete: boolean) => void
+  customized: boolean
+  onReset: () => void
 }) {
   return (
-    <div className="jubo-los-card p-3.5">
-      <div className="mb-1 flex items-start justify-between gap-2">
+    <div className="jubo-los-card flex-shrink-0 p-3.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <div className="min-w-0">
-          <p className="text-sm font-semibold tracking-tight text-jubo-navy">Phase Checklist</p>
+          <p className="text-[15px] font-bold tracking-tight text-jubo-navy">Phase Checklist</p>
           {stageName && <p className="truncate text-2xs text-jubo-muted">{stageName}</p>}
         </div>
         {checklist.hasChecklist && (
-          <span className="flex-shrink-0 rounded-full bg-jubo-gold-soft px-2 py-0.5 text-2xs font-semibold tabular-nums text-jubo-gold">
+          <span className="rounded-full bg-jubo-gold-soft px-2 py-0.5 text-2xs font-semibold tabular-nums text-jubo-gold">
             {checklist.completedCount}/{checklist.totalCount} complete
           </span>
         )}
+        <div className="ml-auto flex items-center gap-2">
+          {customized && (
+            <button
+              onClick={onReset}
+              title="Reset the Overview card layout to default"
+              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs text-jubo-muted transition-colors hover:bg-jubo-card-soft hover:text-jubo-text"
+            >
+              <RotateCcw className="h-3 w-3" /> Reset layout
+            </button>
+          )}
+        </div>
       </div>
-      {/* Progress — uses the already-computed completion percentage. */}
       {checklist.hasChecklist && (
-        <div className="mb-2 mt-1.5 h-1 overflow-hidden rounded-full bg-jubo-border/60">
+        <div className="mb-2 mt-2 h-1 overflow-hidden rounded-full bg-jubo-border/60">
           <div className="h-full rounded-full bg-jubo-green transition-all" style={{ width: `${checklist.percentage}%` }} />
         </div>
       )}
       {checklist.hasChecklist ? (
-        <ul className="max-h-64 space-y-0.5 overflow-y-auto">
+        <ul className="grid max-h-32 grid-cols-1 gap-x-6 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">
           {checklist.items.map((i) => (
-            <li key={i.fieldId} className="border-b border-jubo-border last:border-0">
+            <li key={i.fieldId}>
               <button onClick={() => onToggle(i.fieldId, i.complete)} disabled={busy === i.fieldId}
-                className="flex w-full items-center gap-2.5 py-2 text-left text-xs transition-colors hover:bg-jubo-card-soft disabled:opacity-60">
+                className="flex w-full items-center gap-2.5 rounded px-1 py-1.5 text-left text-xs transition-colors hover:bg-jubo-card-soft disabled:opacity-60">
                 {busy === i.fieldId ? <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-jubo-muted" /> : i.complete ? <CheckSquare className="h-4 w-4 flex-shrink-0 text-jubo-green" /> : <Square className="h-4 w-4 flex-shrink-0 text-jubo-border-strong" />}
-                <span className={cn('flex-1', i.complete ? 'text-jubo-muted line-through' : 'text-jubo-text')}>{i.name}</span>
+                <span className={cn('flex-1 truncate', i.complete ? 'text-jubo-muted line-through' : 'text-jubo-text')}>{i.name}</span>
               </button>
             </li>
           ))}
         </ul>
-      ) : <p className="text-2xs text-jubo-muted">No checklist for this phase.</p>}
+      ) : <p className="mt-1 text-2xs text-jubo-muted">No checklist for this phase.</p>}
     </div>
   )
 }
+
+// Per-size content constraints: compact/tall clamp with internal scroll.
+const SIZE_CLASSES: Record<CardSize, string> = {
+  compact: 'max-h-32 overflow-y-auto',
+  normal: '',
+  tall: 'min-h-[16rem] max-h-[30rem] overflow-y-auto',
+}
+
+/** Reorderable/resizable Overview card shell — drag starts ONLY from the grip
+ *  handle (never from card content/inputs), size cycles compact→normal→tall,
+ *  and both preferences persist via useOverviewLayout (localStorage). */
+function OverviewCard({
+  cardKey, title, badge, size, chrome, onCycleSize, dragging, dragOver,
+  onDragStartCard, onDragEndCard, onDragOverCard, onDropCard, children,
+}: {
+  cardKey: string
+  title: string
+  badge?: string
+  size: CardSize
+  chrome: boolean
+  onCycleSize: () => void
+  dragging: boolean
+  dragOver: boolean
+  onDragStartCard: (key: string) => void
+  onDragEndCard: () => void
+  onDragOverCard: (key: string) => void
+  onDropCard: (dragged: string, target: string) => void
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes(OVERVIEW_DND_TYPE)) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+        onDragOverCard(cardKey)
+      }}
+      onDrop={(e) => {
+        if (!e.dataTransfer.types.includes(OVERVIEW_DND_TYPE)) return
+        e.preventDefault()
+        const dragged = e.dataTransfer.getData(OVERVIEW_DND_TYPE)
+        if (dragged) onDropCard(dragged, cardKey)
+      }}
+      className={cn(
+        'rounded-xl transition-opacity',
+        chrome && 'jubo-los-card p-3',
+        dragging && 'opacity-40',
+        dragOver && 'ring-1 ring-inset ring-jubo-red/40',
+      )}
+    >
+      <div className={cn('mb-2 flex items-center gap-1.5', !chrome && 'px-1')}>
+        <button
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(OVERVIEW_DND_TYPE, cardKey)
+            e.dataTransfer.effectAllowed = 'move'
+            onDragStartCard(cardKey)
+          }}
+          onDragEnd={onDragEndCard}
+          title="Drag to reorder"
+          className="-ml-1 cursor-grab rounded p-0.5 text-jubo-muted/60 transition-colors hover:bg-jubo-card-soft hover:text-jubo-text active:cursor-grabbing"
+        >
+          <GripVertical className="h-3.5 w-3.5" />
+        </button>
+        <p className="min-w-0 flex-1 truncate text-[13px] font-bold uppercase tracking-wide text-jubo-navy">{title}</p>
+        {badge && (
+          <span className="flex-shrink-0 rounded bg-jubo-gold-soft px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-jubo-gold">{badge}</span>
+        )}
+        <button
+          onClick={onCycleSize}
+          title={`Size: ${size} — click to change`}
+          className="flex-shrink-0 rounded p-0.5 text-jubo-muted/60 transition-colors hover:bg-jubo-card-soft hover:text-jubo-text"
+        >
+          <ChevronsUpDown className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <div className={SIZE_CLASSES[size]}>{children}</div>
+    </div>
+  )
+}
+
+const OVERVIEW_DND_TYPE = 'text/jubo-overview-card'
 
 // 4-mode composer — SMS (real Twilio), Note (real), Task (real), Email (mailto:
 // opens the user's mail client; Jubo has no in-app email send, so this is an
@@ -591,107 +813,8 @@ function Composer({
   )
 }
 
-// ── Harvested LOS styling helper ────────────────────────────────────────────
-// Warm cream/tan card + muted-gold section label (matches the legacy LOS look).
-function LosSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="jubo-los-card p-3.5">
-      <p className="jubo-los-section-label mb-2">{title}</p>
-      <div className="space-y-2">{children}</div>
-    </div>
-  )
-}
-
-// ── Harvested LOS right-rail (Phase C3) ─────────────────────────────────────
-// Real Next Step (NextActionCard), opportunity signals (computeOpportunitySignals),
-// a Tasks summary, the File Team (ParticipantRibbon), and Move-To (moveRecord) —
-// all pulled from the parked LosCommandCenter, reading the current-board bundle.
-// Narrow shape for the task fields the rail reads (source is any[]).
+// Narrow shape for the task fields the tasks card reads (source is any[]).
 type RailTask = { id: string; title: string; completed_at: string | null; due_date: string | null }
-
-function CommandRail({
-  recordId, loan, templateKey, tasks, onChanged,
-}: {
-  recordId: string
-  loan: LoanCommandData
-  templateKey: PersonCardData['templateKey']
-  tasks: RailTask[]
-  onChanged: () => void
-}) {
-  const signals = computeOpportunitySignals(loan, templateKey).slice(0, 3)
-  const openTasks = tasks.filter((t) => !t.completed_at)
-  const upcoming = [...openTasks]
-    .sort((a, b) => {
-      if (!a.due_date && !b.due_date) return 0
-      if (!a.due_date) return 1
-      if (!b.due_date) return -1
-      return a.due_date.localeCompare(b.due_date)
-    })
-    .slice(0, 4)
-  const now = new Date()
-
-  return (
-    <div className="space-y-4">
-      {/* Next Step — dominant navy card (harvested as-is). */}
-      <NextActionCard
-        recordId={recordId}
-        nextAction={loan.record.next_action ?? null}
-        nextActionDueAt={loan.record.next_action_due_at ?? null}
-        nextActionCompletedAt={loan.record.next_action_completed_at ?? null}
-      />
-
-      {/* Opportunity signals — real, computed from existing data. */}
-      {signals.length > 0 && (
-        <div className="jubo-los-card space-y-1 px-3 py-2.5">
-          {signals.map((s) => (
-            <div key={s.key} className="flex items-center gap-1.5 text-2xs">
-              <span
-                className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                style={{ backgroundColor: s.level === 'urgent' ? 'var(--jubo-red)' : s.level === 'warning' ? 'var(--jubo-gold)' : s.level === 'positive' ? 'var(--jubo-green)' : 'var(--jubo-muted)' }}
-                aria-hidden
-              />
-              <span className="truncate text-jubo-text">{s.label}</span>
-              {s.detail && <span className="ml-auto flex-shrink-0 text-jubo-muted">{s.detail}</span>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Tasks — open preview. */}
-      <LosSection title={`Tasks${openTasks.length > 0 ? ` · ${openTasks.length}` : ''}`}>
-        {upcoming.length === 0 ? (
-          <p className="text-2xs italic text-jubo-muted">No open tasks.</p>
-        ) : (
-          upcoming.map((t) => {
-            const overdue = t.due_date && new Date(t.due_date) < now
-            return (
-              <div key={t.id} className="flex items-center gap-2">
-                <span className="flex-1 truncate text-xs text-jubo-text">{t.title}</span>
-                {t.due_date && (
-                  <span className={cn('text-2xs tabular-nums', overdue ? 'text-jubo-red' : 'text-jubo-muted')}>
-                    {new Date(t.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  </span>
-                )}
-              </div>
-            )
-          })
-        )}
-      </LosSection>
-
-      {/* File team — collapses to null when there's nobody beyond the borrower. */}
-      <ParticipantRibbon data={loan} />
-
-      {/* Move to stage — real move (move_record RPC + workflow dispatch). */}
-      <MoveToStage
-        recordId={recordId}
-        boardId={loan.record.board_id}
-        groups={loan.groups as MoveGroup[]}
-        currentGroupId={loan.record.group_id ?? null}
-        onMoved={onChanged}
-      />
-    </div>
-  )
-}
 
 // Narrow shape for the group fields the stage picker reads (source is AnyRow[]).
 type MoveGroup = { id: string; name: string; position?: number | null }
@@ -718,7 +841,7 @@ function MoveToStage({
   }
 
   return (
-    <LosSection title="Move to stage">
+    <div>
       <select
         value={currentGroupId ?? ''}
         onChange={(e) => onSelect(e.target.value)}
@@ -732,7 +855,7 @@ function MoveToStage({
         ))}
       </select>
       {pending && <p className="mt-1 text-2xs text-jubo-muted">Moving…</p>}
-    </LosSection>
+    </div>
   )
 }
 
