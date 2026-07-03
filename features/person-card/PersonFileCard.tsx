@@ -14,9 +14,10 @@
 import { useEffect, useState, useCallback, useTransition } from 'react'
 import {
   Loader2, CheckSquare, Square, Plug, ArrowUpRight, ArrowDownLeft,
-  Home, Lock, MessageSquare, Mail, StickyNote, ListChecks,
+  MessageSquare, Mail, StickyNote, ListChecks,
 } from 'lucide-react'
 import { getFileCardData, type PersonCardData, type LoanCommandData } from './actions'
+import { deriveLoanMetrics, LoanSummaryStrip, FileSnapshotPanel, SnapshotCard, SnapRow } from './FileSummary'
 import type { CommunicateContext } from '@/features/communications/communicate'
 import { SMSComposeBox } from '@/features/conversations/compose/SMSComposeBox'
 import { NoteList } from '@/features/workspace/notes/NoteList'
@@ -30,7 +31,6 @@ import { upsertFieldValue, moveRecord } from '@/features/records/actions'
 import { NextActionCard } from '@/features/workspace/components/NextActionCard'
 import { ParticipantRibbon } from '@/features/workspace/command/ParticipantRibbon'
 import { computeOpportunitySignals } from '@/features/mortgage/scoring/opportunities'
-import { textValue, numberValue, formatCurrency } from '@/features/mortgage/data'
 import { cn } from '@/lib/utils'
 
 type Tab = 'overview' | 'loan' | 'borrower' | 'financial'
@@ -86,19 +86,8 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
     return <div className="rounded-lg border border-dashed border-border bg-card p-6 text-center text-xs text-muted-foreground">File unavailable for this record.</div>
   }
 
-  const bind = (key: string): string | null => card.common.find((c) => c.key === key)?.value || null
   const email = comms?.email ?? null
   const boardId = card.record.boardId
-
-  // Phase C3 — bind to REAL stored board values via the LOS slug accessors when
-  // present, else null (the caller falls back to a common-key value or an honest
-  // placeholder). Never fabricates.
-  const sv = (slug: string): string | null => (loan ? textValue(loan, slug) : null)
-  const cv = (slug: string): string | null => {
-    if (!loan) return null
-    const n = numberValue(loan, slug)
-    return n != null ? formatCurrency(n) : null
-  }
 
   // Phase C2 — card shape from the existing template resolver (NOT board names).
   // Loan-like boards (loan/lead) get the full loan File Card; every other board
@@ -108,6 +97,15 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
   const visibleTabs = isLoanLike ? TABS : TABS.filter((t) => t.key === 'overview')
   const activeTab: Tab = isLoanLike ? tab : 'overview'
 
+  // Phase D5 — resolve every summary metric ONCE from the already-loaded loan
+  // bundle (read-only: direct slug reads + display-only LTV/DTI derivations).
+  const m = isLoanLike && loan ? deriveLoanMetrics(loan) : null
+  const rec = (loan?.record ?? {}) as { title?: string; next_action?: string | null; next_action_completed_at?: string | null }
+  const borrowerName = rec.title ?? 'Borrower'
+  const nextStep = rec.next_action && !rec.next_action_completed_at ? rec.next_action : null
+  const openConditions = card.checklist.hasChecklist ? card.checklist.totalCount - card.checklist.completedCount : 0
+  const openTaskCount = (card.tasks as { completed_at: string | null }[]).filter((t) => !t.completed_at).length
+
   const toggleChecklist = (fieldId: string, complete: boolean) => {
     if (!boardId) return
     setBusy(fieldId)
@@ -115,7 +113,10 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
+      {/* ARIVE-style top summary strip — Loan Amount · LTV · FICO · Rate ·
+          DSCR · LTC · Est. Closing · Type. Real values or an honest "—". */}
+      {m && <LoanSummaryStrip m={m} />}
       {/* C1-FIX-2 — the borrower identity + comms actions live in the ONE
           WorkspacePanel command header above (avatar · name · role/board/owner ·
           phone, plus call/email/move/expand/close). This card renders only its
@@ -133,13 +134,64 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
         </div>
       )}
 
-      {/* ── LOAN-shape Overview (premium command layout, Phase C-POLISH) ── */}
+      {/* Phase D5 — persistent left file-snapshot rail beside every tab (the
+          "file command center"); stacks above the content on narrow screens. */}
+      <div className={m ? 'grid grid-cols-1 gap-4 xl:grid-cols-[16rem_minmax(0,1fr)]' : undefined}>
+        {m && (
+          <FileSnapshotPanel
+            m={m}
+            borrowerName={borrowerName}
+            phone={comms?.phone ?? null}
+            email={email}
+            nextStep={nextStep}
+            openConditions={openConditions}
+            openTasks={openTaskCount}
+          />
+        )}
+        <div className="min-w-0 space-y-4">
+
+      {/* ── LOAN-shape Overview (snapshot grid + feed + command rail) ── */}
       {activeTab === 'overview' && isLoanLike && (
         <div className="jubo-los-page grid grid-cols-1 gap-4 rounded-xl p-4 lg:grid-cols-3">
-          {/* LEFT — the loan file: hero loan, property, conditions. */}
+          {/* LEFT — snapshot cards: loan, borrower, property, financial, conditions. */}
           <div className="space-y-4">
-            <LoanHeroCard sv={sv} cv={cv} bind={bind} />
-            <PropertyCardMini sv={sv} cv={cv} bind={bind} />
+            {m && (
+              <SnapshotCard title="Loan Snapshot">
+                <SnapRow label="Loan amount" value={m.loanAmount} />
+                <SnapRow label="LTV" value={m.ltv} />
+                <SnapRow label="Rate" value={m.rate} />
+                <SnapRow label="Loan type" value={m.loanType} />
+                <SnapRow label="Purpose" value={m.purpose} />
+                <SnapRow label="Est. closing" value={m.closing} />
+              </SnapshotCard>
+            )}
+            {m && (
+              <SnapshotCard title="Borrower">
+                <SnapRow label="Name" value={borrowerName} />
+                <SnapRow label="Phone" value={comms?.phone ?? null} />
+                <SnapRow label="Email" value={email} />
+                <SnapRow label="FICO" value={m.fico} />
+              </SnapshotCard>
+            )}
+            {m && (
+              <SnapshotCard title="Property">
+                <SnapRow label="Address" value={m.address} />
+                <SnapRow label="City / State" value={m.cityState} />
+                <SnapRow label="Value" value={m.propertyValue ?? m.appraisedValue} />
+                <SnapRow label="Type" value={[m.propertyType, m.occupancy].filter(Boolean).join(' · ') || null} />
+              </SnapshotCard>
+            )}
+            {m && (
+              <SnapshotCard title="Financial">
+                <SnapRow label="Monthly income" value={m.income} />
+                <SnapRow label="Assets" value={m.assets} />
+                <SnapRow label="Liabilities" value={m.liabilities} />
+                <SnapRow label="DTI" value={m.dti} />
+                <SnapRow label="DSCR" value={m.dscr} />
+                <SnapRow label="LTC" value={m.ltc} />
+                <SnapRow label="Total PITI" value={m.totalPiti} />
+              </SnapshotCard>
+            )}
             <ConditionsCard checklist={card.checklist} busy={busy} onToggle={toggleChecklist} />
           </div>
 
@@ -259,6 +311,8 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
       {isLoanLike && activeTab === 'financial' && (
         <FinancialTab recordId={recordId} />
       )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -331,73 +385,6 @@ function Field({ label, value }: { label: string; value: string | null }) {
     <div className="flex items-baseline justify-between gap-2 text-xs">
       <span className="text-muted-foreground">{label}</span>
       <span className={value ? 'text-foreground' : 'text-muted-foreground/50'}>{value || '—'}</span>
-    </div>
-  )
-}
-
-// ── Phase C-POLISH — loan-shape Overview cards (premium command layout) ──────
-// All values bind real-if-present via the slug/common accessors, else an honest
-// "—" placeholder. Nothing is computed or fabricated (DTI/LTV come from a real
-// field only; deriving them is D2).
-
-type Acc = (slug: string) => string | null
-
-function LoanHeroCard({ sv, cv, bind }: { sv: Acc; cv: Acc; bind: (k: string) => string | null }) {
-  const amount = cv('loan_amount') ?? bind('loan_amount')
-  const program = sv('loan_type') ?? sv('loan_program') ?? bind('loan_type')
-  const rate = sv('interest_rate') ?? sv('note_rate')
-  const purpose = sv('loan_purpose') ?? sv('purpose')
-  const sub = [program, rate ? `@ ${rate}` : null, purpose].filter(Boolean).join(' · ')
-  const lock = [sv('lock_status'), sv('lock_expiration') ?? sv('lock_expires'), sv('lender') ?? sv('investor')].filter(Boolean)
-  return (
-    <div className="jubo-los-card p-3.5">
-      <div className="mb-1.5 flex items-center gap-1.5">
-        <span className="h-1.5 w-1.5 rounded-full bg-jubo-red" aria-hidden />
-        <p className="text-sm font-semibold tracking-tight text-jubo-navy">Loan</p>
-      </div>
-      <p className={cn('text-3xl font-bold tracking-tight', amount ? 'text-jubo-text' : 'text-muted-foreground/40')}>{amount ?? '—'}</p>
-      {sub && <p className="mt-0.5 text-xs text-jubo-muted">{sub}</p>}
-      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5">
-        <MetricMini label="Down" value={cv('down_payment') ?? sv('down_payment_percent') ?? sv('down_payment')} />
-        <MetricMini label="LTV" value={sv('ltv')} />
-        <MetricMini label="DTI" value={sv('dti')} />
-        <MetricMini label="Close" value={sv('target_close_date') ?? sv('close_date')} />
-      </div>
-      {lock.length > 0 && (
-        <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-jubo-gold-soft px-2.5 py-1 text-2xs font-medium text-jubo-gold">
-          <Lock className="h-3 w-3" /> {lock.join(' · ')}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function MetricMini({ label, value }: { label: string; value: string | null }) {
-  const has = value != null && value !== ''
-  return (
-    <div className="min-w-0">
-      <p className="text-[10px] uppercase tracking-wider text-jubo-muted">{label}</p>
-      <p className={cn('truncate text-sm font-semibold', has ? 'text-jubo-text' : 'text-muted-foreground/40')}>{has ? value : '—'}</p>
-    </div>
-  )
-}
-
-function PropertyCardMini({ sv, cv, bind }: { sv: Acc; cv: Acc; bind: (k: string) => string | null }) {
-  const addr = sv('property_address') ?? bind('property_address')
-  const loc = [sv('property_city'), sv('property_state')].filter(Boolean).join(', ')
-  const est = cv('property_value') ?? cv('appraised_value')
-  const line2 = [sv('property_type'), est ? `Est. ${est}` : null].filter(Boolean).join(' · ')
-  return (
-    <div className="jubo-los-card flex items-start gap-3 p-3.5">
-      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-jubo-card-soft text-jubo-muted">
-        <Home className="h-6 w-6" />
-      </div>
-      <div className="min-w-0">
-        <p className="mb-0.5 text-sm font-semibold tracking-tight text-jubo-navy">Property</p>
-        <p className={cn('truncate text-sm font-medium', addr ? 'text-jubo-text' : 'text-muted-foreground/40')}>{addr ?? '—'}</p>
-        {loc && <p className="truncate text-2xs text-jubo-muted">{loc}</p>}
-        {line2 && <p className="truncate text-2xs text-jubo-muted">{line2}</p>}
-      </div>
     </div>
   )
 }
