@@ -587,37 +587,46 @@ function PhaseChecklistCard({
   customized: boolean
   onReset: () => void
 }) {
+  // Slim workflow strip — condensed by default; "View checklist" expands the
+  // toggle-able item grid. Same data + the same existing toggle action.
+  const [expanded, setExpanded] = useState(false)
   return (
-    <div className="jubo-los-card flex-shrink-0 px-3 py-2">
+    <div className="jubo-los-card flex-shrink-0 px-3 py-1.5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <p className="text-sm font-bold tracking-tight text-jubo-navy">Phase Checklist</p>
-          {stageName && <p className="truncate text-2xs text-jubo-muted">{stageName}</p>}
-        </div>
-        {checklist.hasChecklist && (
-          <span className="rounded-full bg-jubo-gold-soft px-2 py-0.5 text-2xs font-semibold tabular-nums text-jubo-gold">
-            {checklist.completedCount}/{checklist.totalCount} complete
-          </span>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          {customized && (
+        <p className="text-xs font-bold tracking-tight text-jubo-navy">Phase Checklist</p>
+        {stageName && <p className="max-w-[14rem] truncate text-2xs text-jubo-muted">{stageName}</p>}
+        {checklist.hasChecklist ? (
+          <>
+            <span className="rounded-full bg-jubo-gold-soft px-1.5 py-px text-[10px] font-semibold tabular-nums text-jubo-gold">
+              {checklist.completedCount}/{checklist.totalCount} complete
+            </span>
+            {/* Inline progress — the strip's only "bar", kept tiny. */}
+            <div className="h-1 min-w-16 max-w-40 flex-1 overflow-hidden rounded-full bg-jubo-border/60">
+              <div className="h-full rounded-full bg-jubo-green transition-all" style={{ width: `${checklist.percentage}%` }} />
+            </div>
             <button
-              onClick={onReset}
-              title="Reset the Overview card layout to default"
-              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs text-jubo-muted transition-colors hover:bg-jubo-card-soft hover:text-jubo-text"
+              onClick={() => setExpanded((e) => !e)}
+              className="flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-2xs font-medium text-jubo-muted transition-colors hover:bg-jubo-card-soft hover:text-jubo-text"
             >
-              <RotateCcw className="h-3 w-3" /> Reset layout
+              {expanded ? 'Hide checklist' : 'View checklist'}
+              <ChevronsUpDown className="h-3 w-3" />
             </button>
-          )}
-        </div>
+          </>
+        ) : (
+          <span className="text-2xs text-jubo-muted">No checklist for this phase.</span>
+        )}
+        {customized && (
+          <button
+            onClick={onReset}
+            title="Reset the Overview card layout to default"
+            className="ml-auto flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs text-jubo-muted transition-colors hover:bg-jubo-card-soft hover:text-jubo-text"
+          >
+            <RotateCcw className="h-3 w-3" /> Reset layout
+          </button>
+        )}
       </div>
-      {checklist.hasChecklist && (
-        <div className="mb-1.5 mt-1.5 h-1 overflow-hidden rounded-full bg-jubo-border/60">
-          <div className="h-full rounded-full bg-jubo-green transition-all" style={{ width: `${checklist.percentage}%` }} />
-        </div>
-      )}
-      {checklist.hasChecklist ? (
-        <ul className="grid max-h-20 grid-cols-1 gap-x-6 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {expanded && checklist.hasChecklist && (
+        <ul className="mt-1.5 grid max-h-32 grid-cols-1 gap-x-6 overflow-y-auto border-t border-jubo-border/60 pt-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {checklist.items.map((i) => (
             <li key={i.fieldId}>
               <button onClick={() => onToggle(i.fieldId, i.complete)} disabled={busy === i.fieldId}
@@ -628,7 +637,7 @@ function PhaseChecklistCard({
             </li>
           ))}
         </ul>
-      ) : <p className="mt-1 text-2xs text-jubo-muted">No checklist for this phase.</p>}
+      )}
     </div>
   )
 }
@@ -789,7 +798,7 @@ function Composer({
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-muted-foreground">Opens your mail app</span>
               <a href={`mailto:${email}${text.trim() ? `?body=${encodeURIComponent(text)}` : ''}`}
-                className="rounded-md bg-jubo-red px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-red-dark">Open in mail</a>
+                className="rounded-md bg-jubo-red px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-jubo-red-dark">Open in mail</a>
             </div>
           </div>
         ) : <p className="text-2xs text-muted-foreground">No email on file for this contact.</p>
