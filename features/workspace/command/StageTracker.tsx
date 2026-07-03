@@ -36,7 +36,10 @@ export function StageTracker({ groups, currentGroupId }: { groups: Stage[]; curr
   const currentIdx = stages.findIndex((g) => g.id === currentGroupId)
 
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+    // Reference stepper: compact numbered rounded squares — current step coral
+    // with its stage name beside it, completed steps green, future steps muted
+    // navy — joined by thin connector lines that stretch across the row.
+    <div className="flex w-full max-w-3xl items-center gap-2 overflow-x-auto py-0.5">
       {stages.map((g, i) => {
         const done = currentIdx >= 0 && i < currentIdx
         const current = i === currentIdx
@@ -45,16 +48,17 @@ export function StageTracker({ groups, currentGroupId }: { groups: Stage[]; curr
             <div className="flex flex-shrink-0 items-center gap-2">
               <span
                 className={cn(
-                  'flex h-7 w-7 items-center justify-center rounded-full text-2xs font-semibold tabular-nums transition-colors',
+                  'flex h-6 w-6 items-center justify-center rounded-md text-2xs font-semibold tabular-nums transition-colors',
                   done
-                    ? 'bg-jubo-green text-white'
+                    ? 'bg-jubo-green/80 text-white'
                     : current
-                      ? 'bg-jubo-red text-white ring-2 ring-jubo-red/30'
-                      : 'bg-jubo-navy2 text-white/45',
+                      ? 'bg-jubo-red text-white'
+                      : 'bg-jubo-navy2 text-white/50',
                 )}
+                title={g.name}
                 aria-current={current ? 'step' : undefined}
               >
-                {done ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                {done ? <Check className="h-3 w-3" /> : i + 1}
               </span>
               {current && (
                 <span className="whitespace-nowrap text-sm font-bold tracking-tight text-white">{displayJourneyStageName(g.name)}</span>
@@ -63,7 +67,7 @@ export function StageTracker({ groups, currentGroupId }: { groups: Stage[]; curr
             {i < stages.length - 1 && (
               <span
                 aria-hidden
-                className={cn('h-0.5 w-7 flex-shrink-0 rounded-full sm:w-9', i < currentIdx ? 'bg-jubo-green/70' : 'bg-white/15')}
+                className={cn('h-px min-w-6 flex-1 flex-shrink rounded-full', i < currentIdx ? 'bg-jubo-green/50' : 'bg-white/15')}
               />
             )}
           </Fragment>

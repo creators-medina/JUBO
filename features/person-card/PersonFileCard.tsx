@@ -17,7 +17,7 @@ import {
   MessageSquare, Mail, StickyNote, ListChecks,
 } from 'lucide-react'
 import { getFileCardData, type PersonCardData, type LoanCommandData } from './actions'
-import { deriveLoanMetrics, LoanSummaryStrip, FileSnapshotPanel, SnapshotCard, SnapRow } from './FileSummary'
+import { deriveLoanMetrics, LoanSummaryStrip, FileSnapshotPanel, SnapshotCard, MetricCell, SnapRow, nameInitials } from './FileSummary'
 import type { CommunicateContext } from '@/features/communications/communicate'
 import { SMSComposeBox } from '@/features/conversations/compose/SMSComposeBox'
 import { NoteList } from '@/features/workspace/notes/NoteList'
@@ -113,36 +113,38 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
   }
 
   return (
-    <div className="space-y-3">
-      {/* ARIVE-style top summary strip — Loan Amount · LTV · FICO · Rate ·
-          DSCR · LTC · Est. Closing · Type. Real values or an honest "—". */}
-      {m && <LoanSummaryStrip m={m} />}
+    // Pinned shell: the metric strip + tab strip stay fixed; only the tab
+    // content below scrolls (the modal itself has a fixed height).
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      {/* Reference metric strip — Loan Amount · LTV · FICO · Rate · DSCR ·
+          LTC · Est. Closing · Type. Real values or an honest "—". */}
+      {m && <div className="flex-shrink-0"><LoanSummaryStrip m={m} /></div>}
       {/* C1-FIX-2 — the borrower identity + comms actions live in the ONE
           WorkspacePanel command header above (avatar · name · role/board/owner ·
           phone, plus call/email/move/expand/close). This card renders only its
           four-tab strip, directly beneath that header + the stage tracker.
           A generic board (one tab) shows no strip — just the single header. */}
       {visibleTabs.length > 1 && (
-        <div className="flex gap-1 overflow-x-auto border-b border-border">
+        <div className="flex flex-shrink-0 gap-1 overflow-x-auto border-b border-border">
           {visibleTabs.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={cn('whitespace-nowrap border-b-2 -mb-px px-3 py-2 text-xs font-medium transition-colors',
-                activeTab === t.key ? 'border-jubo-navy text-jubo-navy' : 'border-transparent text-muted-foreground hover:text-foreground')}>
+                activeTab === t.key ? 'border-jubo-red text-jubo-navy' : 'border-transparent text-muted-foreground hover:text-foreground')}>
               {t.label}
             </button>
           ))}
         </div>
       )}
 
-      {/* Phase D5 — persistent left file-snapshot rail beside every tab (the
-          "file command center"); stacks above the content on narrow screens. */}
-      <div className={m ? 'grid grid-cols-1 gap-4 xl:grid-cols-[16rem_minmax(0,1fr)]' : undefined}>
+      {/* Persistent 236px left rail beside every tab (the file command
+          center); stacks above the content on narrow screens. The wrapper is
+          the internal scroll container. */}
+      <div className={cn('min-h-0 flex-1 overflow-y-auto', m && 'grid grid-cols-1 content-start gap-4 xl:grid-cols-[236px_minmax(0,1fr)]')}>
         {m && (
           <FileSnapshotPanel
             m={m}
             borrowerName={borrowerName}
             phone={comms?.phone ?? null}
-            email={email}
             nextStep={nextStep}
             openConditions={openConditions}
             openTasks={openTaskCount}
@@ -150,76 +152,67 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
         )}
         <div className="min-w-0 space-y-4">
 
-      {/* ── LOAN-shape Overview (snapshot grid + feed + command rail) ── */}
+      {/* ── LOAN-shape Overview (reference: cards · conversation · actions) ── */}
       {activeTab === 'overview' && isLoanLike && (
-        <div className="jubo-los-page grid grid-cols-1 gap-4 rounded-xl p-4 lg:grid-cols-3">
-          {/* LEFT — snapshot cards: loan, borrower, property, financial, conditions. */}
+        <div className="jubo-los-page grid grid-cols-1 gap-4 rounded-xl p-4 lg:grid-cols-3 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.45fr)_minmax(0,0.95fr)]">
+          {/* LEFT — Financial · Conditions · Key Dates · Documents. */}
           <div className="space-y-4">
             {m && (
-              <SnapshotCard title="Loan Snapshot">
-                <SnapRow label="Loan amount" value={m.loanAmount} />
-                <SnapRow label="LTV" value={m.ltv} />
-                <SnapRow label="Rate" value={m.rate} />
-                <SnapRow label="Loan type" value={m.loanType} />
-                <SnapRow label="Purpose" value={m.purpose} />
-                <SnapRow label="Est. closing" value={m.closing} />
-              </SnapshotCard>
-            )}
-            {m && (
-              <SnapshotCard title="Borrower">
-                <SnapRow label="Name" value={borrowerName} />
-                <SnapRow label="Phone" value={comms?.phone ?? null} />
-                <SnapRow label="Email" value={email} />
-                <SnapRow label="FICO" value={m.fico} />
-              </SnapshotCard>
-            )}
-            {m && (
-              <SnapshotCard title="Property">
-                <SnapRow label="Address" value={m.address} />
-                <SnapRow label="City / State" value={m.cityState} />
-                <SnapRow label="Value" value={m.propertyValue ?? m.appraisedValue} />
-                <SnapRow label="Type" value={[m.propertyType, m.occupancy].filter(Boolean).join(' · ') || null} />
-              </SnapshotCard>
-            )}
-            {m && (
               <SnapshotCard title="Financial">
-                <SnapRow label="Monthly income" value={m.income} />
-                <SnapRow label="Assets" value={m.assets} />
-                <SnapRow label="Liabilities" value={m.liabilities} />
-                <SnapRow label="DTI" value={m.dti} />
-                <SnapRow label="DSCR" value={m.dscr} />
-                <SnapRow label="LTC" value={m.ltc} />
-                <SnapRow label="Total PITI" value={m.totalPiti} />
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                  <MetricCell label="Income" value={m.income} />
+                  <MetricCell label="Assets" value={m.assets} />
+                  <MetricCell label="Liabilities" value={m.liabilities} />
+                  <MetricCell label="DTI" value={m.dti} />
+                  <MetricCell label="DSCR" value={m.dscr} />
+                  <MetricCell label="Total PITI" value={m.totalPiti} />
+                </div>
               </SnapshotCard>
             )}
             <ConditionsCard checklist={card.checklist} busy={busy} onToggle={toggleChecklist} />
+            {m && (
+              <SnapshotCard title="Key Dates">
+                {/* "Application" has no stored source yet — honest "—". */}
+                <SnapRow label="Application" value={null} />
+                <SnapRow label="Est. Closing" value={m.closing} />
+                <SnapRow label="Rate Lock" value={m.rateLock} />
+              </SnapshotCard>
+            )}
+            {/* Documents — no document storage exists in Jubo yet; this is an
+                honest empty state, not a fake uploader (gap reported). */}
+            <SnapshotCard title="Documents" badge="0">
+              <div className="rounded-lg border border-dashed border-jubo-border px-3 py-4 text-center text-2xs text-jubo-muted">
+                No documents yet — uploads aren’t available in Jubo yet.
+              </div>
+            </SnapshotCard>
           </div>
 
-          {/* CENTER — conversation feed + 4-mode composer. */}
-          <div className="space-y-3">
-            <div className="overflow-hidden rounded-xl border border-border bg-card">
-              <div className="flex gap-1 border-b border-border px-3 py-2">
-                {(['all', 'comms', 'tasks', 'pipeline'] as Filter[]).map((f) => (
+          {/* CENTER (widest) — the Conversation workspace. */}
+          <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
+            <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
+              <p className="text-sm font-semibold tracking-tight text-jubo-navy">Conversation</p>
+              <div className="flex gap-0.5 rounded-lg bg-jubo-card-soft p-0.5">
+                {(['all', 'comms', 'pipeline'] as Filter[]).map((f) => (
                   <button key={f} onClick={() => setFilter(f)}
-                    className={cn('rounded-full px-2.5 py-0.5 text-2xs font-medium capitalize transition-colors',
+                    className={cn('rounded-md px-2.5 py-0.5 text-2xs font-medium capitalize transition-colors',
                       filter === f ? 'bg-jubo-navy text-white' : 'text-muted-foreground hover:text-foreground')}>{f}</button>
                 ))}
               </div>
-              <Feed card={card} comms={comms} filter={filter} />
-              <div className="border-t border-border p-2.5">
-                <Composer
-                  recordId={recordId}
-                  boardId={card.record.boardId}
-                  orgId={card.record.organizationId}
-                  comms={comms}
-                  email={email}
-                  onChanged={load}
-                />
-              </div>
+            </div>
+            <Feed card={card} comms={comms} filter={filter} borrowerName={borrowerName} ownerName={m?.ownerName ?? null} tall />
+            <div className="flex-shrink-0 border-t border-border p-2.5">
+              <Composer
+                recordId={recordId}
+                boardId={card.record.boardId}
+                orgId={card.record.organizationId}
+                comms={comms}
+                email={email}
+                onChanged={load}
+              />
             </div>
           </div>
 
-          {/* RIGHT — Next Step + signals + Tasks + Related + Move-To, then Notes. */}
+          {/* RIGHT — Next Step + signals + Tasks + Move-To, then Notes. */}
           <div className="space-y-4">
             {loan && (
               <CommandRail
@@ -329,42 +322,108 @@ function feedTag(activityType: string): string {
   return 'EVENT'
 }
 
-function Feed({ card, comms, filter }: { card: PersonCardData; comms: CommunicateContext | undefined; filter: Filter }) {
+function Feed({
+  card, comms, filter, borrowerName, ownerName, tall,
+}: {
+  card: PersonCardData
+  comms: CommunicateContext | undefined
+  filter: Filter
+  /** Sender identities for the message bubbles (real people, never invented). */
+  borrowerName?: string
+  ownerName?: string | null
+  /** Taller scroll area for the Overview conversation workspace. */
+  tall?: boolean
+}) {
   type Item = { id: string; kind: 'sms' | 'activity'; ts: string; direction?: string; body?: string | null; label?: string; tag: string; cat: Filter | 'other' }
   const items: Item[] = []
   for (const m of comms?.messages ?? []) items.push({ id: `s-${m.id}`, kind: 'sms', ts: m.occurred_at, direction: m.direction, body: m.body, tag: 'SMS', cat: 'comms' })
   for (const a of card.activities) items.push({ id: `a-${a.id}`, kind: 'activity', ts: a.created_at, label: a.content ?? a.activity_type, tag: feedTag(a.activity_type), cat: activityCategory(a.activity_type) })
+  // Reference timeline reads oldest → newest with day separators.
   const shown = items
     .filter((i) => filter === 'all' || i.cat === filter)
-    .sort((a, b) => (b.ts ?? '').localeCompare(a.ts ?? ''))
+    .sort((a, b) => (a.ts ?? '').localeCompare(b.ts ?? ''))
 
-  const fmtTs = (ts?: string) => (ts ? ts.split('T')[0] : '')
+  const day = (ts?: string) => (ts ? ts.split('T')[0] : '')
+  const fmtDay = (d: string) => {
+    const dt = new Date(`${d}T00:00:00`)
+    return isNaN(dt.getTime()) ? d : dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase()
+  }
+  const fmtTime = (ts?: string) => {
+    if (!ts) return ''
+    const dt = new Date(ts)
+    return isNaN(dt.getTime()) ? '' : dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  }
 
-  if (shown.length === 0) return <div className="px-3 py-8 text-center text-2xs text-muted-foreground">Nothing here yet.</div>
+  if (shown.length === 0) return <div className={cn('px-3 py-8 text-center text-2xs text-muted-foreground', tall && 'flex-1')}>Nothing here yet.</div>
+
+  // Precompute day-separator flags (a render-time mutation would violate the
+  // immutable-render rule).
+  const rows: { item: Item; sep: boolean }[] = []
+  {
+    let lastDay = ''
+    for (const item of shown) {
+      const d = day(item.ts)
+      rows.push({ item, sep: Boolean(d) && d !== lastDay })
+      if (d) lastDay = d
+    }
+  }
   return (
-    <div className="max-h-72 space-y-2 overflow-y-auto p-3">
-      {shown.map((i) => i.kind === 'sms' ? (
-        <div key={i.id} className={cn('flex', i.direction === 'outbound' ? 'justify-end' : 'justify-start')}>
-          <div className="max-w-[82%]">
-            <div className={cn('mb-0.5 flex items-center gap-1 text-[10px] text-muted-foreground', i.direction === 'outbound' && 'justify-end')}>
-              {i.direction === 'outbound' ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownLeft className="h-2.5 w-2.5" />}
-              <span className="font-semibold tracking-wider">{i.tag}</span> · {fmtTs(i.ts)}
-            </div>
-            <div className={cn('rounded-2xl px-3 py-1.5 text-xs', i.direction === 'outbound' ? 'bg-jubo-navy text-white' : 'bg-surface-2 text-foreground')}>
-              {i.body}
-            </div>
+    <div className={cn('space-y-2 overflow-y-auto p-3', tall ? 'min-h-[16rem] flex-1' : 'max-h-72')}>
+      {rows.map(({ item: i, sep }) => {
+        const d = day(i.ts)
+        return (
+          <div key={i.id} className="space-y-2">
+            {sep && (
+              <div className="flex justify-center pt-1">
+                <span className="rounded border border-jubo-border bg-jubo-card-soft px-2 py-0.5 text-[9px] font-semibold tracking-wider text-jubo-muted">
+                  {fmtDay(d)}
+                </span>
+              </div>
+            )}
+            {i.kind === 'sms' ? (
+              <div className={cn('flex items-end gap-2', i.direction === 'outbound' ? 'justify-end' : 'justify-start')}>
+                {i.direction !== 'outbound' && (
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md bg-jubo-red text-[9px] font-bold text-white">
+                    {nameInitials(borrowerName)}
+                  </span>
+                )}
+                <div className="max-w-[78%]">
+                  <div className={cn('mb-0.5 flex items-center gap-1 text-[10px] text-muted-foreground', i.direction === 'outbound' && 'justify-end')}>
+                    {i.direction === 'outbound' ? <ArrowUpRight className="h-2.5 w-2.5" /> : <ArrowDownLeft className="h-2.5 w-2.5" />}
+                    <span className="font-semibold">{i.direction === 'outbound' ? (ownerName ?? 'You') : (borrowerName ?? 'Contact')}</span>
+                    <span className="font-semibold tracking-wider text-jubo-muted">{i.tag}</span>
+                  </div>
+                  <div className={cn(
+                    'rounded-xl px-3 py-1.5 text-xs leading-relaxed',
+                    i.direction === 'outbound'
+                      ? 'border border-jubo-red/15 bg-jubo-red/10 text-jubo-text'
+                      : 'border border-jubo-border bg-jubo-card text-jubo-text',
+                  )}>
+                    {i.body}
+                  </div>
+                  <div className={cn('mt-0.5 text-[9px] text-muted-foreground', i.direction === 'outbound' && 'text-right')}>{fmtTime(i.ts)}</div>
+                </div>
+                {i.direction === 'outbound' && (
+                  <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md text-[9px] font-bold text-white" style={{ background: '#3f83c4' }}>
+                    {nameInitials(ownerName ?? 'You')}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-start gap-2">
+                <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border border-jubo-border bg-jubo-card text-[8px] font-bold tracking-wider text-jubo-muted">
+                  {i.tag.slice(0, 2)}
+                </span>
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <span className="mr-1.5 rounded bg-surface-2 px-1 py-0.5 text-[9px] font-semibold tracking-wider text-muted-foreground">{i.tag}</span>
+                  <span className="text-xs text-foreground/80">{i.label}</span>
+                  <span className="ml-1 text-2xs text-muted-foreground">· {fmtTime(i.ts)}</span>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      ) : (
-        <div key={i.id} className="flex items-start gap-2">
-          <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-jubo-border-strong" />
-          <div className="min-w-0 flex-1">
-            <span className="mr-1.5 rounded bg-surface-2 px-1 py-0.5 text-[9px] font-semibold tracking-wider text-muted-foreground">{i.tag}</span>
-            <span className="text-xs text-foreground/80">{i.label}</span>
-            <span className="ml-1 text-2xs text-muted-foreground">· {fmtTs(i.ts)}</span>
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -491,7 +550,7 @@ function Composer({
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-muted-foreground">Opens your mail app</span>
               <a href={`mailto:${email}${text.trim() ? `?body=${encodeURIComponent(text)}` : ''}`}
-                className="rounded-md bg-jubo-navy px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-navy2">Open in mail</a>
+                className="rounded-md bg-jubo-red px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-red-dark">Open in mail</a>
             </div>
           </div>
         ) : <p className="text-2xs text-muted-foreground">No email on file for this contact.</p>
@@ -501,7 +560,7 @@ function Composer({
             className="w-full resize-none rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
           <div className="flex justify-end">
             <button onClick={saveNote} disabled={!text.trim() || pending}
-              className="rounded-md bg-jubo-navy px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-navy2 disabled:opacity-50">{pending ? 'Saving…' : 'Save note'}</button>
+              className="rounded-md bg-jubo-red px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-red-dark disabled:opacity-50">{pending ? 'Saving…' : 'Save note'}</button>
           </div>
         </div>
       ) : (
