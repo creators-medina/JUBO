@@ -39,7 +39,7 @@ export function StageTracker({ groups, currentGroupId }: { groups: Stage[]; curr
     // Reference stepper: compact numbered rounded squares — current step coral
     // with its stage name beside it, completed steps green, future steps muted
     // navy — joined by thin connector lines that stretch across the row.
-    <div className="flex w-full max-w-3xl items-center gap-2 overflow-x-auto py-0.5">
+    <div className="flex w-full max-w-3xl items-center gap-1.5 overflow-x-auto">
       {stages.map((g, i) => {
         const done = currentIdx >= 0 && i < currentIdx
         const current = i === currentIdx
@@ -48,7 +48,7 @@ export function StageTracker({ groups, currentGroupId }: { groups: Stage[]; curr
             <div className="flex flex-shrink-0 items-center gap-2">
               <span
                 className={cn(
-                  'flex h-6 w-6 items-center justify-center rounded-md text-2xs font-semibold tabular-nums transition-colors',
+                  'flex h-5 w-5 items-center justify-center rounded text-[10px] font-semibold tabular-nums transition-colors',
                   done
                     ? 'bg-jubo-green/80 text-white'
                     : current
@@ -59,16 +59,16 @@ export function StageTracker({ groups, currentGroupId }: { groups: Stage[]; curr
                 aria-label={current ? `Current stage: ${g.name}` : g.name}
                 aria-current={current ? 'step' : undefined}
               >
-                {done ? <Check className="h-3 w-3" /> : i + 1}
+                {done ? <Check className="h-2.5 w-2.5" /> : i + 1}
               </span>
               {current && (
-                <span className="whitespace-nowrap text-sm font-bold tracking-tight text-white">{displayJourneyStageName(g.name)}</span>
+                <span className="whitespace-nowrap text-xs font-bold tracking-tight text-white">{displayJourneyStageName(g.name)}</span>
               )}
             </div>
             {i < stages.length - 1 && (
               <span
                 aria-hidden
-                className={cn('h-px min-w-6 flex-1 flex-shrink rounded-full', i < currentIdx ? 'bg-jubo-green/50' : 'bg-white/15')}
+                className={cn('h-px min-w-4 flex-1 flex-shrink rounded-full', i < currentIdx ? 'bg-jubo-green/50' : 'bg-white/15')}
               />
             )}
           </Fragment>

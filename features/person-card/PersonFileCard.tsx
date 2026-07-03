@@ -77,6 +77,11 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
   const overviewLayout = useOverviewLayout(OVERVIEW_CARD_ORDER)
   const [dragCard, setDragCard] = useState<string | null>(null)
   const [dragOverCard, setDragOverCard] = useState<string | null>(null)
+  // Phase D9 — composer draft state lives here so the ALWAYS-VISIBLE
+  // bottom-right Save footer can act on it (honest per-mode behavior).
+  const [composerMode, setComposerMode] = useState<'sms' | 'email' | 'note' | 'task'>('sms')
+  const [composerText, setComposerText] = useState('')
+  const [composerPending, startComposerSave] = useTransition()
 
   // Phase C4 — ONE resolver per open. getFileCardData reads each table once and
   // returns the same three shapes the card consumes ({ card, comms, loan }).
@@ -145,6 +150,24 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
     })
     .slice(0, 6)
   const signals = loan ? computeOpportunitySignals(loan, card.templateKey).slice(0, 3) : []
+
+  // Footer Save — the same existing actions the composer used (createNote /
+  // createTask); nothing new is written anywhere.
+  const footerSave = () => {
+    const content = composerText.trim()
+    if (!content) return
+    startComposerSave(async () => {
+      try {
+        if (composerMode === 'note') {
+          await createNote({ organization_id: card.record.organizationId, record_id: recordId, content })
+        } else if (composerMode === 'task' && boardId) {
+          await createTask({ organization_id: card.record.organizationId, record_id: recordId, board_id: boardId, title: content })
+        }
+        setComposerText('')
+        load()
+      } catch { /* surfaced by the action; draft kept */ }
+    })
+  }
 
   const renderOverviewCard = (key: string): React.ReactNode => {
     switch (key) {
@@ -292,7 +315,7 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
           <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.7fr)_minmax(0,0.95fr)]">
             {/* CENTER (widest; first in DOM so it follows the checklist on
                 small screens) — the Conversation workspace, protected sizing. */}
-            <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-xl border border-border bg-card xl:col-start-2 xl:row-start-1 xl:min-h-0">
+            <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-xl border border-jubo-border-strong/70 bg-card shadow-sm xl:col-start-2 xl:row-start-1 xl:min-h-0">
               <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
                 <p className="text-base font-bold tracking-tight text-jubo-navy">Conversation</p>
                 <div className="flex gap-0.5 rounded-lg bg-jubo-card-soft p-0.5">
@@ -307,11 +330,14 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
               <div className="flex-shrink-0 border-t border-border p-2.5">
                 <Composer
                   recordId={recordId}
-                  boardId={card.record.boardId}
-                  orgId={card.record.organizationId}
                   comms={comms}
                   email={email}
                   onChanged={load}
+                  mode={composerMode}
+                  onModeChange={setComposerMode}
+                  text={composerText}
+                  onTextChange={setComposerText}
+                  onSubmit={footerSave}
                 />
               </div>
             </div>
@@ -319,7 +345,7 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
             {/* NOTES — the full right-side panel: full column height with the
                 note list scrolling internally; add-note affordance always
                 visible. (Kept out of the drag pool by design.) */}
-            <div className="flex min-h-[16rem] flex-col overflow-hidden rounded-xl border border-border bg-card xl:col-start-3 xl:row-start-1 xl:min-h-0">
+            <div className="flex min-h-[16rem] flex-col overflow-hidden rounded-xl border border-jubo-border-strong/70 bg-card shadow-sm xl:col-start-3 xl:row-start-1 xl:min-h-0">
               <div className="flex-shrink-0 border-b border-border px-3 py-2">
                 <p className="text-base font-bold tracking-tight text-jubo-navy">Notes</p>
               </div>
@@ -434,6 +460,43 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
         <FinancialTab recordId={recordId} />
       )}
         </div>
+      </div>
+
+      {/* Phase D9 — persistent modal footer: the Save button is ALWAYS visible
+          bottom-right (the app autosaves — when there's no draft the button
+          honestly reads "Saved"). Note/Task drafts save via the existing
+          createNote/createTask; Email stays the honest mailto; SMS keeps its
+          own real Send inside the composer. */}
+      <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-jubo-border-strong/60 pt-2">
+        <span className="text-2xs text-jubo-muted">Changes save automatically</span>
+        {activeTab === 'overview' && isLoanLike && composerMode === 'email' && email && composerText.trim() ? (
+          <a
+            href={`mailto:${email}?body=${encodeURIComponent(composerText)}`}
+            className="rounded-md bg-jubo-red px-5 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-jubo-red-dark"
+          >
+            Open in mail
+          </a>
+        ) : (
+          <button
+            onClick={footerSave}
+            disabled={
+              composerPending ||
+              !(activeTab === 'overview' && isLoanLike && composerText.trim() && (composerMode === 'note' || (composerMode === 'task' && boardId)))
+            }
+            title={
+              activeTab === 'overview' && isLoanLike && (composerMode === 'note' || composerMode === 'task')
+                ? 'Save the current draft'
+                : 'Everything is saved automatically'
+            }
+            className="rounded-md bg-jubo-red px-5 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-jubo-red-dark disabled:opacity-60"
+          >
+            {composerPending
+              ? 'Saving…'
+              : activeTab === 'overview' && isLoanLike && composerText.trim() && (composerMode === 'note' || composerMode === 'task')
+                ? 'Save'
+                : 'Saved ✓'}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -587,33 +650,23 @@ function PhaseChecklistCard({
   customized: boolean
   onReset: () => void
 }) {
-  // Slim workflow strip — condensed by default; "View checklist" expands the
-  // toggle-able item grid. Same data + the same existing toggle action.
-  const [expanded, setExpanded] = useState(false)
+  // Step-by-step finish strip — ALWAYS visible: each item renders as a step
+  // chip (numbered when open, checked when done). Same data + the same
+  // existing toggle action; clicking a chip toggles the step.
   return (
-    <div className="jubo-los-card flex-shrink-0 px-3 py-1.5">
+    <div className="flex-shrink-0 rounded-xl border border-jubo-border-strong/70 bg-jubo-card px-3 py-2 shadow-sm">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <p className="text-xs font-bold tracking-tight text-jubo-navy">Phase Checklist</p>
+        <p className="text-[13px] font-bold tracking-tight text-jubo-navy">Phase Checklist</p>
         {stageName && <p className="max-w-[14rem] truncate text-2xs text-jubo-muted">{stageName}</p>}
-        {checklist.hasChecklist ? (
+        {checklist.hasChecklist && (
           <>
             <span className="rounded-full bg-jubo-gold-soft px-1.5 py-px text-[10px] font-semibold tabular-nums text-jubo-gold">
               {checklist.completedCount}/{checklist.totalCount} complete
             </span>
-            {/* Inline progress — the strip's only "bar", kept tiny. */}
             <div className="h-1 min-w-16 max-w-40 flex-1 overflow-hidden rounded-full bg-jubo-border/60">
               <div className="h-full rounded-full bg-jubo-green transition-all" style={{ width: `${checklist.percentage}%` }} />
             </div>
-            <button
-              onClick={() => setExpanded((e) => !e)}
-              className="flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-2xs font-medium text-jubo-muted transition-colors hover:bg-jubo-card-soft hover:text-jubo-text"
-            >
-              {expanded ? 'Hide checklist' : 'View checklist'}
-              <ChevronsUpDown className="h-3 w-3" />
-            </button>
           </>
-        ) : (
-          <span className="text-2xs text-jubo-muted">No checklist for this phase.</span>
         )}
         {customized && (
           <button
@@ -625,19 +678,33 @@ function PhaseChecklistCard({
           </button>
         )}
       </div>
-      {expanded && checklist.hasChecklist && (
-        <ul className="mt-1.5 grid max-h-32 grid-cols-1 gap-x-6 overflow-y-auto border-t border-jubo-border/60 pt-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {checklist.items.map((i) => (
-            <li key={i.fieldId}>
-              <button onClick={() => onToggle(i.fieldId, i.complete)} disabled={busy === i.fieldId}
-                className="flex w-full items-center gap-2 rounded px-1 py-0.5 text-left text-xs transition-colors hover:bg-jubo-card-soft disabled:opacity-60">
-                {busy === i.fieldId ? <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-jubo-muted" /> : i.complete ? <CheckSquare className="h-3.5 w-3.5 flex-shrink-0 text-jubo-green" /> : <Square className="h-3.5 w-3.5 flex-shrink-0 text-jubo-border-strong" />}
-                <span className={cn('flex-1 truncate', i.complete ? 'text-jubo-muted line-through' : 'text-jubo-text')}>{i.name}</span>
-              </button>
-            </li>
+      {checklist.hasChecklist ? (
+        <div className="mt-1.5 flex max-h-[3.9rem] flex-wrap gap-1.5 overflow-y-auto">
+          {checklist.items.map((i, idx) => (
+            <button
+              key={i.fieldId}
+              onClick={() => onToggle(i.fieldId, i.complete)}
+              disabled={busy === i.fieldId}
+              title={i.complete ? `Done: ${i.name} (click to un-check)` : `Step ${idx + 1}: ${i.name} (click to complete)`}
+              className={cn(
+                'flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-2xs transition-colors disabled:opacity-60',
+                i.complete
+                  ? 'border-jubo-green/30 bg-jubo-green-soft text-jubo-muted'
+                  : 'border-jubo-border-strong/70 bg-jubo-card text-jubo-text hover:border-jubo-navy/40',
+              )}
+            >
+              {busy === i.fieldId ? (
+                <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin text-jubo-muted" />
+              ) : i.complete ? (
+                <CheckSquare className="h-3 w-3 flex-shrink-0 text-jubo-green" />
+              ) : (
+                <span className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-jubo-navy text-[8px] font-bold tabular-nums text-white">{idx + 1}</span>
+              )}
+              <span className={cn('truncate', i.complete && 'line-through')}>{i.name}</span>
+            </button>
           ))}
-        </ul>
-      )}
+        </div>
+      ) : <p className="mt-0.5 text-2xs text-jubo-muted">No checklist for this phase.</p>}
     </div>
   )
 }
@@ -686,7 +753,7 @@ function OverviewCard({
       }}
       className={cn(
         'rounded-xl transition-opacity',
-        chrome && 'jubo-los-card p-3',
+        chrome && 'jubo-los-card border-jubo-border-strong/60 p-3 shadow-sm',
         dragging && 'opacity-40',
         dragOver && 'bg-jubo-red/5 ring-2 ring-inset ring-jubo-red/50',
       )}
@@ -733,19 +800,19 @@ const OVERVIEW_DND_TYPE = 'text/jubo-overview-card'
 // opens the user's mail client; Jubo has no in-app email send, so this is an
 // honest open-in-mail action, never a fake "Send").
 function Composer({
-  recordId, boardId, orgId, comms, email, onChanged,
+  recordId, comms, email, onChanged, mode, onModeChange, text, onTextChange, onSubmit,
 }: {
   recordId: string
-  boardId: string | null
-  orgId: string
   comms: CommunicateContext | undefined
   email: string | null
   onChanged: () => void
+  mode: 'sms' | 'email' | 'note' | 'task'
+  onModeChange: (m: 'sms' | 'email' | 'note' | 'task') => void
+  text: string
+  onTextChange: (t: string) => void
+  /** Enter-to-save for the task input — routed to the footer Save action. */
+  onSubmit: () => void
 }) {
-  const [mode, setMode] = useState<'sms' | 'email' | 'note' | 'task'>('sms')
-  const [text, setText] = useState('')
-  const [pending, startTransition] = useTransition()
-
   const MODES: { key: typeof mode; label: string; Icon: React.ElementType }[] = [
     { key: 'sms', label: 'SMS', Icon: MessageSquare },
     { key: 'email', label: 'Email', Icon: Mail },
@@ -753,26 +820,11 @@ function Composer({
     { key: 'task', label: 'Task', Icon: ListChecks },
   ]
 
-  const saveNote = () => {
-    const content = text.trim()
-    if (!content) return
-    startTransition(async () => {
-      try { await createNote({ organization_id: orgId, record_id: recordId, content }); setText(''); onChanged() } catch {}
-    })
-  }
-  const addTask = () => {
-    const title = text.trim()
-    if (!title || !boardId) return
-    startTransition(async () => {
-      try { await createTask({ organization_id: orgId, record_id: recordId, board_id: boardId, title }); setText(''); onChanged() } catch {}
-    })
-  }
-
   return (
     <div className="space-y-2">
       <div className="flex gap-1">
         {MODES.map(({ key, label, Icon }) => (
-          <button key={key} onClick={() => setMode(key)}
+          <button key={key} onClick={() => onModeChange(key)}
             className={cn('flex items-center gap-1 rounded-md px-2 py-1 text-2xs font-medium transition-colors',
               mode === key ? 'bg-jubo-navy text-white' : 'text-muted-foreground hover:text-foreground')}>
             <Icon className="h-3 w-3" />{label}
@@ -792,36 +844,19 @@ function Composer({
         )
       ) : mode === 'email' ? (
         email ? (
-          <div className="space-y-1.5">
-            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder={`Write an email to ${email}…`}
+          <div className="space-y-1">
+            <textarea value={text} onChange={(e) => onTextChange(e.target.value)} rows={2} placeholder={`Write an email to ${email}…`}
               className="w-full resize-none rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground">Opens your mail app</span>
-              <a href={`mailto:${email}${text.trim() ? `?body=${encodeURIComponent(text)}` : ''}`}
-                className="rounded-md bg-jubo-red px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-jubo-red-dark">Open in mail</a>
-            </div>
+            <p className="text-[10px] text-muted-foreground">Opens your mail app — use the button below right.</p>
           </div>
         ) : <p className="text-2xs text-muted-foreground">No email on file for this contact.</p>
       ) : mode === 'note' ? (
-        <div className="space-y-1.5">
-          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="Write a note…"
-            className="w-full resize-none rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
-          <div className="flex justify-end">
-            <button onClick={saveNote} disabled={!text.trim() || pending}
-              className="rounded-md bg-jubo-red px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-jubo-red-dark disabled:opacity-50">{pending ? 'Saving…' : 'Save'}</button>
-          </div>
-        </div>
+        <textarea value={text} onChange={(e) => onTextChange(e.target.value)} rows={2} placeholder="Write a note… (Save is below right)"
+          className="w-full resize-none rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
       ) : (
-        <div className="space-y-1.5">
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="New task…"
-            onKeyDown={(e) => { if (e.key === 'Enter') addTask() }}
-            className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
-          <div className="flex items-center justify-between">
-            {!boardId && <span className="text-[10px] text-muted-foreground">No board — can’t add tasks</span>}
-            <button onClick={addTask} disabled={!text.trim() || pending || !boardId}
-              className="ml-auto rounded-md bg-jubo-navy px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-navy2 disabled:opacity-50">{pending ? 'Saving…' : 'Save'}</button>
-          </div>
-        </div>
+        <input value={text} onChange={(e) => onTextChange(e.target.value)} placeholder="New task… (Enter or Save below right)"
+          onKeyDown={(e) => { if (e.key === 'Enter') onSubmit() }}
+          className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
       )}
     </div>
   )
