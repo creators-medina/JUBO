@@ -178,7 +178,9 @@ function WorkspaceContent({
     // blurred board (was a right-side drawer). Click-outside still closes.
     <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6">
       <div className="absolute inset-0 bg-jubo-navy/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative flex max-h-[92vh] w-full max-w-[80rem] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
+      {/* Fixed workspace height (reference: min(884px, viewport − 52px)) — the
+          modal never stretches the page; the file card scrolls internally. */}
+      <div className="relative flex h-[min(884px,calc(100vh-52px))] w-full max-w-[80rem] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
         {/* Window chrome — borrower identity (left) + panel controls (right). The
             record's four-tab File Card (Overview / Loan & Property / Borrower /
             Financial) is the entire body below. */}
@@ -271,8 +273,9 @@ function WorkspaceContent({
           />
         )}
 
-        {/* Body — the four-tab File Card owns its own header + tab strip. */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-5">
+        {/* Body — the four-tab File Card owns its own strip/tabs and scrolls
+            internally (strip + tabs stay pinned inside the fixed-height shell). */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-5 pt-4">
           {loading && !data ? (
             <div className="space-y-3">
               {[0, 1, 2, 3].map(i => (

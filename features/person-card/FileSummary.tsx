@@ -1,21 +1,23 @@
 'use client'
 
 // ─────────────────────────────────────────────────────────────────────────
-// FileSummary (Phase D5) — the ARIVE-style loan file summary layer:
+// FileSummary (Phase D5/D6) — the high-fidelity Loan File summary layer,
+// matching the Contact Card reference:
 //   • deriveLoanMetrics — ONE read-only pass over the already-loaded loan
 //     bundle (fields + field_values); direct slug reads plus two display-only
 //     derivations (LTV uses the exact formula the Loan & Property tab shows;
 //     DTI = (ΣPITI + monthly liabilities) ÷ monthly income).
-//   • LoanSummaryStrip — compact metric chips under the navy header
+//   • LoanSummaryStrip — the warm cream 8-metric band under the navy header
 //     (Loan Amount · LTV · FICO · Rate · DSCR · LTC · Est. Closing · Type).
-//   • FileSnapshotPanel — the persistent left "file command center" rail.
-//   • SnapshotCard / SummaryMetric — reusable compact display primitives.
+//   • FileSnapshotPanel — the 236px left rail: loan hero, facts list (stage
+//     pill · next step · property value · conditions · tasks), property block,
+//     and contacts (borrower + loan officer with avatars).
+//   • SnapshotCard / SnapRow / MetricCell — reusable compact primitives.
 // Everything renders real stored values or an honest "—". DSCR and LTC have
 // NO source in the current schema — they render "—" by design (reported as a
 // gap; adding them is a separate backend/field phase). Nothing here writes.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { Home, User, MapPin, ListChecks, Flag, Users } from 'lucide-react'
 import { numberValue, textValue, dateValue, formatCurrency, formatDate } from '@/features/mortgage/data'
 import type { LoanCommandData } from './actions'
 import { cn } from '@/lib/utils'
@@ -43,6 +45,7 @@ export type LoanMetrics = {
   dti: string | null          // derived: (ΣPITI + monthly liabilities) ÷ income
   totalPiti: string | null
   lock: string | null
+  rateLock: string | null     // lock expiration date (else status) for Key Dates
   stage: string | null
   ownerName: string | null
 }
@@ -78,7 +81,8 @@ export function deriveLoanMetrics(loan: LoanCommandData): LoanMetrics {
 
   const rate = n('note_rate')
   const fico = n('credit_score')
-  const lockBits = [t('lock_status'), dateValue(loan, 'lock_expiration') ? formatDate(dateValue(loan, 'lock_expiration')) : null].filter(Boolean)
+  const lockExp = dateValue(loan, 'lock_expiration')
+  const lockBits = [t('lock_status'), lockExp ? formatDate(lockExp) : null].filter(Boolean)
 
   const groups = (loan.groups ?? []) as { id: string; name: string }[]
   const stage = groups.find((g) => g.id === (loan.record as { group_id?: string | null }).group_id)?.name ?? null
@@ -107,17 +111,26 @@ export function deriveLoanMetrics(loan: LoanCommandData): LoanMetrics {
     dti: pct(dti),
     totalPiti: totalPiti != null ? formatCurrency(totalPiti) : null,
     lock: lockBits.length > 0 ? lockBits.join(' · ') : null,
+    rateLock: lockExp ? formatDate(lockExp) : (t('lock_status') || null),
     stage,
     ownerName,
   }
 }
 
-/** One compact metric: tiny gold uppercase label over a navy value. */
+/** Up to two initials for the avatar chips. */
+export function nameInitials(name: string | null | undefined): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '—'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+/** One strip metric: tiny gold uppercase label over a bold navy value. */
 export function SummaryMetric({ label, value, strong }: { label: string; value: string | null; strong?: boolean }) {
   const has = value != null && value !== ''
   return (
-    <div className="min-w-0">
-      <p className="text-[9px] font-semibold uppercase tracking-[0.1em] text-jubo-gold">{label}</p>
+    <div className="min-w-0 px-4 first:pl-1 last:pr-1">
+      <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-jubo-gold">{label}</p>
       <p className={cn(
         'truncate tabular-nums',
         strong ? 'text-base font-bold' : 'text-sm font-semibold',
@@ -129,145 +142,151 @@ export function SummaryMetric({ label, value, strong }: { label: string; value: 
   )
 }
 
-/** ARIVE-style top summary strip — one compact row of the numbers a loan
- *  officer asks for first. Missing values show "—"; nothing is fabricated. */
+/** The warm cream 8-metric band under the navy header (reference: full-width
+ *  row, thin dividers, Loan Amount first and dominant). Real values or "—". */
 export function LoanSummaryStrip({ m }: { m: LoanMetrics }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-jubo-border bg-jubo-card-soft/70 px-4 py-2.5">
+    <div className="flex items-center divide-x divide-jubo-border overflow-x-auto rounded-lg border border-jubo-border bg-jubo-card-soft/70 px-2 py-2">
       <SummaryMetric label="Loan Amount" value={m.loanAmount} strong />
-      <Divider />
       <SummaryMetric label="LTV" value={m.ltv} />
       <SummaryMetric label="FICO" value={m.fico} />
       <SummaryMetric label="Rate" value={m.rate} />
       <SummaryMetric label="DSCR" value={m.dscr} />
       <SummaryMetric label="LTC" value={m.ltc} />
-      <Divider />
       <SummaryMetric label="Est. Closing" value={m.closing} />
-      <SummaryMetric label="Loan Type" value={[m.purpose, m.loanType].filter(Boolean).join(' · ') || null} />
+      <SummaryMetric label="Loan Type" value={m.loanType ?? m.purpose} />
     </div>
   )
 }
 
-function Divider() {
-  return <span className="hidden h-7 w-px bg-jubo-border sm:block" aria-hidden />
-}
-
-/** Compact cream snapshot card with a muted-gold section label. */
-export function SnapshotCard({ title, children }: { title: string; children: React.ReactNode }) {
+/** Compact cream snapshot card with a muted-gold section label and an optional
+ *  right-aligned badge (e.g. "4 OPEN"). */
+export function SnapshotCard({ title, badge, children }: { title: string; badge?: string; children: React.ReactNode }) {
   return (
     <div className="jubo-los-card p-3">
-      <p className="jubo-los-section-label mb-2">{title}</p>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="jubo-los-section-label">{title}</p>
+        {badge && (
+          <span className="rounded bg-jubo-gold-soft px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-jubo-gold">{badge}</span>
+        )}
+      </div>
       {children}
     </div>
   )
 }
 
-/** Label→value row used inside snapshot cards. */
-export function SnapRow({ label, value }: { label: string; value: string | null }) {
+/** Label→value row used inside snapshot cards and the rail. */
+export function SnapRow({ label, value, accent }: { label: string; value: string | null; accent?: React.ReactNode }) {
   const has = value != null && value !== ''
   return (
     <div className="flex items-baseline justify-between gap-3 py-0.5 text-xs">
       <span className="flex-shrink-0 text-jubo-muted">{label}</span>
-      <span className={cn('truncate text-right font-medium tabular-nums', has ? 'text-jubo-text' : 'text-jubo-muted/50')}>
-        {has ? value : '—'}
-      </span>
+      {accent ?? (
+        <span className={cn('truncate text-right font-medium tabular-nums', has ? 'text-jubo-text' : 'text-jubo-muted/50')}>
+          {has ? value : '—'}
+        </span>
+      )}
     </div>
   )
 }
 
-/** The persistent left rail — a file command center: loan, property, borrower
- *  contact, stage, next step, work counts, and the file team. All real data. */
+/** Two-column label-over-value cell (Financial card in the reference). */
+export function MetricCell({ label, value }: { label: string; value: string | null }) {
+  const has = value != null && value !== ''
+  return (
+    <div className="min-w-0">
+      <p className="text-2xs text-jubo-muted">{label}</p>
+      <p className={cn('truncate text-sm font-semibold tabular-nums', has ? 'text-jubo-text' : 'text-jubo-muted/40')}>
+        {has ? value : '—'}
+      </p>
+    </div>
+  )
+}
+
+// Loan-officer avatar blue from the reference palette.
+const LO_BLUE = '#3f83c4'
+
+/** The persistent 236px left rail — loan hero, facts list, property block, and
+ *  contacts, matching the reference. All real data; nothing invented. */
 export function FileSnapshotPanel({
-  m, borrowerName, phone, email, nextStep, openConditions, openTasks,
+  m, borrowerName, phone, nextStep, openConditions, openTasks,
 }: {
   m: LoanMetrics
   borrowerName: string
   phone: string | null
-  email: string | null
   nextStep: string | null
   openConditions: number
   openTasks: number
 }) {
   return (
     <aside className="jubo-los-card space-y-3 self-start p-3.5">
-      {/* Loan hero — the number the file is about. */}
+      {/* Loan hero */}
       <div>
-        <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-jubo-gold">Loan Amount</p>
-        <p className={cn('text-2xl font-bold tracking-tight tabular-nums', m.loanAmount ? 'text-jubo-navy' : 'text-jubo-muted/40')}>
+        <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-jubo-gold">Loan Amount</p>
+        <p className={cn('text-[27px] font-bold leading-tight tracking-tight tabular-nums', m.loanAmount ? 'text-jubo-navy' : 'text-jubo-muted/40')}>
           {m.loanAmount ?? '—'}
         </p>
-        {(m.purpose || m.loanType || m.rate) && (
-          <p className="mt-0.5 text-2xs text-jubo-muted">
-            {[m.purpose, m.loanType, m.rate ? `@ ${m.rate}` : null].filter(Boolean).join(' · ')}
-          </p>
-        )}
-        {m.lock && (
-          <p className="mt-1 inline-flex rounded-full bg-jubo-gold-soft px-2 py-0.5 text-[10px] font-medium text-jubo-gold">{m.lock}</p>
+        {(m.loanType || m.purpose) && (
+          <p className="text-2xs text-jubo-muted">{[m.loanType, m.purpose].filter(Boolean).join(' · ')}</p>
         )}
       </div>
 
       <Rule />
 
-      {/* Property */}
-      <div className="flex items-start gap-2">
-        <Home className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-jubo-muted" />
-        <div className="min-w-0 text-xs">
-          <p className={cn('truncate font-medium', m.address ? 'text-jubo-text' : 'text-jubo-muted/50')}>{m.address ?? '—'}</p>
-          {m.cityState && <p className="truncate text-2xs text-jubo-muted">{m.cityState}</p>}
-          <p className="text-2xs text-jubo-muted">
-            {[m.propertyType, m.occupancy, m.propertyValue ?? m.appraisedValue ? `Val ${m.propertyValue ?? m.appraisedValue}` : null].filter(Boolean).join(' · ') || ''}
-          </p>
-        </div>
+      {/* Facts list — no icons; stage as a coral pill (reference). */}
+      <div className="space-y-1">
+        <SnapRow
+          label="Stage"
+          value={m.stage}
+          accent={m.stage ? (
+            <span className="truncate rounded bg-jubo-red/10 px-1.5 py-0.5 text-[11px] font-semibold text-jubo-red">{m.stage}</span>
+          ) : undefined}
+        />
+        <SnapRow label="Next step" value={nextStep} />
+        <SnapRow label="Property value" value={m.propertyValue ?? m.appraisedValue} />
+        <SnapRow label="Conditions" value={`${openConditions} open`} />
+        <SnapRow label="Tasks" value={`${openTasks} open`} />
+        {m.lock && <SnapRow label="Rate lock" value={m.lock} />}
       </div>
 
-      {/* Borrower contact */}
-      <div className="flex items-start gap-2">
-        <User className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-jubo-muted" />
-        <div className="min-w-0 text-xs">
-          <p className="truncate font-medium text-jubo-text">{borrowerName}</p>
-          {phone && <p className="truncate text-2xs tabular-nums text-jubo-muted">{phone}</p>}
-          {email && <p className="truncate text-2xs text-jubo-muted">{email}</p>}
-          {!phone && !email && <p className="text-2xs text-jubo-muted/50">No contact info</p>}
+      <Rule />
+
+      {/* Property block */}
+      <div>
+        <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-jubo-gold">Property</p>
+        <div className="space-y-1">
+          <SnapRow label="Address" value={m.address} />
+          <SnapRow label="City / State" value={m.cityState} />
+          <SnapRow label="Value" value={m.propertyValue ?? m.appraisedValue} />
+          <SnapRow label="Type" value={m.propertyType} />
         </div>
       </div>
 
       <Rule />
 
-      {/* Stage + next step */}
-      <div className="flex items-start gap-2">
-        <MapPin className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-jubo-muted" />
-        <div className="min-w-0 text-xs">
-          <p className={cn('truncate font-medium', m.stage ? 'text-jubo-text' : 'text-jubo-muted/50')}>{m.stage ?? '—'}</p>
-          <p className="truncate text-2xs text-jubo-muted">Current stage</p>
-        </div>
-      </div>
-      <div className="flex items-start gap-2">
-        <Flag className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-jubo-muted" />
-        <div className="min-w-0 text-xs">
-          <p className={cn('truncate font-medium', nextStep ? 'text-jubo-text' : 'text-jubo-muted/50')}>{nextStep ?? 'No next step set'}</p>
-          <p className="truncate text-2xs text-jubo-muted">Next step</p>
-        </div>
-      </div>
-
-      {/* Work counts */}
-      <div className="flex items-center gap-2 text-xs">
-        <ListChecks className="h-3.5 w-3.5 flex-shrink-0 text-jubo-muted" />
-        <span className="text-jubo-text">
-          <span className="font-semibold tabular-nums">{openConditions}</span> open conditions
-          <span className="text-jubo-muted"> · </span>
-          <span className="font-semibold tabular-nums">{openTasks}</span> tasks
-        </span>
-      </div>
-
-      <Rule />
-
-      {/* File team */}
-      <div className="flex items-start gap-2">
-        <Users className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-jubo-muted" />
-        <div className="min-w-0 text-xs">
-          <p className="truncate text-jubo-text">{borrowerName} <span className="text-2xs text-jubo-muted">· Borrower</span></p>
+      {/* Contacts — borrower + loan officer, once, with avatar chips. */}
+      <div>
+        <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-jubo-gold">Contacts</p>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-jubo-red text-[10px] font-bold text-white">
+              {nameInitials(borrowerName)}
+            </span>
+            <div className="min-w-0 text-xs leading-tight">
+              <p className="truncate font-semibold text-jubo-text">{borrowerName}</p>
+              <p className="truncate text-2xs text-jubo-muted">Borrower{phone ? ` · ${phone}` : ''}</p>
+            </div>
+          </div>
           {m.ownerName && (
-            <p className="truncate text-jubo-text">{m.ownerName} <span className="text-2xs text-jubo-muted">· Loan Officer</span></p>
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white" style={{ background: LO_BLUE }}>
+                {nameInitials(m.ownerName)}
+              </span>
+              <div className="min-w-0 text-xs leading-tight">
+                <p className="truncate font-semibold text-jubo-text">{m.ownerName}</p>
+                <p className="truncate text-2xs text-jubo-muted">Loan Officer</p>
+              </div>
+            </div>
           )}
         </div>
       </div>
