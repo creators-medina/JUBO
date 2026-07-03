@@ -44,10 +44,9 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'financial', label: 'Financial Info' },
 ]
 
-// Phase D7 — the reorderable secondary Overview cards, in priority order
-// (this is also the small-screen stacking order after Checklist + Conversation).
-// Even indexes render in the left zone, odd indexes in the right zone on xl.
-const OVERVIEW_CARD_ORDER = ['nextstep', 'tasks', 'financial', 'move', 'documents', 'notes']
+// Phase D7/D8 — the reorderable secondary Overview cards (ONE left-column
+// pool on xl; small screens stack them after Checklist → Conversation → Notes).
+const OVERVIEW_CARD_ORDER = ['nextstep', 'tasks', 'financial', 'move', 'documents']
 
 const CARD_TITLES: Record<string, string> = {
   nextstep: 'Next Step',
@@ -55,7 +54,6 @@ const CARD_TITLES: Record<string, string> = {
   financial: 'Financial',
   move: 'Move to Stage',
   documents: 'Documents',
-  notes: 'Notes',
 }
 
 function activityCategory(t: string): Filter | 'other' {
@@ -226,10 +224,6 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
             No documents yet — uploads aren’t available in Jubo yet.
           </div>
         )
-      case 'notes':
-        return comms ? (
-          <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} />
-        ) : <div className="flex items-center gap-2 py-2 text-2xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> …</div>
       default:
         return null
     }
@@ -295,7 +289,7 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
             onReset={overviewLayout.reset}
           />
 
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.7fr)_minmax(0,0.9fr)]">
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.7fr)_minmax(0,0.95fr)]">
             {/* CENTER (widest; first in DOM so it follows the checklist on
                 small screens) — the Conversation workspace, protected sizing. */}
             <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-xl border border-border bg-card xl:col-start-2 xl:row-start-1 xl:min-h-0">
@@ -322,41 +316,47 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
               </div>
             </div>
 
-            {/* SIDE ZONES — reorderable/resizable secondary cards (even order
-                indexes left, odd right); each zone becomes a 2-col grid on
-                medium screens and scrolls internally on xl. */}
-            {[0, 1].map((zone) => (
-              <div
-                key={zone}
-                className={cn(
-                  'grid min-h-0 grid-cols-1 content-start gap-4 md:grid-cols-2 xl:grid-cols-1 xl:overflow-y-auto xl:row-start-1',
-                  zone === 0 ? 'xl:col-start-1' : 'xl:col-start-3',
-                )}
-              >
-                {overviewLayout.order.filter((_, i) => i % 2 === zone).map((key) => (
-                  <OverviewCard
-                    key={key}
-                    cardKey={key}
-                    title={CARD_TITLES[key] ?? key}
-                    badge={key === 'tasks' && openTaskCount > 0 ? String(openTaskCount) : key === 'documents' ? '0' : undefined}
-                    size={overviewLayout.sizeOf(key)}
-                    chrome={key !== 'nextstep'}
-                    onCycleSize={() => overviewLayout.cycleSize(key)}
-                    dragging={dragCard === key}
-                    dragOver={dragOverCard === key && dragCard !== null && dragCard !== key}
-                    onDragStartCard={(k) => setDragCard(k)}
-                    onDragEndCard={() => { setDragCard(null); setDragOverCard(null) }}
-                    onDragOverCard={(k) => setDragOverCard(k)}
-                    onDropCard={(dragged, target) => { setDragCard(null); setDragOverCard(null); overviewLayout.moveCard(dragged, target) }}
-                  >
-                    {renderOverviewCard(key)}
-                  </OverviewCard>
-                ))}
-                {/* File team — fixed (self-collapses when empty), kept out of
-                    the drag pool so an empty shell can never appear. */}
-                {zone === 1 && loan && <ParticipantRibbon data={loan} />}
+            {/* NOTES — the full right-side panel: full column height with the
+                note list scrolling internally; add-note affordance always
+                visible. (Kept out of the drag pool by design.) */}
+            <div className="flex min-h-[16rem] flex-col overflow-hidden rounded-xl border border-border bg-card xl:col-start-3 xl:row-start-1 xl:min-h-0">
+              <div className="flex-shrink-0 border-b border-border px-3 py-2">
+                <p className="text-base font-bold tracking-tight text-jubo-navy">Notes</p>
               </div>
-            ))}
+              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                {comms ? (
+                  <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} />
+                ) : <div className="flex items-center gap-2 py-2 text-2xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> …</div>}
+              </div>
+            </div>
+
+            {/* LEFT POOL — ONE reorderable column (much clearer drag targets
+                than the old two-zone split): drag any card header to reorder;
+                wraps to a 2-col grid on medium screens. */}
+            <div className="grid min-h-0 grid-cols-1 content-start gap-4 md:grid-cols-2 xl:col-start-1 xl:row-start-1 xl:grid-cols-1 xl:overflow-y-auto">
+              {overviewLayout.order.map((key) => (
+                <OverviewCard
+                  key={key}
+                  cardKey={key}
+                  title={CARD_TITLES[key] ?? key}
+                  badge={key === 'tasks' && openTaskCount > 0 ? String(openTaskCount) : key === 'documents' ? '0' : undefined}
+                  size={overviewLayout.sizeOf(key)}
+                  chrome={key !== 'nextstep'}
+                  onCycleSize={() => overviewLayout.cycleSize(key)}
+                  dragging={dragCard === key}
+                  dragOver={dragOverCard === key && dragCard !== null && dragCard !== key}
+                  onDragStartCard={(k) => setDragCard(k)}
+                  onDragEndCard={() => { setDragCard(null); setDragOverCard(null) }}
+                  onDragOverCard={(k) => setDragOverCard(k)}
+                  onDropCard={(dragged, target) => { setDragCard(null); setDragOverCard(null); overviewLayout.moveCard(dragged, target) }}
+                >
+                  {renderOverviewCard(key)}
+                </OverviewCard>
+              ))}
+              {/* File team — fixed (self-collapses when empty), kept out of
+                  the drag pool so an empty shell can never appear. */}
+              {loan && <ParticipantRibbon data={loan} />}
+            </div>
           </div>
         </div>
       )}
@@ -588,10 +588,10 @@ function PhaseChecklistCard({
   onReset: () => void
 }) {
   return (
-    <div className="jubo-los-card flex-shrink-0 p-3.5">
+    <div className="jubo-los-card flex-shrink-0 px-3 py-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <div className="min-w-0">
-          <p className="text-[15px] font-bold tracking-tight text-jubo-navy">Phase Checklist</p>
+        <div className="flex min-w-0 items-baseline gap-2">
+          <p className="text-sm font-bold tracking-tight text-jubo-navy">Phase Checklist</p>
           {stageName && <p className="truncate text-2xs text-jubo-muted">{stageName}</p>}
         </div>
         {checklist.hasChecklist && (
@@ -612,17 +612,17 @@ function PhaseChecklistCard({
         </div>
       </div>
       {checklist.hasChecklist && (
-        <div className="mb-2 mt-2 h-1 overflow-hidden rounded-full bg-jubo-border/60">
+        <div className="mb-1.5 mt-1.5 h-1 overflow-hidden rounded-full bg-jubo-border/60">
           <div className="h-full rounded-full bg-jubo-green transition-all" style={{ width: `${checklist.percentage}%` }} />
         </div>
       )}
       {checklist.hasChecklist ? (
-        <ul className="grid max-h-32 grid-cols-1 gap-x-6 overflow-y-auto sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid max-h-20 grid-cols-1 gap-x-6 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {checklist.items.map((i) => (
             <li key={i.fieldId}>
               <button onClick={() => onToggle(i.fieldId, i.complete)} disabled={busy === i.fieldId}
-                className="flex w-full items-center gap-2.5 rounded px-1 py-1.5 text-left text-xs transition-colors hover:bg-jubo-card-soft disabled:opacity-60">
-                {busy === i.fieldId ? <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-jubo-muted" /> : i.complete ? <CheckSquare className="h-4 w-4 flex-shrink-0 text-jubo-green" /> : <Square className="h-4 w-4 flex-shrink-0 text-jubo-border-strong" />}
+                className="flex w-full items-center gap-2 rounded px-1 py-0.5 text-left text-xs transition-colors hover:bg-jubo-card-soft disabled:opacity-60">
+                {busy === i.fieldId ? <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-jubo-muted" /> : i.complete ? <CheckSquare className="h-3.5 w-3.5 flex-shrink-0 text-jubo-green" /> : <Square className="h-3.5 w-3.5 flex-shrink-0 text-jubo-border-strong" />}
                 <span className={cn('flex-1 truncate', i.complete ? 'text-jubo-muted line-through' : 'text-jubo-text')}>{i.name}</span>
               </button>
             </li>
@@ -679,31 +679,36 @@ function OverviewCard({
         'rounded-xl transition-opacity',
         chrome && 'jubo-los-card p-3',
         dragging && 'opacity-40',
-        dragOver && 'ring-1 ring-inset ring-jubo-red/40',
+        dragOver && 'bg-jubo-red/5 ring-2 ring-inset ring-jubo-red/50',
       )}
     >
-      <div className={cn('mb-2 flex items-center gap-1.5', !chrome && 'px-1')}>
-        <button
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData(OVERVIEW_DND_TYPE, cardKey)
-            e.dataTransfer.effectAllowed = 'move'
-            onDragStartCard(cardKey)
-          }}
-          onDragEnd={onDragEndCard}
-          title="Drag to reorder"
-          className="-ml-1 cursor-grab rounded p-0.5 text-jubo-muted/60 transition-colors hover:bg-jubo-card-soft hover:text-jubo-text active:cursor-grabbing"
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </button>
+      {/* The WHOLE header is the drag surface (drag-anywhere-on-header was
+          the fix for "can't drag the boxes" — the old 14px grip button was
+          too small to find). Card body/inputs still can't start a drag. */}
+      <div
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData(OVERVIEW_DND_TYPE, cardKey)
+          e.dataTransfer.effectAllowed = 'move'
+          onDragStartCard(cardKey)
+        }}
+        onDragEnd={onDragEndCard}
+        title="Drag to reorder"
+        className={cn(
+          '-mx-1 mb-2 flex cursor-grab items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors hover:bg-jubo-card-soft active:cursor-grabbing',
+          !chrome && 'px-2',
+        )}
+      >
+        <GripVertical className="h-4 w-4 flex-shrink-0 text-jubo-muted/70" aria-hidden />
         <p className="min-w-0 flex-1 truncate text-[13px] font-bold uppercase tracking-wide text-jubo-navy">{title}</p>
         {badge && (
           <span className="flex-shrink-0 rounded bg-jubo-gold-soft px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-jubo-gold">{badge}</span>
         )}
         <button
           onClick={onCycleSize}
+          draggable={false}
           title={`Size: ${size} — click to change`}
-          className="flex-shrink-0 rounded p-0.5 text-jubo-muted/60 transition-colors hover:bg-jubo-card-soft hover:text-jubo-text"
+          className="flex-shrink-0 cursor-pointer rounded p-1 text-jubo-muted/70 transition-colors hover:bg-jubo-border/50 hover:text-jubo-text"
         >
           <ChevronsUpDown className="h-3.5 w-3.5" />
         </button>
@@ -794,7 +799,7 @@ function Composer({
             className="w-full resize-none rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
           <div className="flex justify-end">
             <button onClick={saveNote} disabled={!text.trim() || pending}
-              className="rounded-md bg-jubo-red px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-red-dark disabled:opacity-50">{pending ? 'Saving…' : 'Save'}</button>
+              className="rounded-md bg-jubo-red px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-jubo-red-dark disabled:opacity-50">{pending ? 'Saving…' : 'Save'}</button>
           </div>
         </div>
       ) : (
