@@ -163,14 +163,18 @@ function WorkspaceContent({
   const roleLabel = data ? (resolveWorkspaceTemplate(data as unknown as MortgageData)?.label ?? '') : ''
   const ownerName = data?.record?.owner_user_id ? (data.profiles[data.record.owner_user_id] ?? null) : null
   const boardName = data?.board?.name ?? null
-  const fieldValBySlug = useCallback((slug: string): string | null => {
+  // Contact lookup — slug first, then field_type, matching how the borrower
+  // mirror and the card's comms context resolve the record's phone/email, so a
+  // board whose phone/email field uses a different slug still shows here.
+  const fieldValBySlug = useCallback((slug: string, fieldType?: string): string | null => {
     if (!data) return null
-    const f = data.fields.find((x) => x.slug === slug)
+    const bySlug = data.fields.find((x) => x.slug === slug)
+    const f = bySlug ?? (fieldType ? data.fields.find((x) => x.field_type === fieldType) : undefined)
     if (!f) return null
     return data.fieldValues.find((v) => v.field_id === f.id)?.value_text ?? null
   }, [data])
-  const phone = useMemo(() => fieldValBySlug('phone'), [fieldValBySlug])
-  const email = useMemo(() => fieldValBySlug('email'), [fieldValBySlug])
+  const phone = useMemo(() => fieldValBySlug('phone', 'phone'), [fieldValBySlug])
+  const email = useMemo(() => fieldValBySlug('email', 'email'), [fieldValBySlug])
   const subline = [roleLabel, boardName, ownerName].filter(Boolean).join(' · ')
 
   return (

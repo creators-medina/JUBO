@@ -124,8 +124,15 @@ export function BorrowerPreviewPanel({
   const stageIdx = sorted.findIndex((g) => g.id === record.group_id)
   const stageName = stageIdx >= 0 ? sorted[stageIdx].name : null
 
-  // Loan facts (already on the row).
-  const amountNum = (() => { const f = fields.find((x) => x.slug === 'loan_amount'); const v = f ? fieldValueMap[f.id] : null; return typeof v?.value_number === 'number' ? v.value_number : null })()
+  // Loan facts (already on the row). Amount resolves the same way the Kanban
+  // card does: the loan_amount field by slug, else the board's common-keyed
+  // currency field — so hover and card never show different numbers.
+  const amountNum = (() => {
+    const f = fields.find((x) => x.slug === 'loan_amount')
+      ?? fields.find((x) => x.common_field_key_id && x.field_type === 'currency' && !x.is_default_status)
+    const v = f ? fieldValueMap[f.id] : null
+    return typeof v?.value_number === 'number' ? v.value_number : null
+  })()
   const amount = amountNum != null ? `$${amountNum.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : null
   const purpose = rowValue(fields, fieldValueMap, 'loan_purpose')
 

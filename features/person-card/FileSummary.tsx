@@ -243,7 +243,13 @@ export function FileSnapshotPanel({
           ) : undefined}
         />
         <SnapRow label="Next step" value={nextStep} />
-        <SnapRow label="Property value" value={m.propertyValue ?? m.appraisedValue} />
+        {/* Label states WHICH stored value this is: the Property tab's Estimated
+            Value (property_value) when present, else the Loan tab's Appraised
+            Value — never a casual mix of the two meanings. */}
+        <SnapRow
+          label={m.propertyValue ? 'Est. property value' : m.appraisedValue ? 'Appraised value' : 'Property value'}
+          value={m.propertyValue ?? m.appraisedValue}
+        />
         <SnapRow label="Conditions" value={`${openConditions} open`} />
         <SnapRow label="Tasks" value={`${openTasks} open`} />
         {m.lock && <SnapRow label="Rate lock" value={m.lock} />}
@@ -257,7 +263,10 @@ export function FileSnapshotPanel({
         <div className="space-y-1">
           <SnapRow label="Address" value={m.address} />
           <SnapRow label="City / State" value={m.cityState} />
-          <SnapRow label="Value" value={m.propertyValue ?? m.appraisedValue} />
+          <SnapRow
+            label={m.propertyValue ? 'Est. value' : m.appraisedValue ? 'Appraised' : 'Value'}
+            value={m.propertyValue ?? m.appraisedValue}
+          />
           <SnapRow label="Type" value={m.propertyType} />
         </div>
       </div>

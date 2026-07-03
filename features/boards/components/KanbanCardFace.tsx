@@ -21,7 +21,8 @@ const COMMON_PRIORITY: Record<string, number> = { email: 0, phone: 1, currency: 
 export function formatCellValue(field: any, fv: any): string {
   if (!fv) return ''
   switch (field.field_type) {
-    case 'currency': return fv.value_number != null ? `$${Number(fv.value_number).toLocaleString()}` : ''
+    // Whole dollars — matches the contact card / tracker currency formatting.
+    case 'currency': return fv.value_number != null ? `$${Number(fv.value_number).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : ''
     case 'number': case 'rating': return fv.value_number != null ? String(fv.value_number) : ''
     case 'boolean': case 'checklist': return fv.value_boolean === true ? 'Yes' : fv.value_boolean === false ? 'No' : ''
     case 'date': case 'datetime': return fv.value_date ? fv.value_date.split('T')[0] : (fv.value_text ?? '')

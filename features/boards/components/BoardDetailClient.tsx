@@ -479,25 +479,41 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     }, {}),
   [filteredByGroup, groups])
 
-  // Visible (post-filter/search) loan volume per group — sum of existing record
-  // `value`, scoped to the same filtered set as the count (no new query) so the
-  // graph's amounts stay consistent with what's shown below.
+  // Cross-screen amount source of truth (data-mapping audit): a record's dollar
+  // amount is its loan_amount FIELD value — the same source the contact card,
+  // Kanban card, and hover preview display — falling back to the legacy
+  // records.value column for records that only carry that. Same resolution
+  // order the prospecting queue already uses. Read-only; no new query.
+  const amountFieldId = useMemo(() => {
+    const f = localFields.find((x) => x.slug === 'loan_amount')
+      ?? localFields.find((x) => x.common_field_key_id && x.field_type === 'currency' && !x.is_default_status)
+    return f?.id ?? null
+  }, [localFields])
+  const recordAmount = useCallback((r: { id: string; value?: number | string | null }): number => {
+    const n = amountFieldId ? fieldValuesIndex[r.id]?.[amountFieldId]?.value_number : null
+    return typeof n === 'number' ? n : (Number(r.value) || 0)
+  }, [amountFieldId, fieldValuesIndex])
+
+  // Visible (post-filter/search) loan volume per group — sum of each record's
+  // amount (loan_amount field, else legacy record value), scoped to the same
+  // filtered set as the count (no new query) so the graph's amounts stay
+  // consistent with what's shown below.
   const filteredValueByGroup = useMemo(() =>
     groups.reduce<Record<string, number>>((acc, g) => {
-      acc[g.id] = (filteredByGroup[g.id] ?? []).reduce((sum: number, r: any) => sum + (Number(r.value) || 0), 0)
+      acc[g.id] = (filteredByGroup[g.id] ?? []).reduce((sum: number, r: any) => sum + recordAmount(r), 0)
       return acc
     }, {}),
-  [filteredByGroup, groups])
+  [filteredByGroup, groups, recordAmount])
 
   // Visible records that actually carry a loan value — lets the header show a
   // safe average (total value ÷ valued records), excluding $0/blank records so
   // the average isn't diluted. Same filtered set, no new query.
   const filteredValuedCountByGroup = useMemo(() =>
     groups.reduce<Record<string, number>>((acc, g) => {
-      acc[g.id] = (filteredByGroup[g.id] ?? []).filter((r: any) => (Number(r.value) || 0) > 0).length
+      acc[g.id] = (filteredByGroup[g.id] ?? []).filter((r: any) => recordAmount(r) > 0).length
       return acc
     }, {}),
-  [filteredByGroup, groups])
+  [filteredByGroup, groups, recordAmount])
 
   const totalByGroup = useMemo(() =>
     groups.reduce<Record<string, number>>((acc, g) => {
@@ -506,15 +522,16 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     }, {}),
   [topLevelRecords, groups])
 
-  // Per-stage pipeline volume — sum of existing record `value` (no new schema/math).
+  // Per-stage pipeline volume — sum of each record's amount (loan_amount field,
+  // else legacy record value; no new schema/math).
   const valueByGroup = useMemo(() =>
     groups.reduce<Record<string, number>>((acc, g) => {
       acc[g.id] = topLevelRecords
         .filter((r: any) => r.group_id === g.id)
-        .reduce((sum: number, r: any) => sum + (Number(r.value) || 0), 0)
+        .reduce((sum: number, r: any) => sum + recordAmount(r), 0)
       return acc
     }, {}),
-  [topLevelRecords, groups])
+  [topLevelRecords, groups, recordAmount])
 
   const hasAnyValue = useMemo(() => Object.values(valueByGroup).some((v) => v > 0), [valueByGroup])
 
