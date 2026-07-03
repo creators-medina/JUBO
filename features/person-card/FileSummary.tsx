@@ -146,7 +146,7 @@ export function SummaryMetric({ label, value, strong }: { label: string; value: 
  *  row, thin dividers, Loan Amount first and dominant). Real values or "—". */
 export function LoanSummaryStrip({ m }: { m: LoanMetrics }) {
   return (
-    <div className="flex items-center divide-x divide-jubo-border overflow-x-auto rounded-lg border border-jubo-border bg-jubo-card-soft/70 px-2 py-2">
+    <div className="flex items-center divide-x divide-jubo-border overflow-x-auto rounded-lg border border-jubo-border-strong/60 bg-jubo-card-soft/70 px-2 py-2 shadow-sm">
       <SummaryMetric label="Loan Amount" value={m.loanAmount} strong />
       <SummaryMetric label="LTV" value={m.ltv} />
       <SummaryMetric label="FICO" value={m.fico} />
@@ -219,7 +219,7 @@ export function FileSnapshotPanel({
   openTasks: number
 }) {
   return (
-    <aside className="jubo-los-card space-y-3 self-start p-3.5">
+    <aside className="jubo-los-card space-y-3 self-start border-jubo-border-strong/60 p-3.5 shadow-sm">
       {/* Loan hero */}
       <div>
         <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-jubo-gold">Loan Amount</p>
