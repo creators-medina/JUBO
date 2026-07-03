@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { X, Maximize2, ArrowRightLeft, Phone, Mail } from 'lucide-react'
 import { MoveToBoardDialog } from '@/features/boards/components/MoveToBoardDialog'
+import { InlineRenameText } from '@/components/primitives/InlineRenameText'
+import { updateRecord } from '@/features/records/actions'
 import { createClient } from '@/lib/supabase/client'
 import { useWorkspaceTabs } from '../providers/WorkspaceTabsProvider'
 import { PersonFileCard } from '@/features/person-card/PersonFileCard'
@@ -210,7 +212,25 @@ function WorkspaceContent({
                       aria-hidden
                     />
                   )}
-                  <span className="truncate">{data?.record?.title ?? 'Record'}</span>
+                  {/* Inline contact rename — records.title is the canonical
+                      display name (the common-field registry never binds a
+                      field to `name` by design); saves through the existing
+                      updateRecord write path only. */}
+                  {data?.record ? (
+                    <InlineRenameText
+                      value={data.record.title ?? 'Record'}
+                      className="min-w-0 truncate"
+                      inputClassName="text-xl font-bold tracking-tight bg-white/10 border-white/30 text-white focus:ring-white/50"
+                      onSave={async (next) => {
+                        await updateRecord(recordId, data.record.board_id ?? '', { title: next })
+                        openWorkspace({ recordId, title: next }) // keep the tab label in sync
+                        load()
+                        router.refresh()
+                      }}
+                    />
+                  ) : (
+                    <span className="truncate">Record</span>
+                  )}
                 </h2>
               )}
               {data && (
@@ -287,7 +307,7 @@ function WorkspaceContent({
               ))}
             </div>
           ) : (
-            <PersonFileCard recordId={recordId} />
+            <PersonFileCard recordId={recordId} onRequestClose={onClose} />
           )}
         </div>
       </div>

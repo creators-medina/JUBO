@@ -43,6 +43,8 @@ interface Props {
   onAddField: () => void
   onSelectRecord: (id: string) => void
   onOptimisticMove: (recordId: string, toGroupId: string) => void
+  /** Inline row-title rename (records.title via the existing updateRecord). */
+  onRenameRecord?: (recordId: string, title: string) => Promise<void>
   /** Singular noun for add affordances — 'contact' on CRM boards, else 'record'. */
   entityNoun?: string
 }
@@ -78,6 +80,7 @@ export function BoardGroupTable({
   entityNoun = 'record',
   onSelectRecord,
   onOptimisticMove,
+  onRenameRecord,
 }: Props) {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
@@ -259,7 +262,12 @@ export function BoardGroupTable({
             <button onClick={() => { setNameDraft(group.name); setEditingName(false) }} className="text-muted-foreground hover:text-foreground transition-colors"><X className="w-3.5 h-3.5" /></button>
           </div>
         ) : (
-          <button onDoubleClick={() => setEditingName(true)} className="flex items-center gap-2">
+          <button
+            onDoubleClick={() => setEditingName(true)}
+            onContextMenu={(e) => { e.preventDefault(); setEditingName(true) }}
+            title="Double-click or right-click to rename"
+            className="flex items-center gap-2"
+          >
             <span className="text-sm font-semibold tracking-tight" style={{ color: rail }}>{group.name}</span>
             <span
               className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-2xs font-semibold tabular-nums"
@@ -476,6 +484,7 @@ export function BoardGroupTable({
                     onOptimisticMove={onOptimisticMove}
                     notesSummary={notesByRecord?.[record.id]}
                     onOpenNotes={onOpenNotes}
+                    onRename={onRenameRecord ? (title) => onRenameRecord(record.id, title) : undefined}
                   />
                 ))
               )}

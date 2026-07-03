@@ -63,7 +63,7 @@ function activityCategory(t: string): Filter | 'other' {
   return 'other'
 }
 
-export function PersonFileCard({ recordId }: { recordId: string }) {
+export function PersonFileCard({ recordId, onRequestClose }: { recordId: string; onRequestClose?: () => void }) {
   const [card, setCard] = useState<PersonCardData | null | undefined>(undefined)
   const [comms, setComms] = useState<CommunicateContext | undefined>(undefined)
   // Phase C3 — current-board command bundle (loan shape only).
@@ -166,6 +166,27 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
         setComposerText('')
         load()
       } catch { /* surfaced by the action; draft kept */ }
+    })
+  }
+
+  // Footer `Save` = save-and-leave: persist an explicit Note/Task draft first
+  // (the user typed it into that composer mode — same actions as above), then
+  // close the card. Server state is already autosaved; nothing else is sent —
+  // never SMS, never email, no broad save-all mutation.
+  const footerSaveAndClose = () => {
+    const content = composerText.trim()
+    const hasSaveableDraft = content && (composerMode === 'note' || (composerMode === 'task' && boardId))
+    if (!hasSaveableDraft) { onRequestClose?.(); return }
+    startComposerSave(async () => {
+      try {
+        if (composerMode === 'note') {
+          await createNote({ organization_id: card.record.organizationId, record_id: recordId, content })
+        } else if (composerMode === 'task' && boardId) {
+          await createTask({ organization_id: card.record.organizationId, record_id: recordId, board_id: boardId, title: content })
+        }
+        setComposerText('')
+        onRequestClose?.()
+      } catch { /* surfaced by the action; draft kept, card stays open */ }
     })
   }
 
@@ -462,41 +483,35 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
         </div>
       </div>
 
-      {/* Phase D9 — persistent modal footer: the Save button is ALWAYS visible
-          bottom-right (the app autosaves — when there's no draft the button
-          honestly reads "Saved"). Note/Task drafts save via the existing
-          createNote/createTask; Email stays the honest mailto; SMS keeps its
-          own real Send inside the composer. */}
+      {/* Persistent modal footer — an always-clickable `Save` that saves any
+          explicit Note/Task draft (the same existing createNote/createTask the
+          composer uses) and then closes the card, exactly like X. It never
+          sends SMS/email: SMS keeps its real Send inside the composer, and an
+          email draft keeps its honest "Open in mail" action alongside. */}
       <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-jubo-border-strong/60 pt-2">
         <span className="text-2xs text-jubo-muted">Changes save automatically</span>
-        {activeTab === 'overview' && isLoanLike && composerMode === 'email' && email && composerText.trim() ? (
-          <a
-            href={`mailto:${email}?body=${encodeURIComponent(composerText)}`}
-            className="rounded-md bg-jubo-red px-5 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-jubo-red-dark"
-          >
-            Open in mail
-          </a>
-        ) : (
+        <div className="flex items-center gap-2">
+          {activeTab === 'overview' && isLoanLike && composerMode === 'email' && email && composerText.trim() && (
+            <a
+              href={`mailto:${email}?body=${encodeURIComponent(composerText)}`}
+              className="rounded-md border border-jubo-red px-4 py-1.5 text-xs font-semibold text-jubo-red transition-colors hover:bg-jubo-red/10"
+            >
+              Open in mail
+            </a>
+          )}
           <button
-            onClick={footerSave}
-            disabled={
-              composerPending ||
-              !(activeTab === 'overview' && isLoanLike && composerText.trim() && (composerMode === 'note' || (composerMode === 'task' && boardId)))
-            }
+            onClick={footerSaveAndClose}
+            disabled={composerPending}
             title={
-              activeTab === 'overview' && isLoanLike && (composerMode === 'note' || composerMode === 'task')
-                ? 'Save the current draft'
-                : 'Everything is saved automatically'
+              activeTab === 'overview' && isLoanLike && composerText.trim() && (composerMode === 'note' || (composerMode === 'task' && boardId))
+                ? 'Save the current draft and close'
+                : 'Everything is saved automatically — close the card'
             }
             className="rounded-md bg-jubo-red px-5 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-jubo-red-dark disabled:opacity-60"
           >
-            {composerPending
-              ? 'Saving…'
-              : activeTab === 'overview' && isLoanLike && composerText.trim() && (composerMode === 'note' || composerMode === 'task')
-                ? 'Save'
-                : 'Saved ✓'}
+            {composerPending ? 'Saving…' : 'Save'}
           </button>
-        )}
+        </div>
       </div>
     </div>
   )

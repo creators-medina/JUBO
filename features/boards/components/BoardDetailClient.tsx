@@ -21,11 +21,13 @@ import { AutomationsModal } from '@/features/workflows/components/AutomationsMod
 import { BulkActionBar } from './BulkActionBar'
 import { DragOverlayRow } from './DragOverlayRow'
 import { useBoardRealtime } from '@/hooks/useBoardRealtime'
-import { moveRecord, reorderRecords } from '@/features/records/actions'
+import { moveRecord, reorderRecords, updateRecord } from '@/features/records/actions'
 import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, isFieldVisibleInGroup, type FieldVisibilityRow } from '@/features/fields/visibility'
 import { computeGroupChecklist } from '@/features/fields/checklist'
 import { reorderFields } from '@/features/fields/actions'
-import { createSavedView, reorderBoardGroups, duplicateBoardStructure, archiveBoard, updateBoardDisplaySettings } from '../actions'
+import { createSavedView, reorderBoardGroups, duplicateBoardStructure, archiveBoard, updateBoard, updateBoardDisplaySettings } from '../actions'
+import { BOARD_RENAMED_EVENT } from './DynamicBoardsSidebarSection'
+import { InlineRenameText } from '@/components/primitives/InlineRenameText'
 import { addNotesColumn } from '@/features/fields/actions'
 import { isNotesField } from '../notes'
 import { updateSavedViewAttention } from '@/features/daily-actions/attention/actions'
@@ -335,6 +337,20 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     setTimeout(() => { isMutating.current = false }, 2000)
   }, [])
 
+  // Inline record rename (Kanban card / table row titles) — the existing
+  // updateRecord write path (records.title only), optimistic with rollback.
+  const handleRenameRecord = useCallback(async (recordId: string, title: string) => {
+    const prev = localRecords
+    setLocalRecords(prev.map((r: { id: string }) => (r.id === recordId ? { ...r, title } : r)))
+    try {
+      await updateRecord(recordId, board.id, { title })
+      router.refresh()
+    } catch (e) {
+      setLocalRecords(prev) // rollback
+      throw e
+    }
+  }, [localRecords, board.id, router])
+
   // UI state
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [showCreateField, setShowCreateField] = useState(false)
@@ -560,7 +576,19 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               {board.color && <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: board.color }} />}
-              <h2 className="text-sm font-semibold text-foreground">{board.name}</h2>
+              <h2 className="text-sm font-semibold text-foreground">
+                {/* Inline rename — existing updateBoard action (boards.name only);
+                    the sidebar picks the change up via the rename event. */}
+                <InlineRenameText
+                  value={board.name}
+                  inputClassName="text-sm font-semibold"
+                  onSave={async (next) => {
+                    await updateBoard(board.id, { name: next })
+                    window.dispatchEvent(new CustomEvent(BOARD_RENAMED_EVENT, { detail: { boardId: board.id, name: next } }))
+                    router.refresh()
+                  }}
+                />
+              </h2>
               <span className="text-2xs px-1.5 py-0.5 rounded-full bg-surface-2 text-muted-foreground capitalize border border-border">{board.board_type}</span>
             </div>
             {board.description && <p className="text-xs text-muted-foreground mt-0.5">{board.description}</p>}
@@ -748,6 +776,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                 pendingMoveIds={pendingMoveIds}
                 onSelectRecord={(id, title) => openWorkspace({ recordId: id, title })}
                 onAddRecord={(groupId) => setShowCreateRecord(groupId)}
+                onRenameRecord={handleRenameRecord}
               />
             ) : (
               <div className="min-w-max">
@@ -786,6 +815,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                     onAddRecord={() => setShowCreateRecord(group.id)}
                     onAddField={() => setShowCreateField(true)}
                     entityNoun={entityNoun}
+                    onRenameRecord={handleRenameRecord}
                     onSelectRecord={id => {
                       const r = localRecords.find((x: any) => x.id === id)
                       openWorkspace({ recordId: id, title: r?.title ?? 'Record' })
