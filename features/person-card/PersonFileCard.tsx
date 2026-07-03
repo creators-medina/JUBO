@@ -17,7 +17,7 @@ import {
   MessageSquare, Mail, StickyNote, ListChecks,
 } from 'lucide-react'
 import { getFileCardData, type PersonCardData, type LoanCommandData } from './actions'
-import { deriveLoanMetrics, LoanSummaryStrip, FileSnapshotPanel, SnapshotCard, MetricCell, SnapRow, nameInitials } from './FileSummary'
+import { deriveLoanMetrics, LoanSummaryStrip, FileSnapshotPanel, SnapshotCard, MetricCell, nameInitials } from './FileSummary'
 import type { CommunicateContext } from '@/features/communications/communicate'
 import { SMSComposeBox } from '@/features/conversations/compose/SMSComposeBox'
 import { NoteList } from '@/features/workspace/notes/NoteList'
@@ -137,26 +137,34 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
       )}
 
       {/* Persistent 236px left rail beside every tab (the file command
-          center); stacks above the content on narrow screens. The wrapper is
-          the internal scroll container. */}
-      <div className={cn('min-h-0 flex-1 overflow-y-auto', m && 'grid grid-cols-1 content-start gap-4 xl:grid-cols-[236px_minmax(0,1fr)]')}>
+          center); stacks above the content on narrow screens. On xl the
+          wrapper stops scrolling so the Overview can pin its composer —
+          columns scroll internally instead; below xl the whole tab scrolls. */}
+      <div className={cn('min-h-0 flex-1 overflow-y-auto', m && 'grid grid-cols-1 content-start gap-4 xl:grid-cols-[236px_minmax(0,1fr)] xl:content-stretch xl:overflow-hidden')}>
         {m && (
-          <FileSnapshotPanel
-            m={m}
-            borrowerName={borrowerName}
-            phone={comms?.phone ?? null}
-            nextStep={nextStep}
-            openConditions={openConditions}
-            openTasks={openTaskCount}
-          />
+          <div className="min-h-0 xl:overflow-y-auto">
+            <FileSnapshotPanel
+              m={m}
+              borrowerName={borrowerName}
+              phone={comms?.phone ?? null}
+              nextStep={nextStep}
+              openConditions={openConditions}
+              openTasks={openTaskCount}
+            />
+          </div>
         )}
-        <div className="min-w-0 space-y-4">
+        <div className={cn('min-w-0 space-y-4', m && activeTab === 'overview' ? 'min-h-0 xl:flex xl:flex-col' : 'min-h-0 xl:overflow-y-auto')}>
 
-      {/* ── LOAN-shape Overview (reference: cards · conversation · actions) ── */}
+      {/* ── LOAN-shape Overview (GHL-style: checklist · conversation · actions).
+             On xl the grid fills the tab height; left/right columns scroll
+             internally and the Conversation card fills its column, so the
+             composer is always visible without scrolling. ── */}
       {activeTab === 'overview' && isLoanLike && (
-        <div className="jubo-los-page grid grid-cols-1 gap-4 rounded-xl p-4 lg:grid-cols-3 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.45fr)_minmax(0,0.95fr)]">
-          {/* LEFT — Financial · Conditions · Key Dates · Documents. */}
-          <div className="space-y-4">
+        <div className="jubo-los-page grid min-h-0 grid-cols-1 gap-4 rounded-xl p-4 lg:grid-cols-3 xl:h-full xl:flex-1 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.45fr)_minmax(0,0.95fr)]">
+          {/* LEFT — Phase Checklist · Financial · Documents. (Key Dates removed;
+              closing/lock dates remain in the metric strip, rail, and Loan tab.) */}
+          <div className="min-h-0 space-y-4 xl:overflow-y-auto">
+            <ConditionsCard checklist={card.checklist} stageName={m?.stage ?? null} busy={busy} onToggle={toggleChecklist} />
             {m && (
               <SnapshotCard title="Financial">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
@@ -169,15 +177,6 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
                 </div>
               </SnapshotCard>
             )}
-            <ConditionsCard checklist={card.checklist} busy={busy} onToggle={toggleChecklist} />
-            {m && (
-              <SnapshotCard title="Key Dates">
-                {/* "Application" has no stored source yet — honest "—". */}
-                <SnapRow label="Application" value={null} />
-                <SnapRow label="Est. Closing" value={m.closing} />
-                <SnapRow label="Rate Lock" value={m.rateLock} />
-              </SnapshotCard>
-            )}
             {/* Documents — no document storage exists in Jubo yet; this is an
                 honest empty state, not a fake uploader (gap reported). */}
             <SnapshotCard title="Documents" badge="0">
@@ -187,8 +186,9 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
             </SnapshotCard>
           </div>
 
-          {/* CENTER (widest) — the Conversation workspace. */}
-          <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
+          {/* CENTER (widest) — the Conversation workspace, full column height
+              with the composer pinned at the bottom. */}
+          <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-xl border border-border bg-card xl:min-h-0">
             <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
               <p className="text-sm font-semibold tracking-tight text-jubo-navy">Conversation</p>
               <div className="flex gap-0.5 rounded-lg bg-jubo-card-soft p-0.5">
@@ -213,7 +213,7 @@ export function PersonFileCard({ recordId }: { recordId: string }) {
           </div>
 
           {/* RIGHT — Next Step + signals + Tasks + Move-To, then Notes. */}
-          <div className="space-y-4">
+          <div className="min-h-0 space-y-4 xl:overflow-y-auto">
             {loan && (
               <CommandRail
                 recordId={recordId}
@@ -449,21 +449,33 @@ function Field({ label, value }: { label: string; value: string | null }) {
 }
 
 function ConditionsCard({
-  checklist, busy, onToggle,
+  checklist, stageName, busy, onToggle,
 }: {
   checklist: PersonCardData['checklist']
+  /** Current stage/phase name — the checklist is already stage-scoped. */
+  stageName?: string | null
   busy: string | null
   onToggle: (fieldId: string, complete: boolean) => void
 }) {
-  const open = checklist.totalCount - checklist.completedCount
   return (
     <div className="jubo-los-card p-3.5">
-      <div className="mb-2 flex items-center justify-between">
-        <p className="text-sm font-semibold tracking-tight text-jubo-navy">Conditions</p>
+      <div className="mb-1 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold tracking-tight text-jubo-navy">Phase Checklist</p>
+          {stageName && <p className="truncate text-2xs text-jubo-muted">{stageName}</p>}
+        </div>
         {checklist.hasChecklist && (
-          <span className="rounded-full bg-jubo-gold-soft px-2 py-0.5 text-2xs font-semibold uppercase tracking-wider text-jubo-gold">{open} open</span>
+          <span className="flex-shrink-0 rounded-full bg-jubo-gold-soft px-2 py-0.5 text-2xs font-semibold tabular-nums text-jubo-gold">
+            {checklist.completedCount}/{checklist.totalCount} complete
+          </span>
         )}
       </div>
+      {/* Progress — uses the already-computed completion percentage. */}
+      {checklist.hasChecklist && (
+        <div className="mb-2 mt-1.5 h-1 overflow-hidden rounded-full bg-jubo-border/60">
+          <div className="h-full rounded-full bg-jubo-green transition-all" style={{ width: `${checklist.percentage}%` }} />
+        </div>
+      )}
       {checklist.hasChecklist ? (
         <ul className="max-h-64 space-y-0.5 overflow-y-auto">
           {checklist.items.map((i) => (
@@ -476,7 +488,7 @@ function ConditionsCard({
             </li>
           ))}
         </ul>
-      ) : <p className="text-2xs text-jubo-muted">No conditions for this stage.</p>}
+      ) : <p className="text-2xs text-jubo-muted">No checklist for this phase.</p>}
     </div>
   )
 }
@@ -560,7 +572,7 @@ function Composer({
             className="w-full resize-none rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy" />
           <div className="flex justify-end">
             <button onClick={saveNote} disabled={!text.trim() || pending}
-              className="rounded-md bg-jubo-red px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-red-dark disabled:opacity-50">{pending ? 'Saving…' : 'Save note'}</button>
+              className="rounded-md bg-jubo-red px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-red-dark disabled:opacity-50">{pending ? 'Saving…' : 'Save'}</button>
           </div>
         </div>
       ) : (
@@ -571,7 +583,7 @@ function Composer({
           <div className="flex items-center justify-between">
             {!boardId && <span className="text-[10px] text-muted-foreground">No board — can’t add tasks</span>}
             <button onClick={addTask} disabled={!text.trim() || pending || !boardId}
-              className="ml-auto rounded-md bg-jubo-navy px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-navy2 disabled:opacity-50">{pending ? 'Adding…' : 'Add task'}</button>
+              className="ml-auto rounded-md bg-jubo-navy px-2.5 py-1 text-2xs font-medium text-white hover:bg-jubo-navy2 disabled:opacity-50">{pending ? 'Saving…' : 'Save'}</button>
           </div>
         </div>
       )}
