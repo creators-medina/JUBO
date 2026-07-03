@@ -55,7 +55,8 @@ export function StageTracker({ groups, currentGroupId }: { groups: Stage[]; curr
                       ? 'bg-jubo-red text-white'
                       : 'bg-jubo-navy2 text-white/50',
                 )}
-                title={g.name}
+                title={current ? `Current stage: ${g.name}` : done ? `Completed: ${g.name}` : `Stage: ${g.name}`}
+                aria-label={current ? `Current stage: ${g.name}` : g.name}
                 aria-current={current ? 'step' : undefined}
               >
                 {done ? <Check className="h-3 w-3" /> : i + 1}
