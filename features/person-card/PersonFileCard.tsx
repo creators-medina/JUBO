@@ -227,7 +227,9 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
         // Detail tabs keep the 236px snapshot rail; the Overview tab owns its
         // full 3-column layout (handoff), so the rail is not doubled there.
         m && activeTab !== 'overview' && 'grid grid-cols-1 content-start gap-4 xl:grid-cols-[236px_minmax(0,1fr)] xl:content-stretch xl:overflow-hidden',
-        m && activeTab === 'overview' && 'xl:overflow-hidden',
+        // Overview: flex-col so the 3-column grid inherits a BOUNDED height —
+        // without this the columns never overflow and scrolling dies entirely.
+        m && activeTab === 'overview' && 'xl:flex xl:flex-col xl:overflow-hidden',
       )}>
         {m && activeTab !== 'overview' && (
           <div className="min-h-0 xl:overflow-y-auto">
@@ -241,7 +243,7 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
             />
           </div>
         )}
-        <div className={cn('min-w-0 space-y-4', m && activeTab === 'overview' ? 'min-h-0 xl:flex xl:flex-col' : 'min-h-0 xl:overflow-y-auto')}>
+        <div className={cn('min-w-0 space-y-4', m && activeTab === 'overview' ? 'min-h-0 xl:flex xl:min-h-0 xl:flex-1 xl:flex-col' : 'min-h-0 xl:overflow-y-auto')}>
 
       {/* ── LOAN-shape Overview — handoff 3-column layout: ~300px structured
              data | fluid Conversation | ~300px activity widgets, 14px gaps,
