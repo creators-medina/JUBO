@@ -227,9 +227,8 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
         // Detail tabs keep the 236px snapshot rail; the Overview tab owns its
         // full 3-column layout (handoff), so the rail is not doubled there.
         m && activeTab !== 'overview' && 'grid grid-cols-1 content-start gap-4 xl:grid-cols-[236px_minmax(0,1fr)] xl:content-stretch xl:overflow-hidden',
-        // Overview: flex-col so the 3-column grid inherits a BOUNDED height —
-        // without this the columns never overflow and scrolling dies entirely.
-        m && activeTab === 'overview' && 'xl:flex xl:flex-col xl:overflow-hidden',
+        // Overview scrolls as ONE page (base overflow-y-auto): scrolling down
+        // reveals every card; only the Conversation feed scrolls internally.
       )}>
         {m && activeTab !== 'overview' && (
           <div className="min-h-0 xl:overflow-y-auto">
@@ -243,7 +242,7 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
             />
           </div>
         )}
-        <div className={cn('min-w-0 space-y-4', m && activeTab === 'overview' ? 'min-h-0 xl:flex xl:min-h-0 xl:flex-1 xl:flex-col' : 'min-h-0 xl:overflow-y-auto')}>
+        <div className={cn('min-w-0 space-y-4', m && activeTab === 'overview' ? 'min-h-0' : 'min-h-0 xl:overflow-y-auto')}>
 
       {/* ── LOAN-shape Overview — handoff 3-column layout: ~300px structured
              data | fluid Conversation | ~300px activity widgets, 14px gaps,
@@ -251,10 +250,10 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
              Right-column order is deliberate: Phase Checklist and Notes stay
              visible at the top without scrolling. ── */}
       {activeTab === 'overview' && isLoanLike && (
-        <div className="jubo-los-page grid min-h-0 flex-1 grid-cols-1 gap-3.5 rounded-xl p-3.5 xl:h-full xl:grid-cols-[300px_minmax(0,1fr)_300px]">
+        <div className="jubo-los-page grid grid-cols-1 gap-3.5 rounded-xl p-3.5 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
 
           {/* LEFT — structured data: Loan Amount · Property · Financial · Contacts. */}
-          <div className="grid min-h-0 grid-cols-1 content-start gap-3.5 md:grid-cols-2 xl:grid-cols-1 xl:overflow-y-auto">
+          <div className="grid grid-cols-1 content-start gap-3.5 md:grid-cols-2 xl:grid-cols-1">
             <div className="jubo-los-card p-3.5">
               <p className="jubo-los-section-label">Loan Amount</p>
               <p className={cn('mt-1 text-[26px] font-bold leading-tight tracking-tight tabular-nums', m?.loanAmount ? 'text-jubo-navy' : 'text-jubo-muted/40')}>
@@ -334,7 +333,7 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
 
           {/* CENTER — Conversation, single full-height card: filter pills,
               date-grouped feed, composer pinned at the bottom. */}
-          <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-xl border border-jubo-border-strong/70 bg-card shadow-sm xl:min-h-0">
+          <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-xl border border-jubo-border-strong/70 bg-card shadow-sm xl:max-h-[42rem]">
             <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
               <p className="text-base font-bold tracking-tight text-jubo-navy">Conversation</p>
               <div className="flex gap-0.5 rounded-lg bg-jubo-card-soft p-0.5">
@@ -364,7 +363,7 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
 
           {/* RIGHT — activity widgets in the handoff's exact order:
               Phase Checklist · Notes · Next Step · Tasks. */}
-          <div className="grid min-h-0 grid-cols-1 content-start gap-3.5 md:grid-cols-2 xl:grid-cols-1 xl:overflow-y-auto">
+          <div className="grid grid-cols-1 content-start gap-3.5 md:grid-cols-2 xl:grid-cols-1">
             <PhaseChecklistCard
               checklist={card.checklist}
               stageName={m?.stage ?? null}
@@ -376,7 +375,7 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
               <div className="border-b border-jubo-border/60 px-3.5 py-2.5">
                 <p className="text-[13px] font-bold tracking-tight text-jubo-navy">Notes</p>
               </div>
-              <div className="max-h-[22rem] overflow-y-auto p-3">
+              <div className="p-3">
                 {comms ? (
                   <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} />
                 ) : <div className="flex items-center gap-2 py-2 text-2xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> …</div>}
