@@ -17,7 +17,7 @@ const ERR: Record<string, string> = {
 }
 
 export function SMSComposeBox({
-  threadId, recordId, toPhone, participantPhone, compact, onSent,
+  threadId, recordId, toPhone, participantPhone, compact, onSent, onDraftChange,
 }: {
   threadId?: string | null
   recordId?: string | null
@@ -25,10 +25,14 @@ export function SMSComposeBox({
   participantPhone?: string | null
   compact?: boolean
   onSent?: (threadId: string) => void
+  /** Mirrors the draft text to the host (e.g. so a modal can warn before
+   *  closing over an unsent message). Display-only; never sends. */
+  onDraftChange?: (text: string) => void
 }) {
   const router = useRouter()
   const toast = useToast()
   const [body, setBody] = useState('')
+  const setDraft = (text: string) => { setBody(text); onDraftChange?.(text) }
   const [showTemplates, setShowTemplates] = useState(false)
   const [pending, startTransition] = useTransition()
 
@@ -38,7 +42,7 @@ export function SMSComposeBox({
     startTransition(async () => {
       const res = await sendSMS({ threadId, recordId, toPhone, body: text })
       if ('error' in res) { toast.error(ERR[res.error] ?? 'Could not send message.'); return }
-      setBody('')
+      setDraft('')
       toast.success('Message sent')
       onSent?.(res.threadId)
       router.refresh()
@@ -50,7 +54,7 @@ export function SMSComposeBox({
       {showTemplates && (
         <div className="absolute bottom-full left-0 right-0 z-20 mb-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-card p-1 shadow-xl">
           {SMS_TEMPLATES.map((t) => (
-            <button key={t.id} onClick={() => { setBody(renderTemplate(t.body)); setShowTemplates(false) }}
+            <button key={t.id} onClick={() => { setDraft(renderTemplate(t.body)); setShowTemplates(false) }}
               className="block w-full rounded-md px-2.5 py-1.5 text-left transition-colors hover:bg-surface-1">
               <p className="text-xs font-medium text-foreground">{t.name}</p>
               <p className="truncate text-2xs text-muted-foreground">{t.body}</p>
@@ -66,7 +70,7 @@ export function SMSComposeBox({
         <div className="flex-1">
         <textarea
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send() } }}
           rows={compact ? 1 : 2}
           placeholder={participantPhone ? `Message ${participantPhone}…` : 'Type a message…'}

@@ -118,6 +118,7 @@ function KanbanColumn({
               position, color, checklist, and records are untouched. */}
           <InlineRenameText
             value={stage.label}
+            pencil
             className="min-w-0 truncate text-sm font-semibold tracking-tight text-jubo-text"
             inputClassName="text-sm font-semibold"
             onSave={async (next) => {

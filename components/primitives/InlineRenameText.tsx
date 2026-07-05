@@ -14,7 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function InlineRenameText({
@@ -27,6 +27,7 @@ export function InlineRenameText({
   onEditingChange,
   renameTitle,
   defaultEditing,
+  pencil,
 }: {
   value: string
   /** Persist the trimmed new name. Throw/reject to signal failure (editor stays open). */
@@ -43,6 +44,9 @@ export function InlineRenameText({
   renameTitle?: string
   /** Mount straight into edit mode (host-triggered rename, e.g. Kanban cards). */
   defaultEditing?: boolean
+  /** Show a small pencil button beside the text — a discoverable click-to-rename
+   *  affordance in addition to double/right-click. */
+  pencil?: boolean
 }) {
   const [editing, setEditing] = useState(!!defaultEditing)
   const [draft, setDraft] = useState(defaultEditing ? value : '')
@@ -92,7 +96,7 @@ export function InlineRenameText({
   )
 
   if (!editing) {
-    return (
+    const text = (
       <span
         className={cn('cursor-text rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-ring', className)}
         title={tooltip}
@@ -101,6 +105,21 @@ export function InlineRenameText({
       >
         {display}
       </span>
+    )
+    if (!pencil) return text
+    return (
+      <>
+        {text}
+        <button
+          type="button"
+          onClick={begin}
+          title="Rename"
+          aria-label={`Rename ${display}`}
+          className="inline-flex flex-shrink-0 items-center rounded p-0.5 opacity-40 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+        >
+          <Pencil className="h-3 w-3" aria-hidden />
+        </button>
+      </>
     )
   }
 

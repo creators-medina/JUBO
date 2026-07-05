@@ -137,11 +137,18 @@ export function BoardGroupTable({
   })
 
   const saveName = () => {
-    if (!nameDraft.trim() || nameDraft === group.name) { setEditingName(false); return }
+    const next = nameDraft.trim()
+    // Empty or unchanged → cancel (reset the draft so reopening shows the real name).
+    if (!next || next === group.name) { setNameDraft(group.name); setEditingName(false); return }
     startTransition(async () => {
-      await updateBoardGroup(group.id, boardId, { name: nameDraft.trim() })
-      setEditingName(false)
-      router.refresh()
+      try {
+        await updateBoardGroup(group.id, boardId, { name: next })
+        setEditingName(false)
+        router.refresh()
+      } catch (e) {
+        // Editor stays open with the draft — the rename is never silently lost.
+        groupFail(e, 'Could not rename group')
+      }
     })
   }
 

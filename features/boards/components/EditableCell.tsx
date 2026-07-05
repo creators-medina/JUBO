@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { upsertFieldValue } from '@/features/records/actions'
+import { useToast } from '@/features/feedback/ToastProvider'
 import { StatusCell } from './StatusCell'
 import { ChecklistCell } from './ChecklistCell'
 import { cn } from '@/lib/utils'
@@ -16,6 +17,7 @@ interface Props {
 
 export function EditableCell({ field, fieldValue, recordId, boardId }: Props) {
   const ft = field.field_type
+  const toast = useToast()
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState(false)
 
@@ -43,6 +45,12 @@ export function EditableCell({ field, fieldValue, recordId, boardId }: Props) {
       else payload = { value_text: val || null }
 
       await upsertFieldValue(field.id, recordId, boardId, payload)
+    } catch (e) {
+      // Never fail silently: tell the user AND reopen the editor with their
+      // typed value so nothing is lost.
+      toast.error(`Couldn't save ${field.name ?? 'field'} — ${e instanceof Error ? e.message : 'please try again'}`)
+      setDraft(val)
+      setEditing(true)
     } finally {
       setSaving(false)
     }

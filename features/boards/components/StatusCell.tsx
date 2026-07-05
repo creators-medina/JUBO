@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import { Loader2, Check, Plus, Pencil, X, Trash2 } from 'lucide-react'
 import { upsertFieldValue } from '@/features/records/actions'
+import { useToast } from '@/features/feedback/ToastProvider'
 import { updateFieldOptions, renameStatusOption } from '@/features/fields/actions'
 import {
   parseOptions, isColoredStatus, nextStatusColor, newOptionId, STATUS_PALETTE, STATUS_EMPTY_COLOR,
@@ -27,6 +28,7 @@ interface Props {
  */
 export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
   const router = useRouter()
+  const toast = useToast()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<'pick' | 'edit'>('pick')
@@ -97,6 +99,7 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
     if (label === currentLabel) return
     setSaving(true)
     try { await upsertFieldValue(field.id, recordId, boardId, { value_text: label || null }) }
+    catch (e) { toast.error(`Couldn't save status — ${e instanceof Error ? e.message : 'please try again'}`) }
     finally { setSaving(false) }
   }
 
@@ -104,6 +107,7 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
     close()
     setSaving(true)
     try { await upsertFieldValue(field.id, recordId, boardId, { value_text: null }) }
+    catch (e) { toast.error(`Couldn't clear status — ${e instanceof Error ? e.message : 'please try again'}`) }
     finally { setSaving(false) }
   }
 
@@ -120,6 +124,8 @@ export function StatusCell({ field, fieldValue, recordId, boardId }: Props) {
       setAdding(false); setDraft('')
       if (mode === 'pick') close()
       router.refresh()
+    } catch (e) {
+      toast.error(`Couldn't save option — ${e instanceof Error ? e.message : 'please try again'}`)
     } finally { setSaving(false) }
   }
 

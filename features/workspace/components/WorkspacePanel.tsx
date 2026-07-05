@@ -219,6 +219,7 @@ function WorkspaceContent({
                   {data?.record ? (
                     <InlineRenameText
                       value={data.record.title ?? 'Record'}
+                      pencil
                       className="min-w-0 truncate"
                       inputClassName="text-xl font-bold tracking-tight bg-white/10 border-white/30 text-white focus:ring-white/50"
                       onSave={async (next) => {

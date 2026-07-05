@@ -581,6 +581,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                     the sidebar picks the change up via the rename event. */}
                 <InlineRenameText
                   value={board.name}
+                  pencil
                   inputClassName="text-sm font-semibold"
                   onSave={async (next) => {
                     await updateBoard(board.id, { name: next })

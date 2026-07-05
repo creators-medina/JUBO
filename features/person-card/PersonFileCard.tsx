@@ -32,6 +32,7 @@ import { upsertFieldValue, moveRecord } from '@/features/records/actions'
 import { NextActionCard } from '@/features/workspace/components/NextActionCard'
 import { ParticipantRibbon } from '@/features/workspace/command/ParticipantRibbon'
 import { computeOpportunitySignals } from '@/features/mortgage/scoring/opportunities'
+import { useToast } from '@/features/feedback/ToastProvider'
 import { cn } from '@/lib/utils'
 
 type Tab = 'overview' | 'loan' | 'borrower' | 'financial'
@@ -82,6 +83,12 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
   const [composerMode, setComposerMode] = useState<'sms' | 'email' | 'note' | 'task'>('sms')
   const [composerText, setComposerText] = useState('')
   const [composerPending, startComposerSave] = useTransition()
+  // Footer save failures are shown inline (never silent); the SMS draft mirror +
+  // discard-confirm keep the footer Save from throwing away an unsent message.
+  const [composerError, setComposerError] = useState<string | null>(null)
+  const [smsDraft, setSmsDraft] = useState('')
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
+  const toast = useToast()
 
   // Phase C4 — ONE resolver per open. getFileCardData reads each table once and
   // returns the same three shapes the card consumes ({ card, comms, loan }).
@@ -133,7 +140,10 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
   const toggleChecklist = (fieldId: string, complete: boolean) => {
     if (!boardId) return
     setBusy(fieldId)
-    upsertFieldValue(fieldId, card.record.id, boardId, { value_boolean: !complete }).then(load).finally(() => setBusy(null))
+    upsertFieldValue(fieldId, card.record.id, boardId, { value_boolean: !complete })
+      .then(load)
+      .catch((e) => toast.error(`Couldn't save checklist item — ${e instanceof Error ? e.message : 'please try again'}`))
+      .finally(() => setBusy(null))
   }
 
 
@@ -164,8 +174,11 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
           await createTask({ organization_id: card.record.organizationId, record_id: recordId, board_id: boardId, title: content })
         }
         setComposerText('')
+        setComposerError(null)
         load()
-      } catch { /* surfaced by the action; draft kept */ }
+      } catch (e) {
+        setComposerError(`Couldn't save — ${e instanceof Error ? e.message : 'please try again'}`) // draft kept
+      }
     })
   }
 
@@ -176,7 +189,14 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
   const footerSaveAndClose = () => {
     const content = composerText.trim()
     const hasSaveableDraft = content && (composerMode === 'note' || (composerMode === 'task' && boardId))
-    if (!hasSaveableDraft) { onRequestClose?.(); return }
+    if (!hasSaveableDraft) {
+      // Guard: an unsent SMS/email draft would be lost by closing. First click
+      // warns; a second click confirms the close. Nothing is ever auto-sent.
+      const unsent = (composerMode === 'sms' && smsDraft.trim()) || (composerMode === 'email' && content)
+      if (unsent && !confirmDiscard) { setConfirmDiscard(true); return }
+      onRequestClose?.()
+      return
+    }
     startComposerSave(async () => {
       try {
         if (composerMode === 'note') {
@@ -185,8 +205,11 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
           await createTask({ organization_id: card.record.organizationId, record_id: recordId, board_id: boardId, title: content })
         }
         setComposerText('')
+        setComposerError(null)
         onRequestClose?.()
-      } catch { /* surfaced by the action; draft kept, card stays open */ }
+      } catch (e) {
+        setComposerError(`Couldn't save — ${e instanceof Error ? e.message : 'please try again'}`) // draft kept, card stays open
+      }
     })
   }
 
@@ -355,10 +378,11 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
                   email={email}
                   onChanged={load}
                   mode={composerMode}
-                  onModeChange={setComposerMode}
+                  onModeChange={(m) => { setComposerMode(m); setConfirmDiscard(false) }}
                   text={composerText}
-                  onTextChange={setComposerText}
+                  onTextChange={(t) => { setComposerText(t); setConfirmDiscard(false); setComposerError(null) }}
                   onSubmit={footerSave}
+                  onSmsDraftChange={(t) => { setSmsDraft(t); setConfirmDiscard(false) }}
                 />
               </div>
             </div>
@@ -490,7 +514,13 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
           email draft keeps its honest "Open in mail" action alongside. */}
       <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-jubo-border-strong/60 pt-2">
         <span className="text-2xs text-jubo-muted">Changes save automatically</span>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {composerError && <span className="truncate text-2xs font-medium text-jubo-red">{composerError}</span>}
+          {!composerError && confirmDiscard && (
+            <span className="truncate text-2xs font-medium text-jubo-red">
+              Unsent {composerMode === 'sms' ? 'text' : 'email'} draft — Save again to close without sending
+            </span>
+          )}
           {activeTab === 'overview' && isLoanLike && composerMode === 'email' && email && composerText.trim() && (
             <a
               href={`mailto:${email}?body=${encodeURIComponent(composerText)}`}
@@ -815,7 +845,7 @@ const OVERVIEW_DND_TYPE = 'text/jubo-overview-card'
 // opens the user's mail client; Jubo has no in-app email send, so this is an
 // honest open-in-mail action, never a fake "Send").
 function Composer({
-  recordId, comms, email, onChanged, mode, onModeChange, text, onTextChange, onSubmit,
+  recordId, comms, email, onChanged, mode, onModeChange, text, onTextChange, onSubmit, onSmsDraftChange,
 }: {
   recordId: string
   comms: CommunicateContext | undefined
@@ -827,6 +857,8 @@ function Composer({
   onTextChange: (t: string) => void
   /** Enter-to-save for the task input — routed to the footer Save action. */
   onSubmit: () => void
+  /** Mirrors the SMS draft up so the footer can warn before closing over it. */
+  onSmsDraftChange?: (text: string) => void
 }) {
   const MODES: { key: typeof mode; label: string; Icon: React.ElementType }[] = [
     { key: 'sms', label: 'SMS', Icon: MessageSquare },
@@ -855,7 +887,7 @@ function Composer({
         ) : !comms.phone ? (
           <p className="text-2xs text-muted-foreground">Add a phone number to enable texting.</p>
         ) : (
-          <SMSComposeBox recordId={recordId} participantPhone={comms.phone} onSent={onChanged} compact />
+          <SMSComposeBox recordId={recordId} participantPhone={comms.phone} onSent={onChanged} onDraftChange={onSmsDraftChange} compact />
         )
       ) : mode === 'email' ? (
         email ? (
@@ -893,13 +925,15 @@ function MoveToStage({
   onMoved: () => void
 }) {
   const [pending, startTransition] = useTransition()
+  const toast = useToast()
   const sorted = [...groups].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
   if (sorted.length < 2) return null
 
   const onSelect = (toGroupId: string) => {
     if (!toGroupId || toGroupId === currentGroupId) return
     startTransition(async () => {
-      try { await moveRecord(recordId, toGroupId, boardId) } catch {}
+      try { await moveRecord(recordId, toGroupId, boardId) }
+      catch (e) { toast.error(`Couldn't move stage — ${e instanceof Error ? e.message : 'please try again'}`) }
       onMoved()
     })
   }
