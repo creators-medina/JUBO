@@ -14,11 +14,10 @@
 import { useEffect, useState, useCallback, useTransition } from 'react'
 import {
   Loader2, CheckSquare, Square, Plug, ArrowUpRight, ArrowDownLeft,
-  MessageSquare, Mail, StickyNote, ListChecks, GripVertical, ChevronsUpDown, RotateCcw,
+  MessageSquare, Mail, StickyNote, ListChecks,
 } from 'lucide-react'
 import { getFileCardData, type PersonCardData, type LoanCommandData } from './actions'
-import { deriveLoanMetrics, LoanSummaryStrip, FileSnapshotPanel, MetricCell, nameInitials } from './FileSummary'
-import { useOverviewLayout, type CardSize } from './useOverviewLayout'
+import { deriveLoanMetrics, LoanSummaryStrip, FileSnapshotPanel, SnapRow, nameInitials } from './FileSummary'
 import type { CommunicateContext } from '@/features/communications/communicate'
 import { SMSComposeBox } from '@/features/conversations/compose/SMSComposeBox'
 import { NoteList } from '@/features/workspace/notes/NoteList'
@@ -45,18 +44,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'financial', label: 'Financial Info' },
 ]
 
-// Phase D7/D8 — the reorderable secondary Overview cards (ONE left-column
-// pool on xl; small screens stack them after Checklist → Conversation → Notes).
-const OVERVIEW_CARD_ORDER = ['nextstep', 'tasks', 'financial', 'move', 'documents']
-
-const CARD_TITLES: Record<string, string> = {
-  nextstep: 'Next Step',
-  tasks: 'Tasks',
-  financial: 'Financial',
-  move: 'Move to Stage',
-  documents: 'Documents',
-}
-
 function activityCategory(t: string): Filter | 'other' {
   if (['call', 'email', 'sms', 'comment', 'note', 'meeting'].includes(t)) return 'comms'
   if (['status_change', 'field_change', 'creation', 'integration_event'].includes(t)) return 'pipeline'
@@ -72,12 +59,6 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
   const [tab, setTab] = useState<Tab>('overview')
   const [filter, setFilter] = useState<Filter>('all')
   const [busy, setBusy] = useState<string | null>(null)
-  // Phase D7 — customizable Overview layout (order + sizes, localStorage-only).
-  // Conversation and the Phase Checklist are pinned; the six secondary cards
-  // reorder. Declared before the loading early-returns (rules of hooks).
-  const overviewLayout = useOverviewLayout(OVERVIEW_CARD_ORDER)
-  const [dragCard, setDragCard] = useState<string | null>(null)
-  const [dragOverCard, setDragOverCard] = useState<string | null>(null)
   // Phase D9 — composer draft state lives here so the ALWAYS-VISIBLE
   // bottom-right Save footer can act on it (honest per-mode behavior).
   const [composerMode, setComposerMode] = useState<'sms' | 'email' | 'note' | 'task'>('sms')
@@ -213,89 +194,6 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
     })
   }
 
-  const renderOverviewCard = (key: string): React.ReactNode => {
-    switch (key) {
-      case 'nextstep':
-        return loan ? (
-          <div className="space-y-3">
-            <NextActionCard
-              recordId={recordId}
-              nextAction={rec.next_action ?? null}
-              nextActionDueAt={(loan.record as { next_action_due_at?: string | null }).next_action_due_at ?? null}
-              nextActionCompletedAt={rec.next_action_completed_at ?? null}
-            />
-            {signals.length > 0 && (
-              <div className="jubo-los-card space-y-1 px-3 py-2.5">
-                {signals.map((s) => (
-                  <div key={s.key} className="flex items-center gap-1.5 text-2xs">
-                    <span
-                      className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                      style={{ backgroundColor: s.level === 'urgent' ? 'var(--jubo-red)' : s.level === 'warning' ? 'var(--jubo-gold)' : s.level === 'positive' ? 'var(--jubo-green)' : 'var(--jubo-muted)' }}
-                      aria-hidden
-                    />
-                    <span className="truncate text-jubo-text">{s.label}</span>
-                    {s.detail && <span className="ml-auto flex-shrink-0 text-jubo-muted">{s.detail}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : null
-      case 'tasks': {
-        const now = new Date()
-        return upcomingTasks.length === 0 ? (
-          <p className="text-2xs italic text-jubo-muted">No open tasks.</p>
-        ) : (
-          <div className="space-y-1">
-            {upcomingTasks.map((t) => {
-              const overdue = t.due_date && new Date(t.due_date) < now
-              return (
-                <div key={t.id} className="flex items-center gap-2">
-                  <span className="flex-1 truncate text-xs text-jubo-text">{t.title}</span>
-                  {t.due_date && (
-                    <span className={cn('text-2xs tabular-nums', overdue ? 'text-jubo-red' : 'text-jubo-muted')}>
-                      {new Date(t.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )
-      }
-      case 'financial':
-        return m ? (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-            <MetricCell label="Income" value={m.income} />
-            <MetricCell label="Assets" value={m.assets} />
-            <MetricCell label="Liabilities" value={m.liabilities} />
-            <MetricCell label="DTI" value={m.dti} />
-            <MetricCell label="DSCR" value={m.dscr} />
-            <MetricCell label="Total PITI" value={m.totalPiti} />
-          </div>
-        ) : null
-      case 'move':
-        return loan ? (
-          <MoveToStage
-            recordId={recordId}
-            boardId={loan.record.board_id}
-            groups={loan.groups as MoveGroup[]}
-            currentGroupId={loan.record.group_id ?? null}
-            onMoved={load}
-          />
-        ) : null
-      case 'documents':
-        // No document storage exists in Jubo yet — honest empty state.
-        return (
-          <div className="rounded-lg border border-dashed border-jubo-border px-3 py-4 text-center text-2xs text-jubo-muted">
-            No documents yet — uploads aren’t available in Jubo yet.
-          </div>
-        )
-      default:
-        return null
-    }
-  }
-
   return (
     // Pinned shell: the metric strip + tab strip stay fixed; only the tab
     // content below scrolls (the modal itself has a fixed height).
@@ -324,8 +222,14 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
           center); stacks above the content on narrow screens. On xl the
           wrapper stops scrolling so the Overview can pin its composer —
           columns scroll internally instead; below xl the whole tab scrolls. */}
-      <div className={cn('min-h-0 flex-1 overflow-y-auto', m && 'grid grid-cols-1 content-start gap-4 xl:grid-cols-[236px_minmax(0,1fr)] xl:content-stretch xl:overflow-hidden')}>
-        {m && (
+      <div className={cn(
+        'min-h-0 flex-1 overflow-y-auto',
+        // Detail tabs keep the 236px snapshot rail; the Overview tab owns its
+        // full 3-column layout (handoff), so the rail is not doubled there.
+        m && activeTab !== 'overview' && 'grid grid-cols-1 content-start gap-4 xl:grid-cols-[236px_minmax(0,1fr)] xl:content-stretch xl:overflow-hidden',
+        m && activeTab === 'overview' && 'xl:overflow-hidden',
+      )}>
+        {m && activeTab !== 'overview' && (
           <div className="min-h-0 xl:overflow-y-auto">
             <FileSnapshotPanel
               m={m}
@@ -339,94 +243,196 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
         )}
         <div className={cn('min-w-0 space-y-4', m && activeTab === 'overview' ? 'min-h-0 xl:flex xl:flex-col' : 'min-h-0 xl:overflow-y-auto')}>
 
-      {/* ── LOAN-shape Overview (Phase D7): pinned Phase Checklist on top,
-             Conversation as the central hero, and six reorderable/resizable
-             secondary cards in the side zones (order + size in localStorage).
-             DOM order = small-screen priority: checklist → conversation →
-             actions → info cards. ── */}
+      {/* ── LOAN-shape Overview — handoff 3-column layout: ~300px structured
+             data | fluid Conversation | ~300px activity widgets, 14px gaps,
+             each column scrolling independently inside the fixed tab body.
+             Right-column order is deliberate: Phase Checklist and Notes stay
+             visible at the top without scrolling. ── */}
       {activeTab === 'overview' && isLoanLike && (
-        <div className="jubo-los-page flex min-h-0 flex-col gap-4 rounded-xl p-4 xl:h-full xl:flex-1">
-          {/* TOP — Phase Checklist, pinned full-width. */}
-          <PhaseChecklistCard
-            checklist={card.checklist}
-            stageName={m?.stage ?? null}
-            busy={busy}
-            onToggle={toggleChecklist}
-            customized={overviewLayout.customized}
-            onReset={overviewLayout.reset}
-          />
+        <div className="jubo-los-page grid min-h-0 flex-1 grid-cols-1 gap-3.5 rounded-xl p-3.5 xl:h-full xl:grid-cols-[300px_minmax(0,1fr)_300px]">
 
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.7fr)_minmax(0,0.95fr)]">
-            {/* CENTER (widest; first in DOM so it follows the checklist on
-                small screens) — the Conversation workspace, protected sizing. */}
-            <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-xl border border-jubo-border-strong/70 bg-card shadow-sm xl:col-start-2 xl:row-start-1 xl:min-h-0">
-              <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
-                <p className="text-base font-bold tracking-tight text-jubo-navy">Conversation</p>
-                <div className="flex gap-0.5 rounded-lg bg-jubo-card-soft p-0.5">
-                  {(['all', 'comms', 'pipeline'] as Filter[]).map((f) => (
-                    <button key={f} onClick={() => setFilter(f)}
-                      className={cn('rounded-md px-2.5 py-0.5 text-2xs font-medium capitalize transition-colors',
-                        filter === f ? 'bg-jubo-navy text-white' : 'text-muted-foreground hover:text-foreground')}>{f}</button>
-                  ))}
-                </div>
-              </div>
-              <Feed card={card} comms={comms} filter={filter} borrowerName={borrowerName} ownerName={m?.ownerName ?? null} tall />
-              <div className="flex-shrink-0 border-t border-border p-2.5">
-                <Composer
-                  recordId={recordId}
-                  comms={comms}
-                  email={email}
-                  onChanged={load}
-                  mode={composerMode}
-                  onModeChange={(m) => { setComposerMode(m); setConfirmDiscard(false) }}
-                  text={composerText}
-                  onTextChange={(t) => { setComposerText(t); setConfirmDiscard(false); setComposerError(null) }}
-                  onSubmit={footerSave}
-                  onSmsDraftChange={(t) => { setSmsDraft(t); setConfirmDiscard(false) }}
+          {/* LEFT — structured data: Loan Amount · Property · Financial · Contacts. */}
+          <div className="grid min-h-0 grid-cols-1 content-start gap-3.5 md:grid-cols-2 xl:grid-cols-1 xl:overflow-y-auto">
+            <div className="jubo-los-card p-3.5">
+              <p className="jubo-los-section-label">Loan Amount</p>
+              <p className={cn('mt-1 text-[26px] font-bold leading-tight tracking-tight tabular-nums', m?.loanAmount ? 'text-jubo-navy' : 'text-jubo-muted/40')}>
+                {m?.loanAmount ?? '—'}
+              </p>
+              {(m?.loanType || m?.purpose) && (
+                <p className="text-2xs text-jubo-muted">{[m?.loanType, m?.purpose].filter(Boolean).join(' · ')}</p>
+              )}
+            </div>
+
+            <div className="jubo-los-card p-3.5">
+              <p className="jubo-los-section-label mb-1.5">Property</p>
+              <div className="space-y-0.5">
+                <SnapRow label="Address" value={m?.address ?? null} />
+                <SnapRow label="City / State" value={m?.cityState ?? null} />
+                <SnapRow
+                  label={m?.propertyValue ? 'Est. value' : m?.appraisedValue ? 'Appraised' : 'Value'}
+                  value={m?.propertyValue ?? m?.appraisedValue ?? null}
                 />
+                <SnapRow label="Type" value={m?.propertyType ?? null} />
               </div>
             </div>
 
-            {/* NOTES — the full right-side panel: full column height with the
-                note list scrolling internally; add-note affordance always
-                visible. (Kept out of the drag pool by design.) */}
-            <div className="flex min-h-[16rem] flex-col overflow-hidden rounded-xl border border-jubo-border-strong/70 bg-card shadow-sm xl:col-start-3 xl:row-start-1 xl:min-h-0">
-              <div className="flex-shrink-0 border-b border-border px-3 py-2">
-                <p className="text-base font-bold tracking-tight text-jubo-navy">Notes</p>
+            <div className="jubo-los-card p-3.5">
+              <p className="jubo-los-section-label mb-1.5">Financial</p>
+              <div className="space-y-0.5">
+                <SnapRow label="Income" value={m?.income ?? null} />
+                <SnapRow label="Assets" value={m?.assets ?? null} />
+                <SnapRow label="Liabilities" value={m?.liabilities ?? null} />
+                <SnapRow label="DTI" value={m?.dti ?? null} />
+                <SnapRow label="DSCR" value={m?.dscr ?? null} />
+                <SnapRow label="Total PITI" value={m?.totalPiti ?? null} />
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            </div>
+
+            <div className="jubo-los-card p-3.5">
+              <p className="jubo-los-section-label mb-2">Contacts</p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-jubo-red text-[10px] font-bold text-white">
+                    {nameInitials(borrowerName)}
+                  </span>
+                  <div className="min-w-0 text-xs leading-tight">
+                    <p className="truncate font-semibold text-jubo-text">{borrowerName}</p>
+                    <p className="truncate text-2xs text-jubo-muted">Borrower{comms?.phone ? ` · ${comms.phone}` : ''}</p>
+                  </div>
+                </div>
+                {m?.ownerName && (
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white" style={{ background: '#3f83c4' }}>
+                      {nameInitials(m.ownerName)}
+                    </span>
+                    <div className="min-w-0 text-xs leading-tight">
+                      <p className="truncate font-semibold text-jubo-text">{m.ownerName}</p>
+                      <p className="truncate text-2xs text-jubo-muted">Loan Officer</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Existing controls preserved below the handoff's four cards. */}
+            {loan && (
+              <div className="jubo-los-card p-3.5">
+                <p className="jubo-los-section-label mb-2">Move to Stage</p>
+                <MoveToStage
+                  recordId={recordId}
+                  boardId={loan.record.board_id}
+                  groups={loan.groups as MoveGroup[]}
+                  currentGroupId={loan.record.group_id ?? null}
+                  onMoved={load}
+                />
+              </div>
+            )}
+            {loan && <ParticipantRibbon data={loan} />}
+          </div>
+
+          {/* CENTER — Conversation, single full-height card: filter pills,
+              date-grouped feed, composer pinned at the bottom. */}
+          <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-xl border border-jubo-border-strong/70 bg-card shadow-sm xl:min-h-0">
+            <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
+              <p className="text-base font-bold tracking-tight text-jubo-navy">Conversation</p>
+              <div className="flex gap-0.5 rounded-lg bg-jubo-card-soft p-0.5">
+                {(['all', 'comms', 'pipeline'] as Filter[]).map((f) => (
+                  <button key={f} onClick={() => setFilter(f)}
+                    className={cn('rounded-md px-2.5 py-0.5 text-2xs font-medium capitalize transition-colors',
+                      filter === f ? 'bg-jubo-navy text-white' : 'text-muted-foreground hover:text-foreground')}>{f}</button>
+                ))}
+              </div>
+            </div>
+            <Feed card={card} comms={comms} filter={filter} borrowerName={borrowerName} ownerName={m?.ownerName ?? null} tall />
+            <div className="flex-shrink-0 border-t border-border p-2.5">
+              <Composer
+                recordId={recordId}
+                comms={comms}
+                email={email}
+                onChanged={load}
+                mode={composerMode}
+                onModeChange={(m) => { setComposerMode(m); setConfirmDiscard(false) }}
+                text={composerText}
+                onTextChange={(t) => { setComposerText(t); setConfirmDiscard(false); setComposerError(null) }}
+                onSubmit={footerSave}
+                onSmsDraftChange={(t) => { setSmsDraft(t); setConfirmDiscard(false) }}
+              />
+            </div>
+          </div>
+
+          {/* RIGHT — activity widgets in the handoff's exact order:
+              Phase Checklist · Notes · Next Step · Tasks. */}
+          <div className="grid min-h-0 grid-cols-1 content-start gap-3.5 md:grid-cols-2 xl:grid-cols-1 xl:overflow-y-auto">
+            <PhaseChecklistCard
+              checklist={card.checklist}
+              stageName={m?.stage ?? null}
+              busy={busy}
+              onToggle={toggleChecklist}
+            />
+
+            <div className="jubo-los-card overflow-hidden">
+              <div className="border-b border-jubo-border/60 px-3.5 py-2.5">
+                <p className="text-[13px] font-bold tracking-tight text-jubo-navy">Notes</p>
+              </div>
+              <div className="max-h-[22rem] overflow-y-auto p-3">
                 {comms ? (
                   <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} />
                 ) : <div className="flex items-center gap-2 py-2 text-2xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> …</div>}
               </div>
             </div>
 
-            {/* LEFT POOL — ONE reorderable column (much clearer drag targets
-                than the old two-zone split): drag any card header to reorder;
-                wraps to a 2-col grid on medium screens. */}
-            <div className="grid min-h-0 grid-cols-1 content-start gap-4 md:grid-cols-2 xl:col-start-1 xl:row-start-1 xl:grid-cols-1 xl:overflow-y-auto">
-              {overviewLayout.order.map((key) => (
-                <OverviewCard
-                  key={key}
-                  cardKey={key}
-                  title={CARD_TITLES[key] ?? key}
-                  badge={key === 'tasks' && openTaskCount > 0 ? String(openTaskCount) : key === 'documents' ? '0' : undefined}
-                  size={overviewLayout.sizeOf(key)}
-                  chrome={key !== 'nextstep'}
-                  onCycleSize={() => overviewLayout.cycleSize(key)}
-                  dragging={dragCard === key}
-                  dragOver={dragOverCard === key && dragCard !== null && dragCard !== key}
-                  onDragStartCard={(k) => setDragCard(k)}
-                  onDragEndCard={() => { setDragCard(null); setDragOverCard(null) }}
-                  onDragOverCard={(k) => setDragOverCard(k)}
-                  onDropCard={(dragged, target) => { setDragCard(null); setDragOverCard(null); overviewLayout.moveCard(dragged, target) }}
-                >
-                  {renderOverviewCard(key)}
-                </OverviewCard>
-              ))}
-              {/* File team — fixed (self-collapses when empty), kept out of
-                  the drag pool so an empty shell can never appear. */}
-              {loan && <ParticipantRibbon data={loan} />}
+            {loan && (
+              <div className="space-y-2">
+                <NextActionCard
+                  recordId={recordId}
+                  nextAction={rec.next_action ?? null}
+                  nextActionDueAt={(loan.record as { next_action_due_at?: string | null }).next_action_due_at ?? null}
+                  nextActionCompletedAt={rec.next_action_completed_at ?? null}
+                />
+                {signals.length > 0 && (
+                  <div className="jubo-los-card space-y-1 px-3 py-2.5">
+                    {signals.map((s) => (
+                      <div key={s.key} className="flex items-center gap-1.5 text-2xs">
+                        <span
+                          className="h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                          style={{ backgroundColor: s.level === 'urgent' ? 'var(--jubo-red)' : s.level === 'warning' ? 'var(--jubo-gold)' : s.level === 'positive' ? 'var(--jubo-green)' : 'var(--jubo-muted)' }}
+                          aria-hidden
+                        />
+                        <span className="truncate text-jubo-text">{s.label}</span>
+                        {s.detail && <span className="ml-auto flex-shrink-0 text-jubo-muted">{s.detail}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="jubo-los-card p-3.5">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-[13px] font-bold tracking-tight text-jubo-navy">Tasks</p>
+                {openTaskCount > 0 && (
+                  <span className="rounded-full bg-jubo-gold-soft px-2 py-0.5 text-[10px] font-bold tabular-nums text-jubo-gold">{openTaskCount}</span>
+                )}
+              </div>
+              {upcomingTasks.length === 0 ? (
+                <p className="text-2xs italic text-jubo-muted">No open tasks.</p>
+              ) : (
+                <div className="space-y-1">
+                  {upcomingTasks.map((t) => {
+                    const overdue = t.due_date && new Date(t.due_date) < new Date()
+                    return (
+                      <div key={t.id} className="flex items-center gap-2">
+                        <span className="flex-1 truncate text-xs text-jubo-text">{t.title}</span>
+                        {t.due_date && (
+                          <span className={cn('text-2xs tabular-nums', overdue ? 'text-jubo-red' : 'text-jubo-muted')}>
+                            {new Date(t.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -686,160 +692,60 @@ function Field({ label, value }: { label: string; value: string | null }) {
 }
 
 function PhaseChecklistCard({
-  checklist, stageName, busy, onToggle, customized, onReset,
+  checklist, stageName, busy, onToggle,
 }: {
   checklist: PersonCardData['checklist']
   stageName?: string | null
   busy: string | null
   onToggle: (fieldId: string, complete: boolean) => void
-  customized: boolean
-  onReset: () => void
 }) {
-  // Step-by-step finish strip — ALWAYS visible: each item renders as a step
-  // chip (numbered when open, checked when done). Same data + the same
-  // existing toggle action; clicking a chip toggles the step.
+  // Handoff layout — the right column's topmost card: header (title · X/Y),
+  // progress bar with the current stage name, then each item as a checkbox
+  // row. Same data + the same existing toggle action.
   return (
-    <div className="flex-shrink-0 rounded-xl border border-jubo-border-strong/70 bg-jubo-card px-3 py-2 shadow-sm">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <p className="text-[13px] font-bold tracking-tight text-jubo-navy">Phase Checklist</p>
-        {stageName && <p className="max-w-[14rem] truncate text-2xs text-jubo-muted">{stageName}</p>}
-        {checklist.hasChecklist && (
-          <>
-            <span className="rounded-full bg-jubo-gold-soft px-1.5 py-px text-[10px] font-semibold tabular-nums text-jubo-gold">
-              {checklist.completedCount}/{checklist.totalCount} complete
+    <div className="jubo-los-card overflow-hidden border-jubo-border-strong/60 shadow-sm">
+      <div className="px-3.5 pb-2.5 pt-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-[13px] font-bold tracking-tight text-jubo-navy">Phase Checklist</p>
+          {checklist.hasChecklist && (
+            <span className="rounded-full bg-jubo-gold-soft px-2 py-0.5 text-[10px] font-bold tabular-nums text-jubo-gold">
+              {checklist.completedCount} / {checklist.totalCount}
             </span>
-            <div className="h-1 min-w-16 max-w-40 flex-1 overflow-hidden rounded-full bg-jubo-border/60">
-              <div className="h-full rounded-full bg-jubo-green transition-all" style={{ width: `${checklist.percentage}%` }} />
-            </div>
-          </>
-        )}
-        {customized && (
-          <button
-            onClick={onReset}
-            title="Reset the Overview card layout to default"
-            className="ml-auto flex items-center gap-1 rounded-md px-1.5 py-0.5 text-2xs text-jubo-muted transition-colors hover:bg-jubo-card-soft hover:text-jubo-text"
-          >
-            <RotateCcw className="h-3 w-3" /> Reset layout
-          </button>
-        )}
+          )}
+        </div>
+        <div className="flex items-center gap-2.5">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-jubo-border/60">
+            <div className="h-full rounded-full bg-jubo-green transition-all" style={{ width: `${checklist.percentage}%` }} />
+          </div>
+          {stageName && <span className="max-w-[9rem] truncate text-2xs font-semibold text-jubo-muted">{stageName}</span>}
+        </div>
       </div>
       {checklist.hasChecklist ? (
-        <div className="mt-1.5 flex max-h-[3.9rem] flex-wrap gap-1.5 overflow-y-auto">
-          {checklist.items.map((i, idx) => (
-            <button
-              key={i.fieldId}
-              onClick={() => onToggle(i.fieldId, i.complete)}
-              disabled={busy === i.fieldId}
-              title={i.complete ? `Done: ${i.name} (click to un-check)` : `Step ${idx + 1}: ${i.name} (click to complete)`}
-              className={cn(
-                'flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-2xs transition-colors disabled:opacity-60',
-                i.complete
-                  ? 'border-jubo-green/30 bg-jubo-green-soft text-jubo-muted'
-                  : 'border-jubo-border-strong/70 bg-jubo-card text-jubo-text hover:border-jubo-navy/40',
-              )}
-            >
-              {busy === i.fieldId ? (
-                <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin text-jubo-muted" />
-              ) : i.complete ? (
-                <CheckSquare className="h-3 w-3 flex-shrink-0 text-jubo-green" />
-              ) : (
-                <span className="flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-full bg-jubo-navy text-[8px] font-bold tabular-nums text-white">{idx + 1}</span>
-              )}
-              <span className={cn('truncate', i.complete && 'line-through')}>{i.name}</span>
-            </button>
-          ))}
-        </div>
-      ) : <p className="mt-0.5 text-2xs text-jubo-muted">No checklist for this phase.</p>}
-    </div>
-  )
-}
-
-// Per-size content constraints: compact/tall clamp with internal scroll.
-const SIZE_CLASSES: Record<CardSize, string> = {
-  compact: 'max-h-32 overflow-y-auto',
-  normal: '',
-  tall: 'min-h-[16rem] max-h-[30rem] overflow-y-auto',
-}
-
-/** Reorderable/resizable Overview card shell — drag starts ONLY from the grip
- *  handle (never from card content/inputs), size cycles compact→normal→tall,
- *  and both preferences persist via useOverviewLayout (localStorage). */
-function OverviewCard({
-  cardKey, title, badge, size, chrome, onCycleSize, dragging, dragOver,
-  onDragStartCard, onDragEndCard, onDragOverCard, onDropCard, children,
-}: {
-  cardKey: string
-  title: string
-  badge?: string
-  size: CardSize
-  chrome: boolean
-  onCycleSize: () => void
-  dragging: boolean
-  dragOver: boolean
-  onDragStartCard: (key: string) => void
-  onDragEndCard: () => void
-  onDragOverCard: (key: string) => void
-  onDropCard: (dragged: string, target: string) => void
-  children: React.ReactNode
-}) {
-  return (
-    <div
-      onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes(OVERVIEW_DND_TYPE)) return
-        e.preventDefault()
-        e.dataTransfer.dropEffect = 'move'
-        onDragOverCard(cardKey)
-      }}
-      onDrop={(e) => {
-        if (!e.dataTransfer.types.includes(OVERVIEW_DND_TYPE)) return
-        e.preventDefault()
-        const dragged = e.dataTransfer.getData(OVERVIEW_DND_TYPE)
-        if (dragged) onDropCard(dragged, cardKey)
-      }}
-      className={cn(
-        'rounded-xl transition-opacity',
-        chrome && 'jubo-los-card border-jubo-border-strong/60 p-3 shadow-sm',
-        dragging && 'opacity-40',
-        dragOver && 'bg-jubo-red/5 ring-2 ring-inset ring-jubo-red/50',
+        checklist.items.map((i) => (
+          <button
+            key={i.fieldId}
+            onClick={() => onToggle(i.fieldId, i.complete)}
+            disabled={busy === i.fieldId}
+            title={i.complete ? `Done: ${i.name} (click to un-check)` : `${i.name} (click to complete)`}
+            className="flex w-full items-center gap-2.5 border-t border-jubo-border/60 px-3.5 py-2 text-left transition-colors hover:bg-jubo-card-soft disabled:opacity-60"
+          >
+            {busy === i.fieldId ? (
+              <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-jubo-muted" />
+            ) : i.complete ? (
+              <CheckSquare className="h-4 w-4 flex-shrink-0 text-jubo-green" />
+            ) : (
+              <Square className="h-4 w-4 flex-shrink-0 text-jubo-muted/70" />
+            )}
+            <span className={cn('text-xs font-medium text-jubo-text', i.complete && 'text-jubo-muted line-through')}>{i.name}</span>
+          </button>
+        ))
+      ) : (
+        <p className="border-t border-jubo-border/60 px-3.5 py-2.5 text-2xs text-jubo-muted">No checklist for this phase.</p>
       )}
-    >
-      {/* The WHOLE header is the drag surface (drag-anywhere-on-header was
-          the fix for "can't drag the boxes" — the old 14px grip button was
-          too small to find). Card body/inputs still can't start a drag. */}
-      <div
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData(OVERVIEW_DND_TYPE, cardKey)
-          e.dataTransfer.effectAllowed = 'move'
-          onDragStartCard(cardKey)
-        }}
-        onDragEnd={onDragEndCard}
-        title="Drag to reorder"
-        className={cn(
-          '-mx-1 mb-2 flex cursor-grab items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors hover:bg-jubo-card-soft active:cursor-grabbing',
-          !chrome && 'px-2',
-        )}
-      >
-        <GripVertical className="h-4 w-4 flex-shrink-0 text-jubo-muted/70" aria-hidden />
-        <p className="min-w-0 flex-1 truncate text-[13px] font-bold uppercase tracking-wide text-jubo-navy">{title}</p>
-        {badge && (
-          <span className="flex-shrink-0 rounded bg-jubo-gold-soft px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-jubo-gold">{badge}</span>
-        )}
-        <button
-          onClick={onCycleSize}
-          draggable={false}
-          title={`Size: ${size} — click to change`}
-          className="flex-shrink-0 cursor-pointer rounded p-1 text-jubo-muted/70 transition-colors hover:bg-jubo-border/50 hover:text-jubo-text"
-        >
-          <ChevronsUpDown className="h-3.5 w-3.5" />
-        </button>
-      </div>
-      <div className={SIZE_CLASSES[size]}>{children}</div>
     </div>
   )
 }
 
-const OVERVIEW_DND_TYPE = 'text/jubo-overview-card'
 
 // 4-mode composer — SMS (real Twilio), Note (real), Task (real), Email (mailto:
 // opens the user's mail client; Jubo has no in-app email send, so this is an
