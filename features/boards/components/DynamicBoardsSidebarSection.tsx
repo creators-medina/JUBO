@@ -260,11 +260,11 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
           />
           {!collapsed && (
             <>
-              {/* Right-click / two-finger click to rename (single click keeps
-                  navigating, so double-click is disabled here by design). */}
+              {/* Double-click or right-click / two-finger click to rename (the
+                  sidebar stays mounted across the first click's navigation, so
+                  the double-click lands on the editor). */}
               <InlineRenameText
                 value={board.name}
-                doubleClick={false}
                 className="min-w-0 flex-1 truncate"
                 inputClassName="text-[13px]"
                 onEditingChange={(ed) => setRenamingBoardId(ed ? board.id : null)}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Zap, Check, Edit2, X, Calendar, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { setNextAction, completeNextAction } from '../notes/actions'
+import { useToast } from '@/features/feedback/ToastProvider'
 
 interface Props {
   recordId: string
@@ -38,6 +39,7 @@ function isoToLocal(iso: string | null): string {
 
 export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActionCompletedAt, compact }: Props) {
   const router = useRouter()
+  const toast = useToast()
   const [editing, setEditing] = useState(!nextAction)
   const [text, setText] = useState(nextAction ?? '')
   const [dueLocal, setDueLocal] = useState(isoToLocal(nextActionDueAt))
@@ -57,7 +59,7 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
         })
         setEditing(false)
         router.refresh()
-      } catch {}
+      } catch (e) { toast.error(`Couldn't save next step — ${e instanceof Error ? e.message : 'please try again'}`) }
     })
   }
 
@@ -69,7 +71,7 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
         setDueLocal('')
         setEditing(true)
         router.refresh()
-      } catch {}
+      } catch (e) { toast.error(`Couldn't save next step — ${e instanceof Error ? e.message : 'please try again'}`) }
     })
   }
 
@@ -78,7 +80,7 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
       try {
         await completeNextAction(recordId)
         router.refresh()
-      } catch {}
+      } catch (e) { toast.error(`Couldn't save next step — ${e instanceof Error ? e.message : 'please try again'}`) }
     })
   }
 
@@ -91,7 +93,7 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
           next_action_due_at: new Date(offsetISOLocal(days)).toISOString(),
         })
         router.refresh()
-      } catch {}
+      } catch (e) { toast.error(`Couldn't save next step — ${e instanceof Error ? e.message : 'please try again'}`) }
     })
   }
 
