@@ -372,10 +372,10 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
             />
 
             <div className="jubo-los-card overflow-hidden">
-              <div className="border-b border-jubo-border/60 px-3.5 py-2.5">
-                <p className="text-[13px] font-bold tracking-tight text-jubo-navy">Notes</p>
+              <div className="border-b border-jubo-border/60 px-4 py-3">
+                <p className="text-sm font-bold tracking-tight text-jubo-navy">Notes</p>
               </div>
-              <div className="p-3">
+              <div className="min-h-[16rem] p-3.5">
                 {comms ? (
                   <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} />
                 ) : <div className="flex items-center gap-2 py-2 text-2xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> …</div>}
@@ -705,20 +705,20 @@ function PhaseChecklistCard({
   // row. Same data + the same existing toggle action.
   return (
     <div className="jubo-los-card overflow-hidden border-jubo-border-strong/60 shadow-sm">
-      <div className="px-3.5 pb-2.5 pt-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <p className="text-[13px] font-bold tracking-tight text-jubo-navy">Phase Checklist</p>
+      <div className="px-4 pb-3 pt-3.5">
+        <div className="mb-2.5 flex items-center justify-between gap-2">
+          <p className="text-sm font-bold tracking-tight text-jubo-navy">Phase Checklist</p>
           {checklist.hasChecklist && (
-            <span className="rounded-full bg-jubo-gold-soft px-2 py-0.5 text-[10px] font-bold tabular-nums text-jubo-gold">
+            <span className="rounded-full bg-jubo-gold-soft px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-jubo-gold">
               {checklist.completedCount} / {checklist.totalCount}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2.5">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-jubo-border/60">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-jubo-border/60">
             <div className="h-full rounded-full bg-jubo-green transition-all" style={{ width: `${checklist.percentage}%` }} />
           </div>
-          {stageName && <span className="max-w-[9rem] truncate text-2xs font-semibold text-jubo-muted">{stageName}</span>}
+          {stageName && <span className="max-w-[9rem] truncate text-xs font-semibold text-jubo-muted">{stageName}</span>}
         </div>
       </div>
       {checklist.hasChecklist ? (
@@ -728,16 +728,16 @@ function PhaseChecklistCard({
             onClick={() => onToggle(i.fieldId, i.complete)}
             disabled={busy === i.fieldId}
             title={i.complete ? `Done: ${i.name} (click to un-check)` : `${i.name} (click to complete)`}
-            className="flex w-full items-center gap-2.5 border-t border-jubo-border/60 px-3.5 py-2 text-left transition-colors hover:bg-jubo-card-soft disabled:opacity-60"
+            className="flex w-full items-center gap-3 border-t border-jubo-border/60 px-4 py-2.5 text-left transition-colors hover:bg-jubo-card-soft disabled:opacity-60"
           >
             {busy === i.fieldId ? (
-              <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-jubo-muted" />
+              <Loader2 className="h-[18px] w-[18px] flex-shrink-0 animate-spin text-jubo-muted" />
             ) : i.complete ? (
-              <CheckSquare className="h-4 w-4 flex-shrink-0 text-jubo-green" />
+              <CheckSquare className="h-[18px] w-[18px] flex-shrink-0 text-jubo-green" />
             ) : (
-              <Square className="h-4 w-4 flex-shrink-0 text-jubo-muted/70" />
+              <Square className="h-[18px] w-[18px] flex-shrink-0 text-jubo-muted/70" />
             )}
-            <span className={cn('text-xs font-medium text-jubo-text', i.complete && 'text-jubo-muted line-through')}>{i.name}</span>
+            <span className={cn('text-[13px] font-medium text-jubo-text', i.complete && 'text-jubo-muted line-through')}>{i.name}</span>
           </button>
         ))
       ) : (
