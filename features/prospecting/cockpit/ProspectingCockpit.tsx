@@ -25,7 +25,8 @@ import type {
   ScoredLead, ProspectingMetrics, SessionRow, LiveSessionStats, LeadTemperature,
   QueueBucketKey, PeriodCallTargets, ProspectingStreak, ContactedTodayItem,
 } from '../types'
-import type { ThemeDay } from '../coaching/themeDay'
+import { classifyThemeBuckets, deriveContactTags, findBucketBoard, TAG_CHIP_CLASS, type ContactTag } from '../themeBuckets'
+import { getWeekThemeDays, type ThemeDay } from '../coaching/themeDay'
 import type { CoachLine } from '../coaching'
 
 function Icon({ name, className }: { name: string; className?: string }) {
@@ -65,10 +66,11 @@ const KEY_OUTCOME: Record<string, CommunicationOutcome> = {
 }
 
 export function ProspectingCockpit({
-  organizationId, queue, metrics, session, liveStats, themeDay, coaching, callGoal, targetLabel, targets, streak, contactedToday, followUpsDue, sessions,
+  organizationId, queue, metrics, session, liveStats, themeDay, coaching, callGoal, targetLabel, targets, streak, contactedToday, followUpsDue, sessions, boards,
 }: {
   organizationId: string
   queue: ScoredLead[]
+  boards: { id: string; name: string; slug: string | null }[]
   metrics: ProspectingMetrics
   session: SessionRow | null
   liveStats: LiveSessionStats | null
@@ -92,6 +94,37 @@ export function ProspectingCockpit({
   const workedRef = useRef<Set<string>>(new Set())
   const [bucket, setBucket] = useState<QueueBucketKey | 'all'>('all')
   const [selectedIndex, setSelectedIndex] = useState(0)
+
+  // ── Lender Theme Days (Mon–Fri missions) ──
+  // Per-weekday editable call goals — localStorage v1 (no schema; the business
+  // plan's daily target stays the default). Loaded after mount (SSR-safe).
+  const [themeGoals, setThemeGoals] = useState<Record<number, number>>({})
+  // Hydrate saved goals after mount (localStorage is client-only; one-shot sync).
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(THEME_GOALS_KEY)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (raw) setThemeGoals(JSON.parse(raw) as Record<number, number>)
+    } catch { /* defaults stand */ }
+  }, [])
+  const setThemeGoal = useCallback((weekday: number, value: number) => {
+    const v = Math.max(1, Math.min(500, Math.round(value)))
+    setThemeGoals((prev) => {
+      const next = { ...prev, [weekday]: v }
+      try { window.localStorage.setItem(THEME_GOALS_KEY, JSON.stringify(next)) } catch { /* session-only */ }
+      return next
+    })
+  }, [])
+  const todayDow = new Date().getDay()
+  const [themeDow, setThemeDow] = useState(() => (todayDow >= 1 && todayDow <= 5 ? todayDow : 1))
+  // Bucket membership per lead — derived from existing board/stage/type data.
+  const leadBuckets = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof classifyThemeBuckets>>()
+    for (const l of queue) map.set(l.recordId, classifyThemeBuckets(l))
+    return map
+  }, [queue])
+  // Today's effective goal: LO's edited theme goal, else the server target.
+  const todayGoal = themeGoals[todayDow] ?? callGoal
 
   const visible = useMemo(
     () => queue.filter((l) => !worked.has(l.recordId) && (bucket === 'all' || l.bucket === bucket)),
@@ -153,9 +186,9 @@ export function ProspectingCockpit({
     return () => window.removeEventListener('keydown', onKey)
   }, [visible, sel, logOutcome, skip, openWorkspace])
 
-  const remaining = Math.max(0, callGoal - metrics.callsToday)
-  const goalPct = Math.min(100, Math.round((metrics.callsToday / Math.max(1, callGoal)) * 100))
-  const goalHit = metrics.callsToday >= callGoal && callGoal > 0
+  const remaining = Math.max(0, todayGoal - metrics.callsToday)
+  const goalPct = Math.min(100, Math.round((metrics.callsToday / Math.max(1, todayGoal)) * 100))
+  const goalHit = metrics.callsToday >= todayGoal && todayGoal > 0
   const comp = completionState(goalPct, goalHit)
 
   return (
@@ -174,7 +207,7 @@ export function ProspectingCockpit({
                 <div className="flex flex-col items-center gap-3">
                   <ProgressRing percent={goalPct} complete={goalHit} size={172} stroke={13}>
                     <span className="text-3xl font-bold tabular-nums text-foreground">{metrics.callsToday}</span>
-                    <span className="text-2xs text-muted-foreground">of {callGoal} done</span>
+                    <span className="text-2xs text-muted-foreground">of {todayGoal} done</span>
                   </ProgressRing>
                   <StreakChip streak={streak} />
                 </div>
@@ -194,7 +227,7 @@ export function ProspectingCockpit({
                   <p className="mt-1.5 text-sm text-muted-foreground">{comp.message}</p>
 
                   <div className="mt-4 flex flex-col items-center gap-2 sm:flex-row sm:flex-wrap lg:justify-start">
-                    <SessionControl organizationId={organizationId} session={session} liveStats={liveStats} pending={pending} startTransition={startTransition} router={router} callGoal={callGoal} />
+                    <SessionControl organizationId={organizationId} session={session} liveStats={liveStats} pending={pending} startTransition={startTransition} router={router} callGoal={todayGoal} />
                     {!session && <span className="text-2xs text-muted-foreground">Start a session to track today&apos;s momentum.</span>}
                   </div>
 
@@ -224,19 +257,27 @@ export function ProspectingCockpit({
             {/* ── Why this matters: goal/pace tie-in ── */}
             <PaceCard targets={targets} />
 
-            {/* ── Theme Day banner ── */}
-            <PremiumSurface sweep className="rounded-2xl bg-gradient-to-r from-primary/15 via-primary/[0.06] to-transparent p-5">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-jubo-navy/15 text-jubo-navy">
-                  <Flame className="h-6 w-6" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-2xs font-semibold uppercase tracking-wider text-primary">Today&apos;s focus</p>
-                  <h2 className="text-lg font-bold tracking-tight text-foreground">{themeDay.label}</h2>
-                  <p className="text-sm text-muted-foreground">{themeDay.coaching}</p>
-                </div>
-              </div>
-            </PremiumSurface>
+            {/* ── Theme Days: today's mission by default + Mon–Fri week view ── */}
+            <ThemeMissionSection
+              queue={queue}
+              worked={worked}
+              leadBuckets={leadBuckets}
+              boards={boards}
+              themeDow={themeDow}
+              onSelectDow={setThemeDow}
+              todayDow={todayDow}
+              todayDone={metrics.callsToday}
+              goals={themeGoals}
+              defaultGoal={callGoal}
+              onEditGoal={setThemeGoal}
+              todayTheme={themeDay}
+              pending={pending}
+              selectedIndex={sel}
+              onSelect={setSelectedIndex}
+              onLog={logOutcome}
+              onSkip={skip}
+              onOpen={openWorkspace}
+            />
 
             {/* ── Contacted today ── */}
             <ContactedToday items={contactedToday} onOpen={openWorkspace} />
@@ -310,6 +351,191 @@ export function ProspectingCockpit({
         </aside>
       </div>
     </div>
+  )
+}
+
+const THEME_GOALS_KEY = 'jubo-theme-call-goals:v1'
+
+// ── Lender Theme Days mission section — today's mission by default, with a
+//    Mon–Fri strip to view the whole week. Contacts come from the existing
+//    prospecting queue, filtered by derived theme buckets; call outcomes log
+//    through the SAME quickCallOutcome action the queue uses (real logging —
+//    no fake telephony), which is what closes the progress ring.
+function ThemeMissionSection({
+  queue, worked, leadBuckets, boards, themeDow, onSelectDow, todayDow, todayDone,
+  goals, defaultGoal, onEditGoal, todayTheme, pending, selectedIndex, onSelect, onLog, onSkip, onOpen,
+}: {
+  queue: ScoredLead[]
+  worked: Set<string>
+  leadBuckets: Map<string, ReturnType<typeof classifyThemeBuckets>>
+  boards: { id: string; name: string; slug: string | null }[]
+  themeDow: number
+  onSelectDow: (d: number) => void
+  todayDow: number
+  todayDone: number
+  goals: Record<number, number>
+  defaultGoal: number
+  onEditGoal: (weekday: number, value: number) => void
+  todayTheme: ThemeDay
+  pending: boolean
+  selectedIndex: number
+  onSelect: (i: number) => void
+  onLog: (recordId: string, outcome: CommunicationOutcome) => void
+  onSkip: (recordId: string) => void
+  onOpen: (t: { recordId: string; title: string }) => void
+}) {
+  const week = useMemo(() => getWeekThemeDays(), [])
+  const day = week.find((d) => d.weekday === themeDow) ?? week[0]
+  const theme = day.theme
+  const isToday = themeDow === todayDow
+  const goal = goals[themeDow] ?? defaultGoal
+  const MAX_LIST = 25
+
+  const bucketLeads = useMemo(() => {
+    if (!theme.bucket) return []
+    return queue.filter((l) => !worked.has(l.recordId) && (leadBuckets.get(l.recordId) ?? []).includes(theme.bucket!))
+  }, [queue, worked, leadBuckets, theme.bucket])
+
+  const done = isToday ? todayDone : 0
+  const pct = Math.min(100, Math.round((done / Math.max(1, goal)) * 100))
+  const hit = isToday && done >= goal && goal > 0
+  const addBoard = theme.bucket ? findBucketBoard(theme.bucket, boards) : null
+  const low = bucketLeads.length > 0 && bucketLeads.length < goal
+  const dateLabel = day.date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
+
+  return (
+    <section>
+      {/* Weekly theme strip — today highlighted, any weekday selectable. */}
+      <div className="mb-3 flex items-stretch gap-1.5 overflow-x-auto">
+        {week.map((d) => {
+          const active = d.weekday === themeDow
+          const today = d.weekday === todayDow
+          return (
+            <button
+              key={d.weekday}
+              onClick={() => onSelectDow(d.weekday)}
+              className={cn(
+                'min-w-[8.5rem] flex-1 rounded-xl border px-3 py-2 text-left transition-colors',
+                active ? 'border-primary/50 bg-primary/10 ring-1 ring-primary/20' : 'border-border bg-surface-1 hover:bg-surface-2',
+              )}
+            >
+              <p className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {d.date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                {today && <span className="rounded bg-jubo-red/10 px-1 py-px text-[9px] font-bold text-jubo-red">TODAY</span>}
+              </p>
+              <p className={cn('mt-0.5 truncate text-xs font-bold', active ? 'text-primary' : 'text-foreground')}>{d.theme.label}</p>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Selected day's mission */}
+      <PremiumSurface sweep tone={hit ? 'achievement' : 'default'} className="rounded-2xl bg-gradient-to-r from-primary/15 via-primary/[0.06] to-transparent p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-jubo-navy/15 text-jubo-navy">
+            <Flame className="h-6 w-6" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-2xs font-semibold uppercase tracking-wider text-primary">
+              {isToday ? "Today's mission" : dateLabel}
+            </p>
+            <h2 className="text-lg font-bold tracking-tight text-foreground">{theme.label}</h2>
+            <p className="text-sm text-muted-foreground">{isToday ? theme.coaching : theme.blurb}</p>
+            {theme.bucketLabel && (
+              <p className="mt-1 text-2xs text-muted-foreground">
+                Bucket: <span className="font-medium text-foreground">{theme.bucketLabel}</span>
+                <span className="tabular-nums"> · {bucketLeads.length} to call</span>
+              </p>
+            )}
+          </div>
+          {theme.bucket && (
+            <div className="flex flex-shrink-0 items-center gap-4">
+              <label className="text-right text-2xs text-muted-foreground">
+                Call goal
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={goal}
+                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n) && n >= 1) onEditGoal(themeDow, n) }}
+                  className="mt-0.5 block w-20 rounded-lg border border-border bg-surface-1 px-2 py-1.5 text-right text-sm font-semibold tabular-nums text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  aria-label={`${theme.label} call goal`}
+                />
+              </label>
+              <ProgressRing percent={pct} complete={hit} size={72} stroke={7}>
+                <span className="text-sm font-bold tabular-nums text-foreground">{done}</span>
+                <span className="text-[9px] text-muted-foreground">of {goal}</span>
+              </ProgressRing>
+            </div>
+          )}
+        </div>
+
+        {!isToday && theme.bucket && (
+          <p className="mt-3 rounded-lg bg-surface-1/70 px-3 py-1.5 text-2xs text-muted-foreground">
+            Planning view — progress counts on {dateLabel} as calls are logged that day.
+          </p>
+        )}
+
+        {/* Theme guidance — concise playbook lines. */}
+        {theme.guidance.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5">
+            {theme.guidance.map((g, i) => (
+              <span key={i} className="inline-flex items-start gap-1.5 text-xs text-foreground/85">
+                <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-jubo-gold" aria-hidden /> {g}
+              </span>
+            ))}
+          </div>
+        )}
+      </PremiumSurface>
+
+      {/* Bucket contact list */}
+      {theme.bucket ? (
+        bucketLeads.length === 0 ? (
+          <div className="mt-3 rounded-xl border border-dashed border-border bg-surface-1 px-6 py-10 text-center">
+            <PhoneCall className="mx-auto h-7 w-7 text-muted-foreground" />
+            <p className="mt-2 text-sm font-medium text-foreground">No {theme.bucketLabel?.toLowerCase()} found for {theme.label}.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Build this bucket so the day has a mission.</p>
+            <Link
+              href={addBoard ? `/boards/${addBoard.id}` : '/boards'}
+              className="mt-3 inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              {theme.addLabel ?? 'Add contacts'} <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {low && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-jubo-gold/40 bg-jubo-gold-soft px-3 py-2 text-xs text-jubo-gold">
+                <span>You have <span className="font-semibold tabular-nums">{bucketLeads.length}</span> {bucketLeads.length === 1 ? 'contact' : 'contacts'} for a <span className="font-semibold tabular-nums">{goal}</span>-call goal.</span>
+                <Link href={addBoard ? `/boards/${addBoard.id}` : '/boards'} className="inline-flex items-center gap-1 font-semibold hover:underline">
+                  {theme.addLabel ?? 'Add contacts'} <ArrowUpRight className="h-3 w-3" />
+                </Link>
+              </div>
+            )}
+            {bucketLeads.slice(0, MAX_LIST).map((lead, i) => (
+              <LeadCard
+                key={lead.recordId}
+                lead={lead}
+                tags={deriveContactTags(lead)}
+                selected={isToday && i === selectedIndex}
+                pending={pending}
+                onSelect={() => onSelect(i)}
+                onLog={onLog}
+                onSkip={() => onSkip(lead.recordId)}
+                onOpen={() => onOpen({ recordId: lead.recordId, title: lead.title })}
+              />
+            ))}
+            {bucketLeads.length > MAX_LIST && (
+              <p className="px-1 text-2xs text-muted-foreground">+{bucketLeads.length - MAX_LIST} more in this bucket — keep logging to work through them.</p>
+            )}
+          </div>
+        )
+      ) : (
+        <div className="mt-3 rounded-xl border border-dashed border-border bg-surface-1 px-6 py-8 text-center text-sm text-muted-foreground">
+          {todayTheme.blurb}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -489,12 +715,14 @@ function SessionControl({ organizationId, session, liveStats, pending, startTran
   )
 }
 
-function LeadCard({ lead, selected, pending, onSelect, onLog, onSkip, onOpen }: {
+function LeadCard({ lead, selected, pending, onSelect, onLog, onSkip, onOpen, tags }: {
   lead: ScoredLead; selected: boolean; pending: boolean
   onSelect: () => void
   onLog: (recordId: string, outcome: CommunicationOutcome) => void
   onSkip: () => void
   onOpen: () => void
+  /** Derived category chips ("why shown") — from existing board/stage/type data. */
+  tags?: ContactTag[]
 }) {
   const t = TEMP_STYLE[lead.temperature]
   const ref = useRef<HTMLDivElement>(null)
@@ -516,6 +744,9 @@ function LeadCard({ lead, selected, pending, onSelect, onLog, onSkip, onOpen }: 
             <span className={cn('inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-2xs font-medium', t.badge)}>
               <span className={cn('h-1.5 w-1.5 rounded-full', t.dot)} /> {t.label}
             </span>
+            {(tags ?? []).map((t) => (
+              <span key={t.key} className={cn('rounded-full px-1.5 py-0.5 text-2xs font-medium', TAG_CHIP_CLASS[t.key])}>{t.label}</span>
+            ))}
             {overdue && <span className="rounded bg-jubo-red/10 px-1.5 py-0.5 text-2xs font-semibold text-jubo-red">Overdue</span>}
             {selected && <span className="rounded bg-jubo-navy/15 px-1.5 py-0.5 text-2xs font-medium text-jubo-navy">Next</span>}
           </div>

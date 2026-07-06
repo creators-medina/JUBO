@@ -13,6 +13,7 @@ export type CandidateSignal = {
   title: string
   boardId: string | null
   boardSlug: string | null
+  boardName: string | null
   recordType: string | null
   groupName: string | null
   value: number | null
@@ -33,6 +34,8 @@ export type ScoredLead = {
   title: string
   boardId: string | null
   boardSlug: string | null
+  boardName: string | null
+  recordType: string | null
   groupName: string | null
   temperature: LeadTemperature
   score: number
