@@ -8,10 +8,11 @@
 //   • WORK LOANS — active pipeline (boards with board_type 'pipeline', plus
 //                  journey-named boards), with real counts and dollar totals.
 //
-// All numbers are REAL: one org-scoped, RLS-protected, read-only query over
-// records (board_id, value, parent_record_id) drives the per-board count
-// pills, the rolled-up section counts, and the pipeline card (sum / count /
-// avg of records.value — the same money source the board header uses).
+// All numbers are REAL and READ-ONLY: org-scoped, RLS-protected queries drive
+// the per-board count pills, the rolled-up section counts, and the pipeline
+// card. Dollar totals resolve each record's base loan amount the SAME way the
+// board header does — the loan_amount FIELD value (field_values), falling back
+// to the legacy records.value column — so header and sidebar never contradict.
 // Nothing is written except the existing boards.position reorder.
 //
 // Sections are PRESENTATION-ONLY (derived from stored board_type + name
@@ -33,6 +34,7 @@ import { useSidebarSectionCollapsed } from '@/hooks/useSidebarSectionCollapsed'
 import { useSidebarSectionLabel } from '@/hooks/useSidebarSectionLabel'
 import { InlineRenameText } from '@/components/primitives/InlineRenameText'
 import { formatVolume } from './BoardStageSummary'
+import { pickLoanAmountFieldId, resolveLoanAmount } from '@/features/fields/loanAmount'
 import { cn } from '@/lib/utils'
 
 /** Cross-component board-rename signal (e.g. renamed from the board page
@@ -47,7 +49,7 @@ interface Board {
   position?: number
 }
 
-type RecordRow = { board_id: string | null; value: number | null; parent_record_id: string | null }
+type RecordRow = { id: string; board_id: string | null; value: number | null; parent_record_id: string | null }
 
 // Work Loans = the active loan pipeline. Primary signal is the STORED
 // board_type ('pipeline'); the name matchers only catch journey boards that
@@ -71,6 +73,8 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   const router = useRouter()
   const [boards, setBoards] = useState<Board[]>([])
   const [recordRows, setRecordRows] = useState<RecordRow[]>([])
+  // record_id → its board's loan_amount FIELD value (value_number), when set.
+  const [loanByRecord, setLoanByRecord] = useState<Map<string, number>>(new Map())
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   // Board currently being renamed inline — pauses that item's drag + navigation.
@@ -111,14 +115,45 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
       }
       if (!cancelled) setBoards(rows)
 
-      // READ-ONLY aggregate source: three tiny columns per active record,
-      // org-scoped by RLS. Drives counts + pipeline value; never written.
+      // READ-ONLY aggregate source: tiny columns per active record, org-scoped
+      // by RLS. Drives counts + pipeline value; never written.
       const recs = await supabase
         .from('records')
-        .select('board_id, value, parent_record_id')
+        .select('id, board_id, value, parent_record_id')
         .eq('organization_id', currentOrganization.id)
         .eq('is_archived', false)
       if (!cancelled) setRecordRows(((recs.data ?? []) as RecordRow[]))
+
+      // Resolve each record's base loan amount the SAME way the board header
+      // does: the loan_amount FIELD value. Load the org's currency fields, pick
+      // the loan-amount field per board (precisely — not appraised/property
+      // value), then read only those fields' values. Read-only; no writes.
+      const { data: fieldRows } = await supabase
+        .from('fields')
+        .select('id, board_id, slug, name, field_type, common_field_key_id, is_default_status')
+        .eq('organization_id', currentOrganization.id)
+        .eq('field_type', 'currency')
+      const byBoard = new Map<string, typeof fieldRows>()
+      for (const f of (fieldRows ?? [])) {
+        const arr = byBoard.get(f.board_id as string) ?? []
+        arr.push(f); byBoard.set(f.board_id as string, arr)
+      }
+      const loanFieldIds: string[] = []
+      for (const arr of byBoard.values()) {
+        const id = pickLoanAmountFieldId(arr ?? [])
+        if (id) loanFieldIds.push(id)
+      }
+      const map = new Map<string, number>()
+      if (loanFieldIds.length > 0) {
+        const { data: fvRows } = await supabase
+          .from('field_values')
+          .select('record_id, field_id, value_number')
+          .in('field_id', loanFieldIds)
+        for (const fv of (fvRows ?? [])) {
+          if (typeof fv.value_number === 'number') map.set(fv.record_id as string, fv.value_number)
+        }
+      }
+      if (!cancelled) setLoanByRecord(map)
     })()
     return () => { cancelled = true }
   }, [currentOrganization])
@@ -155,12 +190,14 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
       if (!r.board_id || r.parent_record_id) continue
       const s = m.get(r.board_id) ?? { count: 0, value: 0, valued: 0 }
       s.count += 1
-      const v = Number(r.value) || 0
-      if (v > 0) { s.value += v; s.valued += 1 }
+      // Loan_amount field value first, then legacy records.value — same order as
+      // the board header, so the two totals agree.
+      const v = resolveLoanAmount(loanByRecord.get(r.id) ?? null, r.value)
+      if (v != null && v > 0) { s.value += v; s.valued += 1 }
       m.set(r.board_id, s)
     }
     return m
-  }, [recordRows])
+  }, [recordRows, loanByRecord])
 
   const generateBoards = useMemo(() => boards.filter((b) => !isWorkLoansBoard(b)), [boards])
   const workLoanBoards = useMemo(() => boards.filter(isWorkLoansBoard), [boards])

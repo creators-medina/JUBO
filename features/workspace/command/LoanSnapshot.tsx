@@ -13,7 +13,7 @@
 
 import { Landmark, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { textValue, numberValue, dateValue, formatCurrency, formatDate } from '@/features/mortgage/data'
+import { textValue, numberValue, dateValue, formatCurrency, formatDate, loanAmountValue } from '@/features/mortgage/data'
 import type { MortgageData } from '@/features/mortgage/types'
 
 function pct(data: MortgageData, slug: string): string | null {
@@ -26,7 +26,7 @@ function pct(data: MortgageData, slug: string): string | null {
 type Tile = { label: string; value: string }
 
 export function LoanSnapshot({ data }: { data: MortgageData }) {
-  const amount = numberValue(data, 'loan_amount')
+  const amount = loanAmountValue(data)
   const loanType = textValue(data, 'loan_type')
   const rate = numberValue(data, 'current_rate')
   const purpose = textValue(data, 'loan_purpose')
