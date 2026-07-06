@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { X, Maximize2, ArrowRightLeft, Phone, Mail } from 'lucide-react'
 import { MoveToBoardDialog } from '@/features/boards/components/MoveToBoardDialog'
 import { InlineRenameText } from '@/components/primitives/InlineRenameText'
+import { deriveContactTags } from '@/features/prospecting/themeBuckets'
 import { updateRecord } from '@/features/records/actions'
 import { createClient } from '@/lib/supabase/client'
 import { useWorkspaceTabs } from '../providers/WorkspaceTabsProvider'
@@ -178,6 +179,19 @@ function WorkspaceContent({
   const phone = useMemo(() => fieldValBySlug('phone', 'phone'), [fieldValBySlug])
   const email = useMemo(() => fieldValBySlug('email', 'email'), [fieldValBySlug])
   const subline = [roleLabel, boardName, ownerName].filter(Boolean).join(' · ')
+  // Derived category chips (Realtor/Agent · Active File · Pre-App · Past
+  // Client · VIP) — read-only, from existing board/stage/type data. A true
+  // editable tag model is a future backend phase.
+  const contactTags = useMemo(() => {
+    if (!data) return []
+    const group = data.groups.find((g) => g.id === data.record.group_id)
+    return deriveContactTags({
+      boardName: data.board?.name ?? null,
+      boardSlug: data.board?.slug ?? null,
+      groupName: group?.name ?? null,
+      recordType: (data.record as { record_type?: string | null }).record_type ?? null,
+    })
+  }, [data])
 
   return (
     // Phase C-LAYOUT — the record file is a CENTERED floating modal over a dimmed,
@@ -239,6 +253,15 @@ function WorkspaceContent({
                   {subline}
                   {phone ? <>{subline ? ' · ' : ''}<span className="tabular-nums text-white/80">{phone}</span></> : null}
                 </p>
+              )}
+              {contactTags.length > 0 && (
+                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  {contactTags.map((t) => (
+                    <span key={t.key} className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white/85">
+                      {t.label}
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
           </div>

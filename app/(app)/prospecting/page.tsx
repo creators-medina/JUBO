@@ -23,7 +23,7 @@ export default async function ProspectingPage() {
   if (!membership) redirect('/onboarding')
   const orgId = membership.organization_id
 
-  const [queue, session, metrics, followUpsDue, sessions, streak, contactedToday] = await Promise.all([
+  const [queue, session, metrics, followUpsDue, sessions, streak, contactedToday, boardsRes] = await Promise.all([
     buildCallQueue(orgId),
     getActiveSession(orgId, user.id),
     getProspectingMetrics(orgId, user.id),
@@ -31,6 +31,8 @@ export default async function ProspectingPage() {
     getRecentSessions(orgId, user.id),
     getProspectingStreak(orgId, user.id),
     getContactedToday(orgId, user.id),
+    // Read-only board list — powers the theme-day "Add more…" links only.
+    supabase.from('boards').select('id, name, slug').eq('organization_id', orgId).eq('is_archived', false),
   ])
   const liveStats = session ? await getLiveSessionStats(session) : null
   const themeDay = getThemeDay()
@@ -53,6 +55,7 @@ export default async function ProspectingPage() {
       contactedToday={contactedToday}
       followUpsDue={followUpsDue}
       sessions={sessions}
+      boards={(boardsRes.data ?? []) as { id: string; name: string; slug: string | null }[]}
     />
   )
 }

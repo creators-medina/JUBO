@@ -102,6 +102,8 @@ export function scoreCandidate(sig: CandidateSignal, opts: { themeBoardSlug?: st
     title: sig.title,
     boardId: sig.boardId,
     boardSlug: sig.boardSlug,
+    boardName: sig.boardName,
+    recordType: sig.recordType,
     groupName: sig.groupName,
     temperature,
     score: Math.round(score),
