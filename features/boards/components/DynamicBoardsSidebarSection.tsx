@@ -30,6 +30,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useOrganization } from '@/providers/OrganizationProvider'
 import { reorderBoards, updateBoard } from '@/features/boards/actions'
 import { useSidebarSectionCollapsed } from '@/hooks/useSidebarSectionCollapsed'
+import { useSidebarSectionLabel } from '@/hooks/useSidebarSectionLabel'
 import { InlineRenameText } from '@/components/primitives/InlineRenameText'
 import { formatVolume } from './BoardStageSummary'
 import { cn } from '@/lib/utils'
@@ -78,6 +79,11 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   // Monday-style collapsible groups (localStorage-persisted, default open).
   const generateSection = useSidebarSectionCollapsed('generate')
   const workLoansSection = useSidebarSectionCollapsed('workloans')
+  // Editable section labels (double-click) — same per-browser localStorage
+  // convention as the collapse state; the sections themselves are derived,
+  // so there is no backend column to write.
+  const generateLabel = useSidebarSectionLabel('generate', 'Generate')
+  const workLoansLabel = useSidebarSectionLabel('workloans', 'Work Loans')
 
   useEffect(() => {
     if (!currentOrganization) return
@@ -345,13 +351,14 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
           <SectionHeader
             icon={<UserPlus className="h-3.5 w-3.5" />}
             chipClass="bg-emerald-400/15 text-emerald-300"
-            label="Generate"
+            label={generateLabel.label}
             sublabel="Leads & partners"
             count={sectionCount(generateBoards)}
             addHref="/boards"
             addTitle="Add board"
             isCollapsed={generateSection.collapsed && !q}
             onToggle={generateSection.toggle}
+            onRenameLabel={generateLabel.rename}
           />
           {(!generateSection.collapsed || q) && (<>
           {showConversations && (
@@ -379,13 +386,14 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
           <SectionHeader
             icon={<FileText className="h-3.5 w-3.5" />}
             chipClass="bg-sky-400/15 text-sky-300"
-            label="Work Loans"
+            label={workLoansLabel.label}
             sublabel="Active pipeline"
             count={sectionCount(workLoanBoards)}
             addHref="/boards"
             addTitle="Add board"
             isCollapsed={workLoansSection.collapsed && !q}
             onToggle={workLoansSection.toggle}
+            onRenameLabel={workLoansLabel.rename}
           />
           {(!workLoansSection.collapsed || q) && visWorkLoans.map((b) => renderBoard(b, !q))}
         </div>
@@ -416,7 +424,7 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
  *  SIBLING element, so adding never collapses the group. Count and quick-add
  *  stay visible while collapsed. */
 export function SectionHeader({
-  icon, chipClass, label, sublabel, count, addHref, addTitle, onAdd, isCollapsed, onToggle,
+  icon, chipClass, label, sublabel, count, addHref, addTitle, onAdd, isCollapsed, onToggle, onRenameLabel,
 }: {
   icon: React.ReactNode
   chipClass: string
@@ -429,7 +437,52 @@ export function SectionHeader({
   /** When provided (with onToggle), the header toggles its group. */
   isCollapsed?: boolean
   onToggle?: () => void
+  /** When provided, double-clicking the label edits it inline (Enter saves,
+   *  Escape cancels, empty cancels). Persistence is the caller's concern. */
+  onRenameLabel?: (next: string) => void
 }) {
+  const [editingLabel, setEditingLabel] = useState(false)
+  const [labelDraft, setLabelDraft] = useState('')
+  const beginLabelEdit = (e: React.SyntheticEvent) => {
+    if (!onRenameLabel) return
+    e.preventDefault()
+    e.stopPropagation() // never toggles collapse or starts navigation
+    setLabelDraft(label)
+    setEditingLabel(true)
+  }
+  const commitLabel = () => {
+    setEditingLabel(false)
+    const next = labelDraft.trim()
+    if (next && next !== label) onRenameLabel?.(next) // empty/unchanged → cancel
+  }
+
+  // Edit mode replaces the toggle button with a plain row + input so typing
+  // can never collapse the group or trigger navigation.
+  if (editingLabel) {
+    return (
+      <div className="flex items-center gap-1 px-1 pb-1 pt-1.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2 px-1 py-0.5">
+          <span className={cn('flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md', chipClass)}>
+            {icon}
+          </span>
+          <input
+            autoFocus
+            value={labelDraft}
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setLabelDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); commitLabel() }
+              if (e.key === 'Escape') { e.preventDefault(); setEditingLabel(false) }
+            }}
+            onBlur={commitLabel}
+            aria-label="Rename section"
+            className="w-full min-w-0 rounded border border-white/30 bg-white/10 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-foreground focus:outline-none focus:ring-1 focus:ring-white/40"
+          />
+        </div>
+      </div>
+    )
+  }
+
   const labelBlock = (
     <>
       {onToggle && (
@@ -444,7 +497,13 @@ export function SectionHeader({
         {icon}
       </span>
       <div className="min-w-0 flex-1 text-left leading-tight">
-        <p className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-foreground/90">{label}</p>
+        <p
+          className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-foreground/90"
+          title={onRenameLabel ? 'Double-click to rename' : undefined}
+          onDoubleClick={onRenameLabel ? beginLabelEdit : undefined}
+        >
+          {label}
+        </p>
         <p className="truncate text-[10px] text-foreground/50">{sublabel}</p>
       </div>
       {typeof count === 'number' && count > 0 && (

@@ -37,6 +37,7 @@ import {
 import { cn } from '@/lib/utils'
 import { SidebarItem } from './SidebarItem'
 import { DynamicBoardsSidebarSection, SectionHeader } from '@/features/boards/components/DynamicBoardsSidebarSection'
+import { useSidebarSectionLabel } from '@/hooks/useSidebarSectionLabel'
 import { DynamicDashboardsSidebarSection } from '@/features/dashboards/components/DynamicDashboardsSidebarSection'
 import { CreateDashboardModal } from '@/features/dashboards/components/CreateDashboardModal'
 import { useOrganization } from '@/providers/OrganizationProvider'
@@ -83,6 +84,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   // Monday-style collapsible groups (localStorage-persisted, default open).
   const insightsSection = useSidebarSectionCollapsed('insights')
   const setupSection = useSidebarSectionCollapsed('setup')
+  const insightsLabel = useSidebarSectionLabel('insights', 'Insights')
+  const setupLabel = useSidebarSectionLabel('setup', 'Setup')
 
   // ⌘K / Ctrl+K focuses the jump box (real shortcut, not a decorative hint).
   useEffect(() => {
@@ -205,12 +208,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               <SectionHeader
                 icon={<LineChart className="h-3.5 w-3.5" />}
                 chipClass="bg-violet-400/15 text-violet-300"
-                label="Insights"
+                label={insightsLabel.label}
                 sublabel="Dashboards"
                 onAdd={() => setShowCreateDashboard(true)}
                 addTitle="New dashboard"
                 isCollapsed={insightsSection.collapsed && !q}
                 onToggle={insightsSection.toggle}
+                onRenameLabel={insightsLabel.rename}
               />
             )}
             {(collapsed || !insightsSection.collapsed || !!q) && (<>
@@ -241,10 +245,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               <SectionHeader
                 icon={<Wrench className="h-3.5 w-3.5" />}
                 chipClass="bg-amber-400/15 text-amber-300"
-                label="Setup"
+                label={setupLabel.label}
                 sublabel="Automations & tools"
                 isCollapsed={setupSection.collapsed && !q}
                 onToggle={setupSection.toggle}
+                onRenameLabel={setupLabel.rename}
               />
             )}
             {(collapsed || !setupSection.collapsed || !!q) && visSetup.map((item) => (
