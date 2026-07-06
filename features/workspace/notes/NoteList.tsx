@@ -16,7 +16,8 @@
 
 import { useState, useEffect, useRef, useTransition, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { StickyNote, Trash2, Plus, Save, Search, ListChecks, Loader2, Check } from 'lucide-react'
+import { StickyNote, Trash2, Plus, Save, Search, ListChecks, Loader2, Check, ChevronDown, FileText } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from '@/lib/date'
 import { useToast } from '@/features/feedback/ToastProvider'
@@ -111,20 +112,23 @@ export function NoteList({
 
   return (
     <div className="space-y-3">
-      {/* Quick templates — insert text only; the user edits then saves. */}
+      {/* Quick templates — dropdown menu; selecting inserts text into the
+          composer only (nothing saves until Add note). */}
       {prominent && (
-        <div className="flex flex-wrap gap-1">
-          {NOTE_TEMPLATES.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => insertTemplate(t)}
-              title="Insert into the note — nothing is saved until you click Add note"
-              className="rounded-full border border-border bg-surface-1 px-2 py-0.5 text-2xs text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
-            >
-              {t.replace(/\.$/, '')}
-            </button>
-          ))}
+        <div className="flex items-center justify-between gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-1 px-2.5 py-1 text-2xs font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground">
+              <FileText className="h-3 w-3" /> Quick templates <ChevronDown className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="jubo-los-scope max-h-72 w-64 overflow-y-auto bg-card border-border">
+              {NOTE_TEMPLATES.map((t) => (
+                <DropdownMenuItem key={t} className="cursor-pointer text-xs" onClick={() => insertTemplate(t)}>
+                  {t.replace(/\.$/, '')}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <span className="truncate text-2xs text-muted-foreground/70">Inserts into the note — edit, then Add note</span>
         </div>
       )}
 
