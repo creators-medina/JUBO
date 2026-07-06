@@ -294,10 +294,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </div>
       </div>
 
-      {/* Collapse toggle */}
+      {/* Collapse toggle — straddles the sidebar/content divider, so it must
+          be a SOLID chip (explicit navy + shadow). The navy-chrome scoped
+          tokens it used before are translucent whites that read as a broken
+          smudge over the light content side. */}
       <button
         onClick={onToggle}
-        className="absolute -right-3 top-14 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface-2 text-muted-foreground transition-colors hover:bg-surface-3 hover:text-foreground"
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        className="absolute -right-3 top-14 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-white/25 bg-jubo-navy text-white/80 shadow-md transition-colors hover:bg-jubo-navy2 hover:text-white"
       >
         {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
       </button>
