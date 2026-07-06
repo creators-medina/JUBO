@@ -41,6 +41,9 @@ interface Props {
   fieldVisibility?: FieldVisibilityRow[]
   records: any[]
   fieldValues: any[]
+  /** Distinct records with a non-internal communication logged since Monday
+   *  (read-only; powers the week ring + per-stage progress). */
+  contactedThisWeek?: { total: number; byGroup: Record<string, number> }
   organizationId: string
   notesByRecord?: Record<string, import('@/features/workspace/notes/queries').NotesSummary>
 }
@@ -62,7 +65,7 @@ const STATUS_OPTIONS: { value: RecordStatus | ''; label: string }[] = [
   { value: 'on_hold', label: 'On Hold' },
 ]
 
-export function BoardDetailClient({ board, groups, fields, fieldVisibility, records: serverRecords, fieldValues, organizationId, notesByRecord }: Props) {
+export function BoardDetailClient({ board, groups, fields, fieldVisibility, records: serverRecords, fieldValues, organizationId, notesByRecord, contactedThisWeek }: Props) {
   const router = useRouter()
   const isMutating = useRef(false)
 
@@ -568,79 +571,46 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
           palette (cream surfaces / tan borders / dusty-red primary) via scoped
           token overrides; the dark app shell remains the navy frame. */}
       <div className="jubo-los-scope flex flex-col h-full min-h-0">
-        {/* Board header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border flex-shrink-0">
-          <Link href="/boards" className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
+        {/* Header redesign — Row 1: slim navy identity strip (back · name ·
+            type badge). The rename affordance lives here; the big title below
+            is display-only, matching the reference. */}
+        <div className="jubo-navy-chrome flex flex-shrink-0 items-center gap-3 bg-jubo-navy px-4 py-2">
+          <Link href="/boards" className="flex-shrink-0 text-white/60 transition-colors hover:text-white">
             <ChevronLeft className="w-4 h-4" />
           </Link>
-          <div className="flex-1 min-w-0">
-            {/* Title row — dot · name (+ pencil) · type badge. min-w-0 + truncate
-                keep long names from colliding with the badge or actions; the
-                badge and pencil never shrink. */}
-            <div className="flex min-w-0 items-center gap-2">
-              {board.color && <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: board.color }} />}
-              <h2 className="flex min-w-0 items-center gap-1 text-sm font-semibold leading-5 text-foreground">
-                {/* Inline rename — existing updateBoard action (boards.name only);
-                    the sidebar picks the change up via the rename event. */}
-                <InlineRenameText
-                  value={board.name}
-                  pencil
-                  className="truncate"
-                  inputClassName="text-sm font-semibold"
-                  onSave={async (next) => {
-                    await updateBoard(board.id, { name: next })
-                    window.dispatchEvent(new CustomEvent(BOARD_RENAMED_EVENT, { detail: { boardId: board.id, name: next } }))
-                    router.refresh()
-                  }}
-                />
-              </h2>
-              <span className="flex-shrink-0 whitespace-nowrap text-2xs px-1.5 py-0.5 rounded-full bg-surface-2 text-muted-foreground capitalize border border-border">{board.board_type}</span>
-            </div>
-            {board.description && (
-              <p className="mt-0.5 max-w-3xl truncate text-xs text-muted-foreground" title={board.description}>
-                {board.description}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Button size="sm" variant="ghost" className="text-xs h-7 gap-1" onClick={() => setShowCreateGroup(true)}>
-              <Plus className="w-3 h-3" />Group
-            </Button>
-            <Button size="sm" variant="ghost" className="text-xs h-7 gap-1" title="Automate" onClick={() => setShowAutomate(true)}>
-              <Zap className="w-3.5 h-3.5" />Automate
-            </Button>
-            <Button size="icon" variant="ghost" className="w-7 h-7" title="Settings" onClick={() => setShowSettings(true)}>
-              <Settings className="w-3.5 h-3.5" />
-            </Button>
-            <div className="relative" ref={boardMenuRef}>
-              <Button size="icon" variant="ghost" className="w-7 h-7" title="Board menu" onClick={() => setShowBoardMenu((o) => !o)}>
-                {boardBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MoreVertical className="w-3.5 h-3.5" />}
-              </Button>
-              {showBoardMenu && (
-                <div className="absolute right-0 top-8 z-50 w-52 rounded-lg border border-border bg-card p-1 shadow-xl">
-                  <button type="button" onClick={() => { setShowBoardMenu(false); setShowSettings(true) }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
-                    <Pencil className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Rename board
-                  </button>
-                  <button type="button" onClick={onDuplicateBoard} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
-                    <Copy className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Duplicate structure
-                  </button>
-                  {!hasNotesColumn && (
-                    <button type="button" onClick={onAddNotesColumn} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
-                      <StickyNote className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Add Notes column
-                    </button>
-                  )}
-                  <div className="my-1 border-t border-border" />
-                  <button type="button" onClick={() => { setShowBoardMenu(false); setConfirmArchiveBoard(true) }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-destructive hover:bg-surface-1">
-                    <Archive className="h-3.5 w-3.5 flex-shrink-0 text-destructive" />Archive board
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          <h2 className="flex min-w-0 items-center gap-1 text-sm font-bold leading-5 text-white">
+            {/* Inline rename — existing updateBoard action (boards.name only);
+                the sidebar picks the change up via the rename event. */}
+            <InlineRenameText
+              value={board.name}
+              pencil
+              className="truncate"
+              inputClassName="text-sm font-bold bg-white/10 border-white/30 text-white focus:ring-white/50"
+              onSave={async (next) => {
+                await updateBoard(board.id, { name: next })
+                window.dispatchEvent(new CustomEvent(BOARD_RENAMED_EVENT, { detail: { boardId: board.id, name: next } }))
+                router.refresh()
+              }}
+            />
+          </h2>
+          <span className="flex-shrink-0 whitespace-nowrap rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/70">{board.board_type}</span>
         </div>
 
-        {/* Search + filter bar */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0 flex-wrap">
+        {/* Row 2 — big title (left) + the full toolbar (right): view toggle ·
+            search · filters · + Group · Automate · settings · menu. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 pb-2.5 pt-3 flex-shrink-0">
+          <div className="flex min-w-0 items-center gap-2.5">
+            {board.color && <div className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: board.color }} />}
+            <h1 className="truncate text-xl font-bold leading-tight tracking-tight text-jubo-navy" title={board.description || board.name}>
+              {board.name}
+            </h1>
+            <span className="flex-shrink-0 whitespace-nowrap rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{board.board_type}</span>
+            <span className="flex-shrink-0 whitespace-nowrap text-xs text-muted-foreground tabular-nums">
+              {topLevelRecords.length} {topLevelRecords.length === 1 ? 'contact' : 'contacts'}
+            </span>
+          </div>
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+
           {/* Kanban | Table toggle — left-aligned (Phase 37B-1, client-only, no persistence). */}
           <div className="inline-flex items-center rounded-md border border-border bg-jubo-card-soft p-0.5">
             <button
@@ -746,7 +716,44 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
               </select>
             </>
           )}
+            <div aria-hidden className="mx-1 hidden h-5 w-px bg-border sm:block" />
+            <Button size="sm" variant="ghost" className="text-xs h-7 gap-1 rounded-lg border border-border bg-card" onClick={() => setShowCreateGroup(true)}>
+              <Plus className="w-3 h-3" />Group
+            </Button>
+            <Button size="sm" variant="ghost" className="text-xs h-7 gap-1 rounded-lg border border-border bg-card" title="Automate" onClick={() => setShowAutomate(true)}>
+              <Zap className="w-3.5 h-3.5" />Automate
+            </Button>
+            <Button size="icon" variant="ghost" className="w-7 h-7 rounded-lg border border-border bg-card" title="Settings" onClick={() => setShowSettings(true)}>
+              <Settings className="w-3.5 h-3.5" />
+            </Button>
+            <div className="relative" ref={boardMenuRef}>
+              <Button size="icon" variant="ghost" className="w-7 h-7 rounded-lg border border-border bg-card" title="Board menu" onClick={() => setShowBoardMenu((o) => !o)}>
+                {boardBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MoreVertical className="w-3.5 h-3.5" />}
+              </Button>
+              {showBoardMenu && (
+                <div className="absolute right-0 top-8 z-50 w-52 rounded-lg border border-border bg-card p-1 shadow-xl">
+                  <button type="button" onClick={() => { setShowBoardMenu(false); setShowSettings(true) }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
+                    <Pencil className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Rename board
+                  </button>
+                  <button type="button" onClick={onDuplicateBoard} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
+                    <Copy className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Duplicate structure
+                  </button>
+                  {!hasNotesColumn && (
+                    <button type="button" onClick={onAddNotesColumn} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
+                      <StickyNote className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Add Notes column
+                    </button>
+                  )}
+                  <div className="my-1 border-t border-border" />
+                  <button type="button" onClick={() => { setShowBoardMenu(false); setConfirmArchiveBoard(true) }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-destructive hover:bg-surface-1">
+                    <Archive className="h-3.5 w-3.5 flex-shrink-0 text-destructive" />Archive board
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+
+
 
         {/* Board content */}
         <div className="flex flex-1 min-h-0 flex-col">
@@ -757,8 +764,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                 countByGroup={filteredCountByGroup}
                 valueByGroup={filteredValueByGroup}
                 valuedCountByGroup={filteredValuedCountByGroup}
-                phaseLabel={board.name}
-                badge={board.board_type}
+                contactedThisWeek={contactedThisWeek}
                 settings={displaySettings}
                 onChangeSettings={handleChangeDisplaySettings}
               />
