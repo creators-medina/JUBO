@@ -1,22 +1,22 @@
 'use client'
 
 // ─────────────────────────────────────────────────────────────────────────
-// BoardPhaseSummaryGraph (Phase 5M) — the compact board "Top Phase Summary"
-// header, matching the uploaded reference:
-//   • LEFT: board title + a small "Pipeline" badge, with optional role chips.
-//   • RIGHT: a compact KPI cluster (contacts · pipeline value · leading stage).
-//   • a thin divider, then a "BY STAGE · CONTACTS & VALUE" label row (+ total).
-//   • rounded stage pills: a small count ring, the stage name, and its value.
-// Flat strip (no big boxed card) so the board columns sit close to the top.
+// BoardPhaseSummaryGraph — the board "Top Phase Summary", matching the Header
+// Redesign reference:
+//   • stat cards: [Contacts] [$ Pipeline] [This-week ring — X of N contacted]
+//   • a "BY STAGE · PROGRESS" label row (+ total value on the right)
+//   • rounded stage pills: mini progress ring (% contacted this week), the
+//     stage name, and "count · $value".
+// The board title/badge live in the page header above — never duplicated here.
 //
-// Every number is derived from the already-loaded, visible/filtered counts &
-// values passed in — no queries, no engine/schema changes. A per-board display
-// settings object toggles what shows; hiding money only HIDES it (values are
-// never changed or deleted).
+// Every number is derived from the already-loaded counts/values plus the
+// read-only contacted-this-week map passed in — no queries here, no engine or
+// schema changes. The per-board display settings object toggles what shows;
+// hiding money only HIDES it (values are never changed or deleted).
 // ─────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef, useState } from 'react'
-import { SlidersHorizontal, Check } from 'lucide-react'
+import { SlidersHorizontal, Check, Users, DollarSign } from 'lucide-react'
 import { stageColor, formatVolume } from './BoardStageSummary'
 import { cn } from '@/lib/utils'
 
@@ -41,9 +41,9 @@ interface Props {
   countByGroup: Record<string, number>
   valueByGroup?: Record<string, number>
   valuedCountByGroup?: Record<string, number>
-  phaseLabel?: string
-  /** Small pill beside the title (e.g. the board type). Hidden when absent. */
-  badge?: string
+  /** Distinct records contacted (non-internal comm log) since Monday — total
+   *  plus per-stage counts. Omitted → the week card and rings hide/show 0. */
+  contactedThisWeek?: { total: number; byGroup: Record<string, number> }
   /** Role chips — omit/empty → the chip row is hidden (never invented). */
   roleChips?: RoleChip[]
   /** Per-board display prefs (undefined values default to shown). */
@@ -53,7 +53,7 @@ interface Props {
 }
 
 export function BoardPhaseSummaryGraph({
-  groups, countByGroup, valueByGroup, valuedCountByGroup, phaseLabel, badge, roleChips, settings, onChangeSettings,
+  groups, countByGroup, valueByGroup, valuedCountByGroup, contactedThisWeek, roleChips, settings, onChangeSettings,
 }: Props) {
   if (groups.length < 2) return null
 
@@ -61,7 +61,6 @@ export function BoardPhaseSummaryGraph({
   // dollar figure; stage values additionally gate the per-stage amounts.
   const showMoney = settings?.showMoney !== false
   const showContacts = settings?.showContacts !== false
-  const showLeading = settings?.showLeadingStage !== false
   const showChips = settings?.showRoleChips !== false
   const showStageValues = showMoney && settings?.showStageValues !== false
 
@@ -72,128 +71,117 @@ export function BoardPhaseSummaryGraph({
     count: countByGroup[g.id] ?? 0,
     value: valueByGroup?.[g.id] ?? 0,
     valuedCount: valuedCountByGroup?.[g.id] ?? 0,
+    contacted: contactedThisWeek?.byGroup?.[g.id] ?? 0,
   }))
 
   const total = segments.reduce((s, x) => s + x.count, 0)
   const totalValue = segments.reduce((s, x) => s + x.value, 0)
-  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0)
-  const leading = segments.reduce((a, b) => (b.count > a.count ? b : a), segments[0])
+  const contacted = Math.min(contactedThisWeek?.total ?? 0, total)
+  const weekPct = total > 0 ? Math.round((contacted / total) * 100) : 0
 
   const chips = showChips ? (roleChips?.filter((c) => c.label || c.name) ?? []) : []
-  const stageLabel = showMoney ? 'By Stage · Contacts & Value' : 'By Stage · Contacts'
+  const stageLabel = 'By Stage · Progress'
 
   return (
     <div className="relative border-b border-jubo-border/60 px-0.5 pb-2.5">
-      {/* Top row — left: title + badge + chips · right: KPI cluster + settings. */}
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-        {/* Left cluster */}
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            {phaseLabel && (
-              <h3 className="truncate text-base font-bold leading-tight tracking-tight text-jubo-navy sm:text-lg" title={phaseLabel}>
-                {phaseLabel}
-              </h3>
-            )}
-            {badge && (
-              <span className="inline-flex items-center rounded-full border border-jubo-green/25 bg-jubo-green-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-jubo-green">
-                {badge}
-              </span>
-            )}
-          </div>
-          {chips.length > 0 && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              {chips.map((c, i) => (
-                <span key={`${c.label}-${i}`} className="inline-flex items-center gap-1.5 rounded-full border border-jubo-border bg-jubo-card-soft px-2 py-0.5 text-[11px] leading-tight">
-                  {c.label && <span className="font-semibold text-jubo-navy">{c.label}</span>}
-                  {c.name && <span className="text-jubo-muted">{c.name}</span>}
-                </span>
-              ))}
+      {/* Stat cards — Contacts · $ Pipeline · This-week outreach ring. */}
+      <div className="flex flex-wrap items-stretch gap-2.5">
+        {showContacts && (
+          <StatCard icon={<Users className="h-4 w-4" />} iconClass="bg-jubo-navy/10 text-jubo-navy" value={String(total)} label="Contacts" />
+        )}
+        {showMoney && (
+          <StatCard icon={<DollarSign className="h-4 w-4" />} iconClass="bg-jubo-gold-soft text-jubo-gold" value={formatVolume(totalValue) || '$0'} label="Pipeline" />
+        )}
+        {contactedThisWeek && total > 0 && (
+          <div className="flex min-w-[16rem] flex-1 items-center gap-3 rounded-xl border border-jubo-border bg-jubo-card-soft/60 px-3.5 py-2.5">
+            <Ring percent={weekPct} color="var(--jubo-green)" size={44}>
+              <span className="text-[10px] font-bold tabular-nums text-jubo-navy">{weekPct}%</span>
+            </Ring>
+            <div className="min-w-0 leading-tight">
+              <p className="text-sm font-bold text-jubo-navy">This week</p>
+              <p className="truncate text-xs text-jubo-muted tabular-nums">
+                {contacted} of {total} contacted this week
+              </p>
             </div>
-          )}
-        </div>
-
-        {/* Right cluster — compact KPIs + settings gear. */}
-        <div className="flex items-start gap-3">
-          <div className="flex flex-wrap items-center justify-end gap-x-5 gap-y-1">
-            {showContacts && <Kpi value={String(total)} unit="contacts" />}
-            {showMoney && <Kpi value={formatVolume(totalValue) || '$0'} unit="pipeline" />}
-            {showLeading && total > 0 && (
-              <Kpi value={String(leading.count)} unit={`${pct(leading.count)}% at ${leading.name}`} />
-            )}
           </div>
-          {onChangeSettings && (
+        )}
+        {onChangeSettings && (
+          <div className="ml-auto self-start">
             <SettingsMenu settings={settings} onChange={onChangeSettings} />
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* Divider + BY STAGE label row (+ total on the right when money is shown). */}
-      <div className="mt-2.5 flex items-center gap-3 border-t border-jubo-border/70 pt-2">
-        <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-jubo-muted">{stageLabel}</span>
+      {chips.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {chips.map((c, i) => (
+            <span key={`${c.label}-${i}`} className="inline-flex items-center gap-1.5 rounded-full border border-jubo-border bg-jubo-card-soft px-2 py-0.5 text-[11px] leading-tight">
+              {c.label && <span className="font-semibold text-jubo-navy">{c.label}</span>}
+              {c.name && <span className="text-jubo-muted">{c.name}</span>}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Divider + BY STAGE · PROGRESS label row (+ total when money shows). */}
+      <div className="mt-2.5 flex items-center gap-3 pt-0.5">
+        <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-jubo-gold">{stageLabel}</span>
         <div className="h-px flex-1 bg-jubo-border/70" />
         {showMoney && totalValue > 0 && (
           <span className="whitespace-nowrap text-xs font-semibold tabular-nums text-jubo-navy">{formatVolume(totalValue)} total</span>
         )}
       </div>
 
-      {/* Stage pills — ring + count, name, and (optional) value. Wraps cleanly. */}
-      <div className="mt-2.5 flex flex-wrap gap-2">
-        {segments.map((s) => (
-          <StagePill
-            key={s.id}
-            color={s.color}
-            count={s.count}
-            share={total > 0 ? s.count / total : 0}
-            name={s.name}
-            value={s.value}
-            percent={pct(s.count)}
-            showValue={showStageValues}
-          />
-        ))}
+      {/* Stage pills — mini progress ring (% contacted this week) · name ·
+          count (· value). Wraps cleanly. */}
+      <div className="mt-2 flex flex-wrap gap-2">
+        {segments.map((s) => {
+          const pct = s.count > 0 ? Math.round((Math.min(s.contacted, s.count) / s.count) * 100) : 0
+          return (
+            <div
+              key={s.id}
+              className="flex items-center gap-2 rounded-full border border-jubo-border bg-jubo-card px-2.5 py-1.5 shadow-sm"
+              title={`${s.name}: ${s.count} contact${s.count === 1 ? '' : 's'}${showStageValues ? ` · ${formatVolume(s.value) || '$0'}` : ''} · ${Math.min(s.contacted, s.count)} contacted this week`}
+            >
+              <Ring percent={pct} color={s.color} size={26}>
+                <span className="text-[8px] font-bold tabular-nums leading-none" style={{ color: s.color }}>{pct}%</span>
+              </Ring>
+              <span className="max-w-[9rem] truncate text-xs font-semibold text-jubo-navy" title={s.name}>{s.name}</span>
+              <span className="text-xs font-semibold tabular-nums text-jubo-text">{s.count}</span>
+              {showStageValues && (
+                <span className="text-xs font-bold tabular-nums" style={{ color: s.color }}>· {formatVolume(s.value) || '$0'}</span>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-/** One compact KPI: big navy number + a tiny unit label under it. */
-function Kpi({ value, unit }: { value: string; unit: string }) {
+/** One stat card: icon chip + big number over a small label. */
+function StatCard({ icon, iconClass, value, label }: { icon: React.ReactNode; iconClass: string; value: string; label: string }) {
   return (
-    <div className="text-right leading-tight">
-      <div className="text-lg font-bold tabular-nums text-jubo-navy">{value}</div>
-      <div className="max-w-[13rem] truncate text-[10px] text-jubo-muted">{unit}</div>
+    <div className="flex items-center gap-2.5 rounded-xl border border-jubo-border bg-jubo-card-soft/60 px-3.5 py-2.5">
+      <span className={cn('flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg', iconClass)}>{icon}</span>
+      <div className="leading-tight">
+        <p className="text-lg font-bold tabular-nums text-jubo-navy">{value}</p>
+        <p className="text-[10px] text-jubo-muted">{label}</p>
+      </div>
     </div>
   )
 }
 
-/** A rounded stage pill: small conic count-ring + stage name + optional value. */
-function StagePill({
-  color, count, share, name, value, percent, showValue,
-}: {
-  color: string
-  count: number
-  share: number
-  name: string
-  value: number
-  percent: number
-  showValue: boolean
-}) {
-  const deg = Math.max(0, Math.min(1, share)) * 360
-  const volume = formatVolume(value) || '$0'
+/** Thin conic progress ring with centered content. */
+function Ring({ percent, color, size, children }: { percent: number; color: string; size: number; children: React.ReactNode }) {
+  const deg = Math.max(0, Math.min(100, percent)) * 3.6
   return (
     <div
-      className="flex w-44 items-center gap-2.5 rounded-xl border border-jubo-border bg-jubo-card-soft/60 px-2.5 py-1.5"
-      title={`${name}: ${count} contact${count === 1 ? '' : 's'}${value > 0 ? ` · ${volume}` : ''} · ${percent}% of contacts`}
+      className="relative flex-shrink-0 rounded-full"
+      style={{ width: size, height: size, background: `conic-gradient(${color} ${deg}deg, ${RING_TRACK} 0deg)` }}
+      aria-hidden
     >
-      {/* Count ring — thin colored arc over a tan track. */}
-      <div className="relative h-9 w-9 flex-shrink-0 rounded-full" style={{ background: `conic-gradient(${color} ${deg}deg, ${RING_TRACK} 0deg)` }} aria-hidden>
-        <div className="absolute inset-[3px] flex items-center justify-center rounded-full bg-jubo-card">
-          <span className="text-xs font-bold tabular-nums leading-none" style={{ color }}>{count}</span>
-        </div>
-      </div>
-      <div className="min-w-0">
-        <div className="line-clamp-2 text-xs font-semibold leading-tight text-jubo-navy" title={name}>{name}</div>
-        {showValue && <div className="mt-0.5 text-xs font-bold tabular-nums leading-tight" style={{ color }}>{volume}</div>}
-      </div>
+      <div className="absolute inset-[3px] flex items-center justify-center rounded-full bg-jubo-card">{children}</div>
     </div>
   )
 }
@@ -212,7 +200,6 @@ function SettingsMenu({ settings, onChange }: { settings?: BoardDisplaySettings;
   const items: { key: keyof BoardDisplaySettings; label: string }[] = [
     { key: 'showMoney', label: 'Show money' },
     { key: 'showContacts', label: 'Show contacts total' },
-    { key: 'showLeadingStage', label: 'Show leading stage' },
     { key: 'showRoleChips', label: 'Show role chips' },
     { key: 'showStageValues', label: 'Show stage values' },
   ]
