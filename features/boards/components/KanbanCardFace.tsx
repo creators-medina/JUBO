@@ -11,6 +11,7 @@
 
 import { Building2, Clock, Mail, Phone, User } from 'lucide-react'
 import { parseOptions } from '@/features/fields/status'
+import { pickLoanAmountFieldId } from '@/features/fields/loanAmount'
 import { computeGroupChecklist } from '@/features/fields/checklist'
 import { type VisibilityIndex } from '@/features/fields/visibility'
 import { cn } from '@/lib/utils'
@@ -77,9 +78,11 @@ export function buildKanbanFace(opts: {
   const statusColor = statusLabel && dsf
     ? (parseOptions(dsf.config).find((o) => o.label === statusLabel)?.color || STATUS_EMPTY)
     : STATUS_EMPTY
-  // Loan amount / value → surfaced on the top-right (the one card accent value),
-  // so it isn't buried in the detail rows.
-  const currencyField = groupFields.find((f) => f.common_field_key_id && f.field_type === 'currency' && !f.is_default_status)
+  // Loan amount → surfaced on the top-right (the one card accent value). Resolve
+  // the loan_amount field PRECISELY (not "the first currency field") so
+  // appraised_value / property_value are never shown as the loan amount.
+  const loanFieldId = pickLoanAmountFieldId(groupFields)
+  const currencyField = loanFieldId ? groupFields.find((f) => f.id === loanFieldId) : undefined
   const amount = currencyField ? formatCellValue(currencyField, fvMap[currencyField.id]) : ''
   // Contact details (email / phone / other) — currency excluded, kept compact.
   const common = groupFields

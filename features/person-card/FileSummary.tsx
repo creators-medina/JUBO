@@ -18,7 +18,7 @@
 // gap; adding them is a separate backend/field phase). Nothing here writes.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { numberValue, textValue, dateValue, formatCurrency, formatDate } from '@/features/mortgage/data'
+import { numberValue, textValue, dateValue, formatCurrency, formatDate, loanAmountValue } from '@/features/mortgage/data'
 import type { LoanCommandData } from './actions'
 import { cn } from '@/lib/utils'
 
@@ -63,7 +63,7 @@ export function deriveLoanMetrics(loan: LoanCommandData): LoanMetrics {
   const n = (slug: string) => numberValue(loan, slug)
   const t = (slug: string) => textValue(loan, slug)
 
-  const base = n('loan_amount')
+  const base = loanAmountValue(loan)
   const appraised = n('appraised_value')
   // LTV — the same live derivation the Loan & Property tab displays.
   const ltv = appraised && appraised > 0 && base != null ? (base / appraised) * 100 : null

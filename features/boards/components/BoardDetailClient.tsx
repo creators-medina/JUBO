@@ -24,6 +24,7 @@ import { useBoardRealtime } from '@/hooks/useBoardRealtime'
 import { moveRecord, reorderRecords, updateRecord } from '@/features/records/actions'
 import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, isFieldVisibleInGroup, type FieldVisibilityRow } from '@/features/fields/visibility'
 import { computeGroupChecklist } from '@/features/fields/checklist'
+import { pickLoanAmountFieldId, loanAmountForSum } from '@/features/fields/loanAmount'
 import { reorderFields } from '@/features/fields/actions'
 import { createSavedView, reorderBoardGroups, duplicateBoardStructure, archiveBoard, updateBoard, updateBoardDisplaySettings } from '../actions'
 import { BOARD_RENAMED_EVENT } from './DynamicBoardsSidebarSection'
@@ -503,14 +504,10 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   // Kanban card, and hover preview display — falling back to the legacy
   // records.value column for records that only carry that. Same resolution
   // order the prospecting queue already uses. Read-only; no new query.
-  const amountFieldId = useMemo(() => {
-    const f = localFields.find((x) => x.slug === 'loan_amount')
-      ?? localFields.find((x) => x.common_field_key_id && x.field_type === 'currency' && !x.is_default_status)
-    return f?.id ?? null
-  }, [localFields])
+  const amountFieldId = useMemo(() => pickLoanAmountFieldId(localFields), [localFields])
   const recordAmount = useCallback((r: { id: string; value?: number | string | null }): number => {
     const n = amountFieldId ? fieldValuesIndex[r.id]?.[amountFieldId]?.value_number : null
-    return typeof n === 'number' ? n : (Number(r.value) || 0)
+    return loanAmountForSum(n, r.value)
   }, [amountFieldId, fieldValuesIndex])
 
   // Visible (post-filter/search) loan volume per group — sum of each record's
