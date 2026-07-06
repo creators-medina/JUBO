@@ -574,14 +574,18 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
             <ChevronLeft className="w-4 h-4" />
           </Link>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
+            {/* Title row — dot · name (+ pencil) · type badge. min-w-0 + truncate
+                keep long names from colliding with the badge or actions; the
+                badge and pencil never shrink. */}
+            <div className="flex min-w-0 items-center gap-2">
               {board.color && <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: board.color }} />}
-              <h2 className="text-sm font-semibold text-foreground">
+              <h2 className="flex min-w-0 items-center gap-1 text-sm font-semibold leading-5 text-foreground">
                 {/* Inline rename — existing updateBoard action (boards.name only);
                     the sidebar picks the change up via the rename event. */}
                 <InlineRenameText
                   value={board.name}
                   pencil
+                  className="truncate"
                   inputClassName="text-sm font-semibold"
                   onSave={async (next) => {
                     await updateBoard(board.id, { name: next })
@@ -590,9 +594,13 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                   }}
                 />
               </h2>
-              <span className="text-2xs px-1.5 py-0.5 rounded-full bg-surface-2 text-muted-foreground capitalize border border-border">{board.board_type}</span>
+              <span className="flex-shrink-0 whitespace-nowrap text-2xs px-1.5 py-0.5 rounded-full bg-surface-2 text-muted-foreground capitalize border border-border">{board.board_type}</span>
             </div>
-            {board.description && <p className="text-xs text-muted-foreground mt-0.5">{board.description}</p>}
+            {board.description && (
+              <p className="mt-0.5 max-w-3xl truncate text-xs text-muted-foreground" title={board.description}>
+                {board.description}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <Button size="sm" variant="ghost" className="text-xs h-7 gap-1" onClick={() => setShowCreateGroup(true)}>
