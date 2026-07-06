@@ -377,7 +377,7 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
               </div>
               <div className="min-h-[16rem] p-3.5">
                 {comms ? (
-                  <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} />
+                  <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} prominent taskContext={boardId ? { boardId } : undefined} onChanged={load} />
                 ) : <div className="flex items-center gap-2 py-2 text-2xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> …</div>}
               </div>
             </div>
@@ -493,7 +493,7 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
           <div className="space-y-4">
             <Section title="Notes">
               {comms ? (
-                <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} />
+                <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} prominent taskContext={boardId ? { boardId } : undefined} onChanged={load} />
               ) : <div className="flex items-center gap-2 py-2 text-2xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> …</div>}
             </Section>
           </div>
