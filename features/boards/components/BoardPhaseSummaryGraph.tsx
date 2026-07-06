@@ -94,8 +94,8 @@ export function BoardPhaseSummaryGraph({
         )}
         {contactedThisWeek && total > 0 && (
           <div className="flex min-w-[16rem] flex-1 items-center gap-3 rounded-xl border border-jubo-border bg-jubo-card-soft/60 px-3.5 py-2.5">
-            <Ring percent={weekPct} color="var(--jubo-green)" size={53}>
-              <span className="text-xs font-bold tabular-nums text-jubo-navy">{weekPct}%</span>
+            <Ring percent={weekPct} color="var(--jubo-green)" size={72}>
+              <span className="text-base font-bold tabular-nums text-jubo-navy">{weekPct}%</span>
             </Ring>
             <div className="min-w-0 leading-tight">
               <p className="text-sm font-bold text-jubo-navy">This week</p>
@@ -140,16 +140,16 @@ export function BoardPhaseSummaryGraph({
           return (
             <div
               key={s.id}
-              className="flex items-center gap-2.5 rounded-full border border-jubo-border bg-jubo-card px-3 py-2 shadow-sm"
+              className="flex items-center gap-3 rounded-full border border-jubo-border bg-jubo-card py-2 pl-2.5 pr-4 shadow-sm"
               title={`${s.name}: ${s.count} contact${s.count === 1 ? '' : 's'}${showStageValues ? ` · ${formatVolume(s.value) || '$0'}` : ''} · ${Math.min(s.contacted, s.count)} contacted this week`}
             >
-              <Ring percent={pct} color={s.color} size={31}>
-                <span className="text-[9px] font-bold tabular-nums leading-none" style={{ color: s.color }}>{pct}%</span>
+              <Ring percent={pct} color={s.color} size={44}>
+                <span className="text-[11px] font-bold tabular-nums leading-none" style={{ color: s.color }}>{pct}%</span>
               </Ring>
-              <span className="max-w-[10rem] truncate text-[13px] font-semibold text-jubo-navy" title={s.name}>{s.name}</span>
-              <span className="text-[13px] font-semibold tabular-nums text-jubo-text">{s.count}</span>
+              <span className="max-w-[11rem] truncate text-sm font-semibold text-jubo-navy" title={s.name}>{s.name}</span>
+              <span className="text-sm font-semibold tabular-nums text-jubo-text">{s.count}</span>
               {showStageValues && (
-                <span className="text-[13px] font-bold tabular-nums" style={{ color: s.color }}>· {formatVolume(s.value) || '$0'}</span>
+                <span className="text-sm font-bold tabular-nums" style={{ color: s.color }}>· {formatVolume(s.value) || '$0'}</span>
               )}
             </div>
           )
@@ -181,7 +181,7 @@ function Ring({ percent, color, size, children }: { percent: number; color: stri
       style={{ width: size, height: size, background: `conic-gradient(${color} ${deg}deg, ${RING_TRACK} 0deg)` }}
       aria-hidden
     >
-      <div className="absolute inset-[3px] flex items-center justify-center rounded-full bg-jubo-card">{children}</div>
+      <div className="absolute inset-1 flex items-center justify-center rounded-full bg-jubo-card">{children}</div>
     </div>
   )
 }
