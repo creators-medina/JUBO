@@ -1,9 +1,10 @@
 'use client'
 
-// Placement slot for a pseudo sidebar item (e.g. the "All Boards" link, which
-// is a static route — NOT a board record — and so lives outside the
-// boards.position reorder model). Mirrors the useSidebarSectionCollapsed /
-// useSidebarSectionLabel conventions: persisted per-browser in localStorage,
+// Placement preference for a pseudo sidebar item (e.g. the "All Boards" link,
+// which is a static route — NOT a board record — and so lives outside the
+// boards.position reorder model). Stores an opaque placement string the caller
+// parses/validates (e.g. "workloans:3"). Mirrors the useSidebarSectionCollapsed
+// / useSidebarSectionLabel conventions: persisted per-browser in localStorage,
 // hydration-safe via useSyncExternalStore (server snapshot = default), with
 // cross-tab sync. Nothing is written to Supabase; org-wide placement would
 // need a backend settings phase.
@@ -31,9 +32,9 @@ function read(item: string): string | null {
   }
 }
 
-export function useSidebarSlot<S extends string>(item: string, defaultSlot: S, valid: readonly S[]): {
-  slot: S
-  setSlot: (next: S) => void
+export function useSidebarSlot(item: string, defaultSlot: string): {
+  slot: string
+  setSlot: (next: string) => void
 } {
   const stored = useSyncExternalStore(
     subscribe,
@@ -41,7 +42,7 @@ export function useSidebarSlot<S extends string>(item: string, defaultSlot: S, v
     () => null, // server render: default slot
   )
 
-  const setSlot = useCallback((next: S) => {
+  const setSlot = useCallback((next: string) => {
     try {
       if (next === defaultSlot) window.localStorage.removeItem(KEY_PREFIX + item)
       else window.localStorage.setItem(KEY_PREFIX + item, next)
@@ -49,6 +50,5 @@ export function useSidebarSlot<S extends string>(item: string, defaultSlot: S, v
     notify()
   }, [item, defaultSlot])
 
-  const slot = (stored && (valid as readonly string[]).includes(stored) ? stored : defaultSlot) as S
-  return { slot, setSlot }
+  return { slot: stored ?? defaultSlot, setSlot }
 }
