@@ -32,6 +32,7 @@ import { useOrganization } from '@/providers/OrganizationProvider'
 import { reorderBoards, updateBoard } from '@/features/boards/actions'
 import { useSidebarSectionCollapsed } from '@/hooks/useSidebarSectionCollapsed'
 import { useSidebarSectionLabel } from '@/hooks/useSidebarSectionLabel'
+import { useSidebarSlot } from '@/hooks/useSidebarSlot'
 import { InlineRenameText } from '@/components/primitives/InlineRenameText'
 import { formatVolume } from './BoardStageSummary'
 import { pickLoanAmountFieldId, resolveLoanAmount } from '@/features/fields/loanAmount'
@@ -58,7 +59,7 @@ const WORK_LOAN_NAME_MATCHERS = [
   'phase', 'lead capture', 'post closing', 'post-closing', 'in process', 'underwrit', 'initial consult',
 ]
 
-function isWorkLoansBoard(b: Board): boolean {
+export function isWorkLoansBoard(b: { name: string; board_type: string }): boolean {
   if (b.board_type === 'pipeline') return true
   const n = b.name.toLowerCase()
   return WORK_LOAN_NAME_MATCHERS.some((m) => n.includes(m))
@@ -66,6 +67,10 @@ function isWorkLoansBoard(b: Board): boolean {
 
 // Drag payload key — distinct so it can't collide with other native DnD in the app.
 const DND_TYPE = 'text/jubo-board-id'
+// "All Boards" placement — its own payload type + the three valid slots.
+const ALLBOARDS_DND_TYPE = 'text/jubo-allboards'
+const ALL_BOARDS_SLOTS = ['top', 'between', 'bottom'] as const
+type AllBoardsSlot = (typeof ALL_BOARDS_SLOTS)[number]
 
 export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collapsed: boolean; filter?: string }) {
   const { currentOrganization } = useOrganization()
@@ -88,6 +93,12 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   // so there is no backend column to write.
   const generateLabel = useSidebarSectionLabel('generate', 'Generate')
   const workLoansLabel = useSidebarSectionLabel('workloans', 'Work Loans')
+  // "All Boards" is a static route (NOT a board record), so it lives outside
+  // the boards.position reorder model. Its placement among the sections is a
+  // per-browser slot preference — drag it to the top, between the sections,
+  // or back to the bottom.
+  const allBoards = useSidebarSlot('allboards', 'bottom', ALL_BOARDS_SLOTS)
+  const [draggingAllBoards, setDraggingAllBoards] = useState(false)
 
   useEffect(() => {
     if (!currentOrganization) return
@@ -381,6 +392,11 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
         </div>
       )}
 
+      {!q && allBoards.slot === 'top' && (
+        <AllBoardsItem active={pathname === '/boards'} onDragState={setDraggingAllBoards} />
+      )}
+      <AllBoardsDropZone slot="top" visible={!q && draggingAllBoards && allBoards.slot !== 'top'} onDrop={allBoards.setSlot} />
+
       {/* GENERATE — leads & partners. Collapsible; the jump filter reveals
           matches even in a collapsed group (searching should never hide hits). */}
       {(visGenerate.length > 0 || showConversations) && (
@@ -417,6 +433,11 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
         </div>
       )}
 
+      {!q && allBoards.slot === 'between' && (
+        <AllBoardsItem active={pathname === '/boards'} onDragState={setDraggingAllBoards} />
+      )}
+      <AllBoardsDropZone slot="between" visible={!q && draggingAllBoards && allBoards.slot !== 'between'} onDrop={allBoards.setSlot} />
+
       {/* WORK LOANS — active pipeline. Collapsible like Generate. */}
       {visWorkLoans.length > 0 && (
         <div className="space-y-0.5">
@@ -436,21 +457,72 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
         </div>
       )}
 
-      {/* All Boards — kept available (route preserved), de-emphasized. */}
-      {!q && (
-        <Link
-          href="/boards"
-          className={cn(
-            'flex items-center gap-2 rounded-md px-2 py-1 text-2xs transition-colors',
-            pathname === '/boards'
-              ? 'text-foreground'
-              : 'text-muted-foreground hover:bg-sidebar-item-hover hover:text-foreground',
-          )}
-        >
-          <Columns3 className="h-3 w-3 flex-shrink-0" />
-          All Boards
-        </Link>
+      <AllBoardsDropZone slot="bottom" visible={!q && draggingAllBoards && allBoards.slot !== 'bottom'} onDrop={allBoards.setSlot} />
+      {!q && allBoards.slot === 'bottom' && (
+        <AllBoardsItem active={pathname === '/boards'} onDragState={setDraggingAllBoards} />
       )}
+    </div>
+  )
+}
+
+/** The "All Boards" nav item — a static route link made movable: drag it and
+ *  drop on one of the highlighted slots (top / between sections / bottom).
+ *  Placement persists per-browser via useSidebarSlot; the route, active state,
+ *  and boards themselves are untouched. */
+function AllBoardsItem({ active, onDragState }: { active: boolean; onDragState: (d: boolean) => void }) {
+  return (
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(ALLBOARDS_DND_TYPE, '1')
+        e.dataTransfer.effectAllowed = 'move'
+        onDragState(true)
+      }}
+      onDragEnd={() => onDragState(false)}
+      className="cursor-grab rounded-md active:cursor-grabbing"
+      title="Drag to move All Boards"
+    >
+      <Link
+        href="/boards"
+        draggable={false}
+        className={cn(
+          'flex items-center gap-2 rounded-md px-2 py-1 text-2xs transition-colors',
+          active ? 'text-foreground' : 'text-muted-foreground hover:bg-sidebar-item-hover hover:text-foreground',
+        )}
+      >
+        <Columns3 className="h-3 w-3 flex-shrink-0" />
+        All Boards
+      </Link>
+    </div>
+  )
+}
+
+/** Slim drop strip shown while the All Boards item is being dragged. */
+function AllBoardsDropZone({ slot, visible, onDrop }: { slot: AllBoardsSlot; visible: boolean; onDrop: (s: AllBoardsSlot) => void }) {
+  const [over, setOver] = useState(false)
+  if (!visible) return null
+  return (
+    <div
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes(ALLBOARDS_DND_TYPE)) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+        setOver(true)
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        if (!e.dataTransfer.types.includes(ALLBOARDS_DND_TYPE)) return
+        e.preventDefault()
+        setOver(false)
+        onDrop(slot)
+      }}
+      className={cn(
+        'flex h-6 items-center justify-center rounded-md border border-dashed text-[9px] font-semibold uppercase tracking-wider transition-colors',
+        over ? 'border-[#e6c478] bg-[#e6c478]/10 text-[#e6c478]' : 'border-white/20 text-foreground/40',
+      )}
+      aria-label={`Move All Boards ${slot === 'top' ? 'to the top' : slot === 'between' ? 'between sections' : 'to the bottom'}`}
+    >
+      Move here
     </div>
   )
 }
