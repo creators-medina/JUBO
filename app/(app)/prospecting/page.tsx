@@ -1,18 +1,21 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { buildCallQueue } from '@/features/prospecting/queues'
-import { getActiveSession, getLiveSessionStats, getRecentSessions } from '@/features/prospecting/sessions/queries'
-import { getProspectingMetrics } from '@/features/prospecting/metrics'
-import { getCallTargets } from '@/features/prospecting/target'
-import { getProspectingStreak } from '@/features/prospecting/streak'
-import { getContactedToday } from '@/features/prospecting/contacted'
-import { getThemeDay } from '@/features/prospecting/coaching/themeDay'
-import { buildProspectingCoaching } from '@/features/prospecting/coaching'
 import { buildThemeDayData } from '@/features/prospecting/themeday/queues'
-import { getFollowUpsDueCount } from '@/features/communications/queries'
-import { ProspectingCockpit } from '@/features/prospecting/cockpit/ProspectingCockpit'
+import { getProspectingStreak } from '@/features/prospecting/streak'
+import { TrackView } from '@/features/analytics/TrackView'
+import { ThemeDayCockpit } from '@/features/prospecting/themeday/ThemeDayCockpit'
 
 export const dynamic = 'force-dynamic'
+
+// ─────────────────────────────────────────────────────────────────────────
+// Prospecting Dashboard — the daily theme-day call cockpit (Prospecting
+// Redesign reference): navy hero → Mon–Fri week strip → today's list, in a
+// centered, width-constrained column on the warm cream background. The
+// former dashboard extras (sessions, momentum, pace, contacted-today, the
+// scored queue, and the side stats rail) are deferred from this page for
+// visual parity with the reference; their modules remain for a future
+// secondary view.
+// ─────────────────────────────────────────────────────────────────────────
 
 export default async function ProspectingPage() {
   const supabase = await createClient()
@@ -24,39 +27,17 @@ export default async function ProspectingPage() {
   if (!membership) redirect('/onboarding')
   const orgId = membership.organization_id
 
-  const [queue, session, metrics, followUpsDue, sessions, streak, contactedToday, themeData] = await Promise.all([
-    buildCallQueue(orgId),
-    getActiveSession(orgId, user.id),
-    getProspectingMetrics(orgId, user.id),
-    getFollowUpsDueCount(orgId),
-    getRecentSessions(orgId, user.id),
-    getProspectingStreak(orgId, user.id),
-    getContactedToday(orgId, user.id),
-    // Theme Day cockpit data — full rosters of the real source boards + this
-    // week's call logs (read-only).
+  const [themeData, streak] = await Promise.all([
     buildThemeDayData(orgId, user.id),
+    getProspectingStreak(orgId, user.id),
   ])
-  const liveStats = session ? await getLiveSessionStats(session) : null
-  const themeDay = getThemeDay()
-  const targets = await getCallTargets(orgId, user.id, session)
-  const coaching = buildProspectingCoaching({ metrics, callGoal: targets.daily, themeDay, queueSize: queue.length, followUpsDue })
 
   return (
-    <ProspectingCockpit
-      organizationId={orgId}
-      queue={queue}
-      metrics={metrics}
-      session={session}
-      liveStats={liveStats}
-      themeData={themeData}
-      coaching={coaching}
-      callGoal={targets.daily}
-      targetLabel={targets.label}
-      targets={targets}
-      streak={streak}
-      contactedToday={contactedToday}
-      followUpsDue={followUpsDue}
-      sessions={sessions}
-    />
+    <div className="h-full overflow-y-auto">
+      <TrackView surface="prospecting" />
+      <div className="mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6">
+        <ThemeDayCockpit data={themeData} streak={streak} />
+      </div>
+    </div>
   )
 }
