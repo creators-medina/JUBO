@@ -10,6 +10,8 @@ import type { ThemeBucketKey } from '../themeBuckets'
 export type ThemeDay = {
   key: string
   label: string
+  /** Compact name for tight UI (week strip cards). */
+  shortLabel: string
   blurb: string
   /** A coaching-oriented line: what today means and why it matters. */
   coaching: string
@@ -28,30 +30,31 @@ export type ThemeDay = {
 // Keyed by JS weekday (0 = Sunday … 6 = Saturday).
 const THEME_DAYS: Record<number, ThemeDay> = {
   1: {
-    key: 'realtor_monday', label: 'Realtor Calls', blurb: 'Call your qualified real estate agents.',
+    key: 'realtor_monday', label: 'Realtor Calls', shortLabel: 'Realtor Calls', blurb: 'Call your qualified real estate agents.',
     coaching: 'Agents feed your pipeline. Work your qualified agent list today — every conversation is future business.',
     boardSlug: 'realtors-partners', bucket: 'realtors', bucketLabel: 'Realtor / Agent contacts',
     guidance: [
-      'Call every qualified agent on the list',
-      'Run the birthday program — cards, food, gifts',
-      'Categorize agents as A, B, or C',
+      'Call your qualified agent list',
+      'Run birthday program: cards, food, gifts',
+      'Categorize agents A/B/C',
+      'Ask for the business',
     ],
     addLabel: 'Add more Realtor / Agent contacts',
   },
   2: {
-    key: 'status_tuesday', label: 'Status Calls', blurb: 'Update every stakeholder on active files.',
+    key: 'status_tuesday', label: 'Status Calls', shortLabel: 'Status Calls', blurb: 'Update every stakeholder on active files.',
     coaching: 'Status calls keep deals alive and referrals flowing. Touch every active file: buyer, agents, title.',
     boardSlug: 'loan-pipeline', bucket: 'status', bucketLabel: 'Active loan files',
     guidance: [
-      'Call buyer, buyer’s agent, seller’s agent, title/escrow',
-      'Ask for referrals and ask for the business',
-      'Request a meeting with the seller’s agent at close of escrow',
-      'Gift at closing for all',
+      'Update the buyer, both agents, and title/escrow',
+      'Ask for referrals and the business',
+      'Revive stalled and inactive files',
+      'Send a closing gift for every file',
     ],
     addLabel: 'Add active loan files',
   },
   3: {
-    key: 'preapp_wednesday', label: 'Pre-Apps', blurb: 'Work your pre-approved and application pipeline.',
+    key: 'preapp_wednesday', label: 'Pre-Apps', shortLabel: 'Pre-Apps', blurb: 'Work your pre-approved and application pipeline.',
     coaching: 'Pre-approved buyers go cold without contact. Call, email, and keep every file current.',
     boardSlug: null, bucket: 'preapps', bucketLabel: 'Pre-App / Pre-Approval contacts',
     guidance: [
@@ -62,34 +65,36 @@ const THEME_DAYS: Record<number, ThemeDay> = {
     addLabel: 'Add Pre-App contacts',
   },
   4: {
-    key: 'pastclient_thursday', label: 'Past Clients', blurb: 'Reconnect with your past client database.',
+    key: 'pastclient_thursday', label: 'Past Clients', shortLabel: 'Past Clients', blurb: 'Reconnect with your past client database.',
     coaching: 'Your past clients are your warmest market. One check-in today can open repeat business and referrals.',
     boardSlug: 'past-clients', bucket: 'pastclients', bucketLabel: 'Past clients',
     guidance: [
-      'Work the past client database — one letter per week, two touches per year',
-      'Invite to the annual client appreciation event',
+      'Work the past-client database',
+      'Call one letter/section per week',
+      'Touch every client twice per year',
+      'Invite to annual client appreciation event',
     ],
     addLabel: 'Add Past Clients',
   },
   5: {
-    key: 'vip_friday', label: 'VIPs / Favorite People', blurb: 'Invest in your most influential relationships.',
+    key: 'vip_friday', label: 'VIPs / Favorite People', shortLabel: 'VIPs', blurb: 'Invest in your most influential relationships.',
     coaching: 'Your VIP list compounds. Call 25% of it every week and keep adding the people who move your business.',
     boardSlug: null, bucket: 'vips', bucketLabel: 'VIPs / favorite people',
     guidance: [
-      'Keep the list of the most influential people in your life',
-      'Add targets once you’re in relationship with them',
-      'Call 25% per week · meet 2 per month',
-      'Birthday program · add to database · ask for the business',
+      'Call the most influential people in your life',
+      'Call about 25% each week · meet 2 per month',
+      'Add people to the database',
+      'Run birthday program · ask for the business',
     ],
     addLabel: 'Add VIPs',
   },
   6: {
-    key: 'catchup_saturday', label: 'Catch-Up Saturday', blurb: 'Tidy the pipeline and tee up next week.',
+    key: 'catchup_saturday', label: 'Catch-Up Saturday', shortLabel: 'Catch-Up', blurb: 'Tidy the pipeline and tee up next week.',
     coaching: 'A focused hour today buys a fast start Monday. Tidy the pipeline and line up your best opportunities.',
     boardSlug: null, bucket: null, bucketLabel: null, guidance: [], addLabel: null,
   },
   0: {
-    key: 'prep_sunday', label: 'Prep Sunday', blurb: 'Plan your week and clear quick wins.',
+    key: 'prep_sunday', label: 'Prep Sunday', shortLabel: 'Prep', blurb: 'Plan your week and clear quick wins.',
     coaching: 'Plan the week before it starts. Clear a few quick wins so you walk into Monday with momentum.',
     boardSlug: null, bucket: null, bucketLabel: null, guidance: [], addLabel: null,
   },
