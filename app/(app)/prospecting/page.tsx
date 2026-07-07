@@ -8,6 +8,7 @@ import { getProspectingStreak } from '@/features/prospecting/streak'
 import { getContactedToday } from '@/features/prospecting/contacted'
 import { getThemeDay } from '@/features/prospecting/coaching/themeDay'
 import { buildProspectingCoaching } from '@/features/prospecting/coaching'
+import { buildThemeDayData } from '@/features/prospecting/themeday/queues'
 import { getFollowUpsDueCount } from '@/features/communications/queries'
 import { ProspectingCockpit } from '@/features/prospecting/cockpit/ProspectingCockpit'
 
@@ -23,7 +24,7 @@ export default async function ProspectingPage() {
   if (!membership) redirect('/onboarding')
   const orgId = membership.organization_id
 
-  const [queue, session, metrics, followUpsDue, sessions, streak, contactedToday, boardsRes] = await Promise.all([
+  const [queue, session, metrics, followUpsDue, sessions, streak, contactedToday, themeData] = await Promise.all([
     buildCallQueue(orgId),
     getActiveSession(orgId, user.id),
     getProspectingMetrics(orgId, user.id),
@@ -31,8 +32,9 @@ export default async function ProspectingPage() {
     getRecentSessions(orgId, user.id),
     getProspectingStreak(orgId, user.id),
     getContactedToday(orgId, user.id),
-    // Read-only board list — powers the theme-day "Add more…" links only.
-    supabase.from('boards').select('id, name, slug').eq('organization_id', orgId).eq('is_archived', false),
+    // Theme Day cockpit data — full rosters of the real source boards + this
+    // week's call logs (read-only).
+    buildThemeDayData(orgId, user.id),
   ])
   const liveStats = session ? await getLiveSessionStats(session) : null
   const themeDay = getThemeDay()
@@ -46,7 +48,7 @@ export default async function ProspectingPage() {
       metrics={metrics}
       session={session}
       liveStats={liveStats}
-      themeDay={themeDay}
+      themeData={themeData}
       coaching={coaching}
       callGoal={targets.daily}
       targetLabel={targets.label}
@@ -55,7 +57,6 @@ export default async function ProspectingPage() {
       contactedToday={contactedToday}
       followUpsDue={followUpsDue}
       sessions={sessions}
-      boards={(boardsRes.data ?? []) as { id: string; name: string; slug: string | null }[]}
     />
   )
 }
