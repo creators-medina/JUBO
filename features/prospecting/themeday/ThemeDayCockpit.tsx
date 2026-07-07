@@ -381,19 +381,22 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
             return (
               <button key={d.weekday} onClick={() => setSelectedDow(d.weekday)}
                 className={cn(
-                  'relative flex flex-col items-center gap-1 rounded-xl border bg-card px-3 pb-2.5 shadow-sm transition-colors',
-                  today ? 'pt-4' : 'pt-3',
+                  'flex flex-col items-center gap-1 rounded-xl border bg-card px-3 pb-3 pt-2 shadow-sm transition-colors',
                   active ? 'border-jubo-navy ring-1 ring-jubo-navy' : 'border-border hover:border-jubo-border-strong',
                 )}>
-                {today && (
-                  <span className="absolute -top-2 rounded-full bg-jubo-red px-2 py-px text-[9px] font-bold uppercase tracking-wider text-white">Today</span>
-                )}
+                {/* Today badge sits INSIDE the card (never clipped); the fixed
+                    slot keeps all five cards the same height. */}
+                <span className="flex h-4 items-center">
+                  {today && (
+                    <span className="rounded-full bg-jubo-red px-2 py-px text-[9px] font-bold uppercase tracking-wider text-white">Today</span>
+                  )}
+                </span>
                 <MiniRing done={dayDone} goal={dayGoal} />
-                <p className={cn('text-[10px] font-bold uppercase tracking-[0.12em]', active ? 'text-jubo-red' : 'text-muted-foreground')}>
+                <p className={cn('mt-0.5 text-[11px] font-bold uppercase tracking-[0.12em]', active ? 'text-jubo-red' : 'text-muted-foreground')}>
                   {d.date.toLocaleDateString(undefined, { weekday: 'short' })}
                 </p>
-                <p className="max-w-full truncate text-xs font-semibold text-foreground">{d.theme.shortLabel}</p>
-                <p className="text-2xs tabular-nums text-muted-foreground">{dayDone}/{dayGoal}</p>
+                <p className="max-w-full truncate text-[13px] font-semibold text-foreground">{d.theme.shortLabel}</p>
+                <p className="text-xs tabular-nums text-muted-foreground">{dayDone}/{dayGoal}</p>
               </button>
             )
           })}
@@ -489,7 +492,7 @@ function HeroRing({ percent, done, goal, pill }: { percent: number; done: number
 }
 
 function MiniRing({ done, goal }: { done: number; goal: number }) {
-  const size = 44, stroke = 3.5
+  const size = 68, stroke = 5.5
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   const pct = goal > 0 ? Math.min(1, done / goal) : 0
@@ -500,7 +503,7 @@ function MiniRing({ done, goal }: { done: number; goal: number }) {
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#B8492C" strokeWidth={stroke}
           strokeLinecap="round" strokeDasharray={`${c * pct} ${c * (1 - pct)}`} className="transition-all duration-500" />
       </svg>
-      <span className="absolute text-xs font-bold tabular-nums text-foreground">{done}</span>
+      <span className="absolute text-lg font-bold tabular-nums text-foreground">{done}</span>
     </div>
   )
 }
