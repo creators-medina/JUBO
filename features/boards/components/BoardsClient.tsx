@@ -16,7 +16,8 @@ import { EmptyState } from '@/components/primitives/EmptyState'
 import { Button } from '@/components/ui/button'
 import { formatVolume } from './BoardStageSummary'
 import { formatRelativeTime } from './KanbanCardFace'
-import { isWorkLoansBoard } from './DynamicBoardsSidebarSection'
+import { boardSectionKey } from './DynamicBoardsSidebarSection'
+import { useSidebarSectionOverrides } from '@/hooks/useSidebarSectionOverrides'
 import { CreateBoardModal } from './CreateBoardModal'
 import { BoardCard } from './BoardCard'
 
@@ -41,8 +42,11 @@ export function BoardsClient({ boards, organizationId, stats = {} }: Props) {
       : boards),
     [boards, q],
   )
-  const workLoans = visible.filter((b) => isWorkLoansBoard(b))
-  const generate = visible.filter((b) => !isWorkLoansBoard(b))
+  // Same grouping as the sidebar — including any per-browser drag-between-
+  // groups overrides — so the two views never disagree.
+  const { overrides } = useSidebarSectionOverrides()
+  const workLoans = visible.filter((b) => boardSectionKey(b, overrides) === 'workloans')
+  const generate = visible.filter((b) => boardSectionKey(b, overrides) === 'generate')
 
   // Summary rollups — real stats only; totals omit what isn't loaded.
   const totalRecords = boards.reduce((s, b) => s + (stats[b.id]?.count ?? 0), 0)

@@ -16,11 +16,12 @@
 // Nothing is written except the existing boards.position reorder.
 //
 // Sections are PRESENTATION-ONLY (derived from stored board_type + name
-// fallback; never persisted). Drag-to-reorder therefore works WITHIN a
-// section — the reorder is computed on the full flat list so the global
-// boards.position order is preserved — and cross-section drops are ignored
-// rather than faked (honest cross-section placement needs a stored category;
-// proposed as a separate backend phase).
+// fallback). Drag-to-reorder works on the full flat list so the global
+// boards.position order is preserved. Dropping onto a board in the OTHER
+// section also moves the dragged board into that section — as a per-browser
+// display override (useSidebarSectionOverrides), because board_type drives
+// real behavior (workspace card templates, workflow conditions) and must
+// never be mutated by a drag. Org-wide grouping stays a backend phase.
 // ─────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useMemo, useState } from 'react'
@@ -33,6 +34,7 @@ import { reorderBoards, updateBoard } from '@/features/boards/actions'
 import { useSidebarSectionCollapsed } from '@/hooks/useSidebarSectionCollapsed'
 import { useSidebarSectionLabel } from '@/hooks/useSidebarSectionLabel'
 import { useSidebarSlot } from '@/hooks/useSidebarSlot'
+import { useSidebarSectionOverrides, type SidebarSectionKey } from '@/hooks/useSidebarSectionOverrides'
 import { InlineRenameText } from '@/components/primitives/InlineRenameText'
 import { formatVolume } from './BoardStageSummary'
 import { pickLoanAmountFieldId, resolveLoanAmount } from '@/features/fields/loanAmount'
@@ -65,6 +67,16 @@ export function isWorkLoansBoard(b: { name: string; board_type: string }): boole
   return WORK_LOAN_NAME_MATCHERS.some((m) => n.includes(m))
 }
 
+/** Display group for a board: the per-browser override (drag between groups)
+ *  first, then the derived classification. Shared by the sidebar and the All
+ *  Boards page so the two groupings never disagree. */
+export function boardSectionKey(
+  b: { id: string; name: string; board_type: string },
+  overrides: Record<string, SidebarSectionKey>,
+): SidebarSectionKey {
+  return overrides[b.id] ?? (isWorkLoansBoard(b) ? 'workloans' : 'generate')
+}
+
 // Drag payload key — distinct so it can't collide with other native DnD in the app.
 const DND_TYPE = 'text/jubo-board-id'
 // "All Boards" placement — its own payload type. The item renders INSIDE a
@@ -72,7 +84,7 @@ const DND_TYPE = 'text/jubo-board-id'
 // sections); its position is "<section>:<index>" where index is the slot
 // among that section's board rows.
 const ALLBOARDS_DND_TYPE = 'text/jubo-allboards'
-type SectionKey = 'generate' | 'workloans'
+type SectionKey = SidebarSectionKey
 type AllBoardsPlacement = { section: SectionKey; index: number }
 function parseAllBoardsSlot(raw: string): AllBoardsPlacement {
   // Legacy coarse slots (first movable version) map into the list model.
@@ -113,6 +125,9 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   const allBoardsSlot = useSidebarSlot('allboards', 'bottom')
   const allBoardsPlacement = parseAllBoardsSlot(allBoardsSlot.slot)
   const [draggingAllBoards, setDraggingAllBoards] = useState(false)
+  // Per-browser Generate ↔ Work Loans placement overrides (drag between
+  // groups). Display-only — board_type is never mutated by a drag.
+  const { overrides: sectionOverrides, setOverride: setSectionOverride } = useSidebarSectionOverrides()
 
   useEffect(() => {
     if (!currentOrganization) return
@@ -224,8 +239,14 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
     return m
   }, [recordRows, loanByRecord])
 
-  const generateBoards = useMemo(() => boards.filter((b) => !isWorkLoansBoard(b)), [boards])
-  const workLoanBoards = useMemo(() => boards.filter(isWorkLoansBoard), [boards])
+  const generateBoards = useMemo(
+    () => boards.filter((b) => boardSectionKey(b, sectionOverrides) === 'generate'),
+    [boards, sectionOverrides],
+  )
+  const workLoanBoards = useMemo(
+    () => boards.filter((b) => boardSectionKey(b, sectionOverrides) === 'workloans'),
+    [boards, sectionOverrides],
+  )
 
   // Keep the active board discoverable: force its section open when the route
   // points inside it (runs on route/board changes only — a manual collapse on
@@ -235,9 +256,9 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   useEffect(() => {
     const activeBoard = boards.find((b) => pathname === `/boards/${b.id}`)
     if (!activeBoard) return
-    if (isWorkLoansBoard(activeBoard)) forceOpenWorkLoans()
+    if (boardSectionKey(activeBoard, sectionOverrides) === 'workloans') forceOpenWorkLoans()
     else forceOpenGenerate()
-  }, [pathname, boards, forceOpenGenerate, forceOpenWorkLoans])
+  }, [pathname, boards, sectionOverrides, forceOpenGenerate, forceOpenWorkLoans])
 
   const q = filter.trim().toLowerCase()
   const matches = (name: string) => !q || name.toLowerCase().includes(q)
@@ -254,14 +275,20 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   }, [workLoanBoards, statsByBoard])
 
   // Reorder within the flat list (preserves global boards.position semantics).
-  // Cross-section drops are ignored: sections are derived, not stored, so a
-  // cross-section move can't persist honestly without a backend category.
+  // Dropping onto a board in the OTHER group also moves the dragged board into
+  // that group — stored as a per-browser display override, never by mutating
+  // board_type (which drives card templates and workflow conditions).
   const reorder = (draggedId: string, targetId: string) => {
     if (draggedId === targetId) return
     const from = boards.findIndex((b) => b.id === draggedId)
     const to = boards.findIndex((b) => b.id === targetId)
     if (from < 0 || to < 0) return
-    if (isWorkLoansBoard(boards[from]) !== isWorkLoansBoard(boards[to])) return
+    const targetSection = boardSectionKey(boards[to], sectionOverrides)
+    if (boardSectionKey(boards[from], sectionOverrides) !== targetSection) {
+      // Clear the override when the board returns to its derived group.
+      const derived: SectionKey = isWorkLoansBoard(boards[from]) ? 'workloans' : 'generate'
+      setSectionOverride(draggedId, targetSection === derived ? null : targetSection)
+    }
     const prev = boards
     const next = boards.filter((b) => b.id !== draggedId)
     const targetIdx = next.findIndex((b) => b.id === targetId)
@@ -278,7 +305,7 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   const placeAllBoards = (targetBoardId: string) => {
     const target = boards.find((b) => b.id === targetBoardId)
     if (!target) return
-    const section: SectionKey = isWorkLoansBoard(target) ? 'workloans' : 'generate'
+    const section: SectionKey = boardSectionKey(target, sectionOverrides)
     const list = section === 'workloans' ? workLoanBoards : generateBoards
     const k = list.findIndex((b) => b.id === targetBoardId)
     if (k < 0) return
@@ -291,7 +318,6 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
     const active = pathname === `/boards/${board.id}`
     const isDragging = draggingId === board.id
     const isOver = dragOverId === board.id && draggingId != null && draggingId !== board.id
-      && isWorkLoansBoard(board) === isWorkLoansBoard(boards.find((b) => b.id === draggingId) ?? board)
     // The All Boards row drops onto board rows too (it lives in the same list).
     const isAllBoardsOver = dragOverId === board.id && draggingAllBoards
     const count = statsByBoard.get(board.id)?.count ?? 0
