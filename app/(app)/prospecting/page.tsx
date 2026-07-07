@@ -35,7 +35,7 @@ export default async function ProspectingPage() {
   return (
     <div className="h-full overflow-y-auto">
       <TrackView surface="prospecting" />
-      <div className="w-full px-4 py-6 sm:px-8 lg:px-12">
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
         <ThemeDayCockpit data={themeData} streak={streak} />
       </div>
     </div>
