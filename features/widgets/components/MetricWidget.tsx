@@ -1,6 +1,7 @@
 import {
   BarChart2, TrendingUp, Users, DollarSign, FileText, Activity,
   Target, Zap, Phone, Calendar, Star, AlertTriangle,
+  UserPlus, GitBranch, Files,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { MetricWidgetConfig, MetricWidgetData, WidgetColor } from '../types'
@@ -9,6 +10,7 @@ import { WIDGET_COLORS } from '../types'
 const ICON_MAP: Record<string, React.ElementType> = {
   BarChart2, TrendingUp, Users, DollarSign, FileText, Activity,
   Target, Zap, Phone, Calendar, Star, AlertTriangle,
+  UserPlus, GitBranch, Files,
 }
 
 interface MetricWidgetProps {
@@ -18,7 +20,11 @@ interface MetricWidgetProps {
 
 export function MetricWidget({ config, data }: MetricWidgetProps) {
   const Icon = config.icon ? ICON_MAP[config.icon] : null
-  const colors = WIDGET_COLORS[(config.color as WidgetColor) ?? 'blue']
+  // Defensive lookup: an unknown color (e.g. from a seeded/imported widget
+  // config) must NEVER crash the page — `?? 'blue'` alone only catches null,
+  // not unmapped keys, and `colors.text` on undefined took down the whole
+  // dashboard route with an uncaught TypeError.
+  const colors = WIDGET_COLORS[(config.color as WidgetColor) ?? 'blue'] ?? WIDGET_COLORS.blue
 
   return (
     <div className="h-full flex flex-col justify-between gap-4">
