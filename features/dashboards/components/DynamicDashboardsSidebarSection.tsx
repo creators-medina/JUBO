@@ -3,15 +3,29 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Plus } from 'lucide-react'
+import * as Icons from 'lucide-react'
+import { LayoutDashboard, Plus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useOrganization } from '@/providers/OrganizationProvider'
+import { archiveDashboard } from '@/features/dashboards/actions'
 import { cn } from '@/lib/utils'
 
 interface DashboardItem {
   id: string
   name: string
   icon: string | null
+}
+
+/** Dashboards store either an emoji or a lucide icon NAME (e.g. "Sunrise").
+ *  Rendering the name as text made rows read "Sunrise Win the Day" — resolve
+ *  real lucide names to the icon component; anything else renders as-is. */
+function DashboardIcon({ icon }: { icon: string | null }) {
+  if (icon && /^[A-Za-z][A-Za-z0-9]*$/.test(icon)) {
+    const C = (Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[icon]
+    if (C) return <C className="h-4 w-4 flex-shrink-0" />
+  }
+  if (icon) return <span className="text-base leading-none">{icon}</span>
+  return <LayoutDashboard className="h-4 w-4 flex-shrink-0" />
 }
 
 export function DynamicDashboardsSidebarSection({
@@ -43,6 +57,22 @@ export function DynamicDashboardsSidebarSection({
       .then(({ data }) => setDashboards((data ?? []) as DashboardItem[]))
   }, [currentOrganization])
 
+  // Remove from the sidebar via the EXISTING soft-archive mechanism
+  // (is_archived flag — reversible; widgets/data are never deleted).
+  const removeDashboard = async (d: DashboardItem) => {
+    const ok = window.confirm(
+      `Remove "${d.name}" from the sidebar?\n\nThe dashboard is archived (recoverable) — nothing is deleted.`,
+    )
+    if (!ok) return
+    const prev = dashboards
+    setDashboards(prev.filter((x) => x.id !== d.id)) // optimistic
+    try {
+      await archiveDashboard(d.id)
+    } catch {
+      setDashboards(prev) // rollback — it stays visible
+    }
+  }
+
   if (dashboards.length === 0 && collapsed) return null
 
   const q = filter.trim().toLowerCase()
@@ -68,27 +98,33 @@ export function DynamicDashboardsSidebarSection({
       {visible.map(dashboard => {
         const active = pathname === `/dashboards/${dashboard.id}`
         return (
-          <Link
-            key={dashboard.id}
-            href={`/dashboards/${dashboard.id}`}
-            title={collapsed ? dashboard.name : undefined}
-            className={cn(
-              'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[15px] transition-colors',
-              collapsed ? 'justify-center' : '',
-              active
-                ? 'bg-sidebar-item-active text-foreground'
-                : 'text-foreground/80 hover:bg-sidebar-item-hover hover:text-foreground'
-            )}
-          >
-            {dashboard.icon ? (
-              <span className="text-base leading-none">{dashboard.icon}</span>
-            ) : (
-              <LayoutDashboard className="w-4 h-4 flex-shrink-0" />
-            )}
+          <div key={dashboard.id} className="group/dash relative">
+            <Link
+              href={`/dashboards/${dashboard.id}`}
+              title={collapsed ? dashboard.name : undefined}
+              className={cn(
+                'flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[15px] transition-colors',
+                collapsed ? 'justify-center' : '',
+                active
+                  ? 'bg-sidebar-item-active text-foreground'
+                  : 'text-foreground/80 hover:bg-sidebar-item-hover hover:text-foreground'
+              )}
+            >
+              <DashboardIcon icon={dashboard.icon} />
+              {!collapsed && (
+                <span className="min-w-0 flex-1 truncate text-[15px]">{dashboard.name}</span>
+              )}
+            </Link>
             {!collapsed && (
-              <span className="truncate text-[15px]">{dashboard.name}</span>
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); void removeDashboard(dashboard) }}
+                title={`Remove "${dashboard.name}" from the sidebar (archives it — recoverable, nothing deleted)`}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-foreground/40 opacity-0 transition-opacity hover:bg-white/10 hover:text-foreground group-hover/dash:opacity-100"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             )}
-          </Link>
+          </div>
         )
       })}
 

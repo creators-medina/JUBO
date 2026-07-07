@@ -79,19 +79,24 @@ export function boardSectionKey(
 
 // Drag payload key — distinct so it can't collide with other native DnD in the app.
 const DND_TYPE = 'text/jubo-board-id'
-// "All Boards" placement — its own payload type. The item renders INSIDE a
-// section's board list as a normal row (never as a floating island between
-// sections); its position is "<section>:<index>" where index is the slot
-// among that section's board rows.
-const ALLBOARDS_DND_TYPE = 'text/jubo-allboards'
+// "All Boards" placement — its own payload type (exported: the shell's nav
+// groups accept this drag too). The item renders INSIDE a group's item list
+// as a normal row; its position is "<group>:<index>". Groups cover the board
+// sections here (generate/workloans) AND the shell nav groups (utility/
+// insights/setup), so All Boards can move anywhere in the sidebar — without
+// ever inventing a fake board record.
+export const ALLBOARDS_DND_TYPE = 'text/jubo-allboards'
+// Board section headers swap order via their own drag type.
+const BOARDSECTION_DND_TYPE = 'text/jubo-boardsection'
 type SectionKey = SidebarSectionKey
-type AllBoardsPlacement = { section: SectionKey; index: number }
-function parseAllBoardsSlot(raw: string): AllBoardsPlacement {
+export type AllBoardsGroup = SectionKey | 'utility' | 'insights' | 'setup'
+type AllBoardsPlacement = { section: AllBoardsGroup; index: number }
+export function parseAllBoardsSlot(raw: string): AllBoardsPlacement {
   // Legacy coarse slots (first movable version) map into the list model.
   if (raw === 'top') return { section: 'generate', index: 0 }
   if (raw === 'between') return { section: 'workloans', index: 0 }
-  const m = /^(generate|workloans):(\d+)$/.exec(raw)
-  if (m) return { section: m[1] as SectionKey, index: Number(m[2]) }
+  const m = /^(generate|workloans|utility|insights|setup):(\d+)$/.exec(raw)
+  if (m) return { section: m[1] as AllBoardsGroup, index: Number(m[2]) }
   // 'bottom' / default / malformed → end of the Work Loans list (the item's
   // historical home at the bottom of the board nav).
   return { section: 'workloans', index: Number.MAX_SAFE_INTEGER }
@@ -125,6 +130,9 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   const allBoardsSlot = useSidebarSlot('allboards', 'bottom')
   const allBoardsPlacement = parseAllBoardsSlot(allBoardsSlot.slot)
   const [draggingAllBoards, setDraggingAllBoards] = useState(false)
+  // Section block order — drag one section header onto the other to swap
+  // (per-browser preference, like every other sidebar layout choice).
+  const boardSectionsOrder = useSidebarSlot('boardsections', 'generate-first')
   // Per-browser Generate ↔ Work Loans placement overrides (drag between
   // groups). Display-only — board_type is never mutated by a drag.
   const { overrides: sectionOverrides, setOverride: setSectionOverride } = useSidebarSectionOverrides()
@@ -453,6 +461,91 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
     return rows
   }
 
+  // Drag a section HEADER onto the other header to swap the two blocks.
+  const headerDnD = (section: SectionKey) => ({
+    draggable: !q,
+    onDragStart: (e: React.DragEvent<HTMLDivElement>) => {
+      e.dataTransfer.setData(BOARDSECTION_DND_TYPE, section)
+      e.dataTransfer.effectAllowed = 'move'
+    },
+    onDragOver: (e: React.DragEvent<HTMLDivElement>) => {
+      if (!e.dataTransfer.types.includes(BOARDSECTION_DND_TYPE)) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+    },
+    onDrop: (e: React.DragEvent<HTMLDivElement>) => {
+      if (!e.dataTransfer.types.includes(BOARDSECTION_DND_TYPE)) return
+      e.preventDefault()
+      const dragged = e.dataTransfer.getData(BOARDSECTION_DND_TYPE)
+      if (dragged && dragged !== section) {
+        boardSectionsOrder.setSlot(boardSectionsOrder.slot === 'workloans-first' ? 'generate-first' : 'workloans-first')
+      }
+    },
+  })
+
+  // GENERATE — leads & partners. Collapsible; the jump filter reveals
+  // matches even in a collapsed group (searching should never hide hits).
+  const generateBlock = (visGenerate.length > 0 || showConversations || (!q && allBoardsPlacement.section === 'generate')) && (
+    <div key="generate" className="space-y-0.5">
+      <div {...headerDnD('generate')} className={cn(!q && 'cursor-grab active:cursor-grabbing')} title="Drag onto the other section header to swap sections">
+        <SectionHeader
+          icon={<UserPlus className="h-3.5 w-3.5" />}
+          chipClass="bg-emerald-400/15 text-emerald-300"
+          label={generateLabel.label}
+          sublabel="Leads & partners"
+          count={sectionCount(generateBoards)}
+          addHref="/boards"
+          addTitle="Add board"
+          isCollapsed={generateSection.collapsed && !q}
+          onToggle={generateSection.toggle}
+          onRenameLabel={generateLabel.rename}
+        />
+      </div>
+      {(!generateSection.collapsed || q) && (<>
+      {showConversations && (
+        <Link
+          href="/conversations"
+          className={cn(
+            'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[14px] transition-colors',
+            pathname.startsWith('/conversations')
+              ? 'bg-sidebar-item-active text-foreground'
+              : 'text-foreground/75 hover:bg-sidebar-item-hover hover:text-foreground',
+          )}
+        >
+          <MessageSquare className="h-4 w-4 flex-shrink-0" />
+          <span className="truncate">Conversations</span>
+        </Link>
+      )}
+      {renderSectionBoards(visGenerate, 'generate')}
+      </>)}
+    </div>
+  )
+
+  // WORK LOANS — active pipeline. Collapsible like Generate.
+  const workLoansBlock = (visWorkLoans.length > 0 || (!q && allBoardsPlacement.section === 'workloans')) && (
+    <div key="workloans" className="space-y-0.5">
+      <div {...headerDnD('workloans')} className={cn(!q && 'cursor-grab active:cursor-grabbing')} title="Drag onto the other section header to swap sections">
+        <SectionHeader
+          icon={<FileText className="h-3.5 w-3.5" />}
+          chipClass="bg-sky-400/15 text-sky-300"
+          label={workLoansLabel.label}
+          sublabel="Active pipeline"
+          count={sectionCount(workLoanBoards)}
+          addHref="/boards"
+          addTitle="Add board"
+          isCollapsed={workLoansSection.collapsed && !q}
+          onToggle={workLoansSection.toggle}
+          onRenameLabel={workLoansLabel.rename}
+        />
+      </div>
+      {(!workLoansSection.collapsed || q) && renderSectionBoards(visWorkLoans, 'workloans')}
+    </div>
+  )
+
+  const boardSections = boardSectionsOrder.slot === 'workloans-first'
+    ? [workLoansBlock, generateBlock]
+    : [generateBlock, workLoansBlock]
+
   return (
     <div className="space-y-4">
       {/* Work Loans Pipeline card — real totals from records.value (read-only). */}
@@ -488,60 +581,7 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
         </div>
       )}
 
-      {/* GENERATE — leads & partners. Collapsible; the jump filter reveals
-          matches even in a collapsed group (searching should never hide hits). */}
-      {(visGenerate.length > 0 || showConversations || (!q && allBoardsPlacement.section === 'generate')) && (
-        <div className="space-y-0.5">
-          <SectionHeader
-            icon={<UserPlus className="h-3.5 w-3.5" />}
-            chipClass="bg-emerald-400/15 text-emerald-300"
-            label={generateLabel.label}
-            sublabel="Leads & partners"
-            count={sectionCount(generateBoards)}
-            addHref="/boards"
-            addTitle="Add board"
-            isCollapsed={generateSection.collapsed && !q}
-            onToggle={generateSection.toggle}
-            onRenameLabel={generateLabel.rename}
-          />
-          {(!generateSection.collapsed || q) && (<>
-          {showConversations && (
-            <Link
-              href="/conversations"
-              className={cn(
-                'flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[14px] transition-colors',
-                pathname.startsWith('/conversations')
-                  ? 'bg-sidebar-item-active text-foreground'
-                  : 'text-foreground/75 hover:bg-sidebar-item-hover hover:text-foreground',
-              )}
-            >
-              <MessageSquare className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate">Conversations</span>
-            </Link>
-          )}
-          {renderSectionBoards(visGenerate, 'generate')}
-          </>)}
-        </div>
-      )}
-
-      {/* WORK LOANS — active pipeline. Collapsible like Generate. */}
-      {(visWorkLoans.length > 0 || (!q && allBoardsPlacement.section === 'workloans')) && (
-        <div className="space-y-0.5">
-          <SectionHeader
-            icon={<FileText className="h-3.5 w-3.5" />}
-            chipClass="bg-sky-400/15 text-sky-300"
-            label={workLoansLabel.label}
-            sublabel="Active pipeline"
-            count={sectionCount(workLoanBoards)}
-            addHref="/boards"
-            addTitle="Add board"
-            isCollapsed={workLoansSection.collapsed && !q}
-            onToggle={workLoansSection.toggle}
-            onRenameLabel={workLoansLabel.rename}
-          />
-          {(!workLoansSection.collapsed || q) && renderSectionBoards(visWorkLoans, 'workloans')}
-        </div>
-      )}
+      {boardSections}
     </div>
   )
 }
@@ -549,11 +589,12 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
 /** The "All Boards" nav row — a static route link (system item, not a board
  *  record) rendered as a NORMAL list row: identical height, padding, text
  *  size, hover/active treatment, and count pill as the board rows around it.
- *  Drag it onto any board row to move it there; placement persists
- *  per-browser via useSidebarSlot. */
-function AllBoardsRow({ active, count, dragging, onDragState }: {
+ *  Drag it onto any board row OR any shell nav row/group to move it there;
+ *  placement persists per-browser via useSidebarSlot. Exported so the shell
+ *  can render it inside its own nav groups (count is optional there). */
+export function AllBoardsRow({ active, count, dragging, onDragState }: {
   active: boolean
-  count: number
+  count?: number
   dragging: boolean
   onDragState: (d: boolean) => void
 }) {
@@ -581,9 +622,11 @@ function AllBoardsRow({ active, count, dragging, onDragState }: {
       >
         <Columns3 className="h-4 w-4 flex-shrink-0" />
         <span className="min-w-0 flex-1 truncate">All Boards</span>
-        <span className="flex-shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground/70">
-          {count}
-        </span>
+        {typeof count === 'number' && (
+          <span className="flex-shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground/70">
+            {count}
+          </span>
+        )}
       </Link>
     </div>
   )
