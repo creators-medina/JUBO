@@ -333,10 +333,33 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
                 )}
               </>
             ) : (
-              <div className="py-2 text-sm text-white/70">
-                {queue.boards.length === 0
-                  ? <>Source {queue.missingBoards.length === 1 ? 'board' : 'boards'} not found: <span className="font-semibold text-white">{queue.missingBoards.join(', ')}</span>.</>
-                  : EMPTY_MSG[selectedDow]}
+              /* Empty Next Up — same card, same place, layout stays balanced. */
+              <div className="flex min-h-[9.5rem] flex-col justify-center">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/45">Next up</p>
+                {queue.boards.length === 0 ? (
+                  <>
+                    <p className="mt-1 text-lg font-bold text-white/90">No call list for this day yet</p>
+                    <p className="mt-1 text-sm text-white/60">
+                      Source {queue.missingBoards.length === 1 ? 'board' : 'boards'} not found:{' '}
+                      <span className="font-semibold text-white/85">{queue.missingBoards.join(', ')}</span>.
+                    </p>
+                    <Link href="/boards"
+                      className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-lg border border-white/25 px-3 py-1.5 text-xs font-semibold text-white/85 transition-colors hover:bg-white/10">
+                      View boards <ArrowUpRight className="h-3 w-3" />
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-1 text-lg font-bold text-white/90">{EMPTY_MSG[selectedDow]}</p>
+                    <p className="mt-1 text-sm text-white/60">
+                      Add contacts to {queue.boards.map((b) => b.name).join(' or ')} and they&apos;ll appear here as your next call.
+                    </p>
+                    <Link href={`/boards/${queue.boards[0].id}`}
+                      className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-lg border border-white/25 px-3 py-1.5 text-xs font-semibold text-white/85 transition-colors hover:bg-white/10">
+                      Open {queue.boards[0].name} <ArrowUpRight className="h-3 w-3" />
+                    </Link>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -445,8 +468,14 @@ function HeroRing({ percent, done, goal, pill }: { percent: number; done: number
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+        <defs>
+          <linearGradient id="jubo-theme-ring" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#8FE6AE" />
+            <stop offset="100%" stopColor="#2F7D4A" />
+          </linearGradient>
+        </defs>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth={stroke} />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#6faf7c" strokeWidth={stroke}
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="url(#jubo-theme-ring)" strokeWidth={stroke}
           strokeLinecap="round" strokeDasharray={`${dash} ${c - dash}`} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">

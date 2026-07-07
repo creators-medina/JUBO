@@ -1,15 +1,18 @@
-import { LoadingState } from '@/components/primitives/LoadingState'
-
 export default function Loading() {
+  // Skeleton mirrors the cockpit: navy hero → week strip → today's list.
   return (
-    <div className="space-y-4 p-6">
-      <div className="h-9 w-56 animate-pulse rounded-lg bg-surface-1" />
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-14 animate-pulse rounded-lg bg-surface-1" />
+    <div className="mx-auto w-full max-w-[760px] space-y-4 px-4 py-6 sm:px-6">
+      <div className="h-[360px] animate-pulse rounded-2xl bg-jubo-navy/90" />
+      <div className="grid grid-cols-5 gap-2.5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-28 animate-pulse rounded-xl border border-border bg-surface-1" />
         ))}
       </div>
-      <LoadingState rows={5} />
+      <div className="animate-pulse overflow-hidden rounded-2xl border border-border bg-surface-1">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 border-b border-border/60 bg-card/60" />
+        ))}
+      </div>
     </div>
   )
 }
