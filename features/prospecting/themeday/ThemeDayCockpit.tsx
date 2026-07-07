@@ -160,32 +160,52 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
 
   // Completion per day: the user's real call logs on that calendar date.
   // Today additionally merges optimistic logs and applies the local resets.
-  const calledForDay = (weekday: number): Map<string, { outcome: string | null; occurredAt: string }> => {
-    const dayItems = data.days[weekday]?.items ?? []
-    const ids = new Set(dayItems.map((i) => i.recordId))
-    const actionable = weekday === todayDow
-    const dateKey = actionable ? todayKey : localDateKey(week.find((d) => d.weekday === weekday)?.date ?? new Date())
-    const map = new Map<string, { outcome: string | null; occurredAt: string }>()
-    for (const log of data.weekLogs) {
-      if (!ids.has(log.recordId)) continue
-      if (localDateKey(new Date(log.occurredAt)) !== dateKey) continue
-      const prev = map.get(log.recordId)
-      if (!prev || Date.parse(log.occurredAt) > Date.parse(prev.occurredAt)) {
-        map.set(log.recordId, { outcome: log.outcome, occurredAt: log.occurredAt })
-      }
+  // MEMOIZED and computed for all five days at once — this must NOT run per
+  // render: the log array can be large, and recomputing it on every render
+  // (including every ring-tween frame, six times over) blocked the main
+  // thread and made the whole dashboard unresponsive.
+  const calledByDay = useMemo(() => {
+    const out = new Map<number, Map<string, { outcome: string | null; occurredAt: string }>>()
+    // Parse each log's local date key and timestamp exactly once.
+    const logs = data.weekLogs.map((l) => ({
+      recordId: l.recordId,
+      outcome: l.outcome,
+      occurredAt: l.occurredAt,
+      dateKey: localDateKey(new Date(l.occurredAt)),
+      ts: Date.parse(l.occurredAt),
+    }))
+    const resetAtFor = (id: string): number | null => {
+      const iso = resets.byRecord[id] ?? resets.all
+      return iso ? Date.parse(iso) : null
     }
-    if (actionable) {
-      for (const [id, l] of localLogs) if (ids.has(id)) map.set(id, l)
-      // Apply dashboard-only resets: entries logged before the reset don't count.
-      for (const [id, l] of [...map]) {
-        const resetAt = resets.byRecord[id] ?? resets.all
-        if (resetAt && Date.parse(l.occurredAt) <= Date.parse(resetAt)) map.delete(id)
+    for (const d of week) {
+      const weekday = d.weekday
+      const ids = new Set((data.days[weekday]?.items ?? []).map((i) => i.recordId))
+      const actionable = weekday === todayDow
+      const dateKey = actionable ? todayKey : localDateKey(d.date)
+      const best = new Map<string, { outcome: string | null; occurredAt: string; ts: number }>()
+      for (const log of logs) {
+        if (log.dateKey !== dateKey || !ids.has(log.recordId)) continue
+        const prev = best.get(log.recordId)
+        if (!prev || log.ts > prev.ts) best.set(log.recordId, { outcome: log.outcome, occurredAt: log.occurredAt, ts: log.ts })
       }
+      const map = new Map<string, { outcome: string | null; occurredAt: string }>()
+      for (const [id, l] of best) map.set(id, { outcome: l.outcome, occurredAt: l.occurredAt })
+      if (actionable) {
+        for (const [id, l] of localLogs) if (ids.has(id)) map.set(id, l)
+        // Apply dashboard-only resets: entries logged before the reset don't count.
+        for (const [id, l] of [...map]) {
+          const resetAt = resetAtFor(id)
+          if (resetAt != null && Date.parse(l.occurredAt) <= resetAt) map.delete(id)
+        }
+      }
+      out.set(weekday, map)
     }
-    return map
-  }
+    return out
+  }, [data, week, todayDow, todayKey, localLogs, resets])
 
-  const called = calledForDay(selectedDow)
+  const EMPTY_CALLED = useMemo(() => new Map<string, { outcome: string | null; occurredAt: string }>(), [])
+  const called = calledByDay.get(selectedDow) ?? EMPTY_CALLED
 
   const uncalled = queue.items.filter((i) => !called.has(i.recordId))
   const done = queue.items.length - uncalled.length
@@ -230,7 +250,6 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
   }
 
   const dateLabel = `${selDay.date.toLocaleDateString(undefined, { weekday: 'long' })}, ${selDay.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
-  const heroPct = useTweenedPercent(pct)
 
   return (
     <section className="space-y-4">
@@ -286,7 +305,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
         {/* Ring + streak/to-go + Next Up */}
         <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-8">
           <div className="flex flex-shrink-0 flex-col items-center gap-3.5">
-            <HeroRing percent={heroPct} done={done} goal={goal} pill={`${pct}%${isActualToday ? ' today' : ''}`} />
+            <HeroRing percent={pct} done={done} goal={goal} pill={`${pct}%${isActualToday ? ' today' : ''}`} />
             <div className="flex items-center gap-5">
               <div className="text-center">
                 <p className="flex items-center justify-center gap-1 text-xl font-bold tabular-nums">
@@ -371,7 +390,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
       <div className="overflow-x-auto">
         <div className="grid min-w-[600px] grid-cols-5 gap-3">
           {week.map((d) => {
-            const dayCalled = calledForDay(d.weekday)
+            const dayCalled = calledByDay.get(d.weekday) ?? EMPTY_CALLED
             const dayQueue = data.days[d.weekday]?.items ?? []
             const dayDone = dayQueue.filter((i) => dayCalled.has(i.recordId)).length
             const dayGoal = dayQueue.length
@@ -463,12 +482,16 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
   )
 }
 
-// ── Hero progress ring (SVG; tween driven by the timer above) ──
+// ── Hero progress ring (SVG) ──
+// The timer tween lives INSIDE the ring so its ~24 frames re-render only this
+// small component — never the whole cockpit (that render storm, multiplied by
+// the per-day completion scans, is what froze the dashboard).
 function HeroRing({ percent, done, goal, pill }: { percent: number; done: number; goal: number; pill: string }) {
+  const tweened = useTweenedPercent(percent)
   const size = 176, stroke = 13
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
-  const dash = c * (Math.max(0, Math.min(100, percent)) / 100)
+  const dash = c * (Math.max(0, Math.min(100, tweened)) / 100)
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
