@@ -126,6 +126,10 @@ export async function buildThemeDayData(organizationId: string, userId: string):
     .neq('channel', 'internal')
     .gte('occurred_at', startOfWeekISO())
     .order('occurred_at', { ascending: true })
+    // Hard bound — the client scans this array to derive per-day completion,
+    // so it must never be unbounded (a bulk-imported history could otherwise
+    // freeze the dashboard). 2000 manual logs/week is far above real usage.
+    .limit(2000)
 
   if (allBoardIds.length === 0) {
     const { data: logRows } = await weekLogsPromise
