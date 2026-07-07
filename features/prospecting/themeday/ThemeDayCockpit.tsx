@@ -130,6 +130,14 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
   const [resets, setResets] = useState<DayResets>({ byRecord: {} })
   useEffect(() => {
     try {
+      // Prune reset marks from previous days so storage doesn't accumulate
+      // (each day's marks are only meaningful on that day).
+      for (let i = window.localStorage.length - 1; i >= 0; i--) {
+        const k = window.localStorage.key(i)
+        if (k && k.startsWith('jubo-theme-day-reset:v1:') && k !== resetKey(todayKey)) {
+          window.localStorage.removeItem(k)
+        }
+      }
       const raw = window.localStorage.getItem(resetKey(todayKey))
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw) setResets(JSON.parse(raw) as DayResets)
@@ -144,7 +152,11 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
   const selDay = week.find((d) => d.weekday === selectedDow) ?? week[0]
   const theme = selDay.theme
   const queue: ThemeDayQueue = data.days[selectedDow] ?? { weekday: selectedDow, boards: [], missingBoards: [], items: [] }
+  // Actionable day (logging enabled) — on weekends this maps to Monday.
   const isToday = selectedDow === todayDow
+  // The selected weekday IS the actual calendar weekday (false on weekends,
+  // where Monday is shown "up next" rather than mislabeled as today).
+  const isActualToday = selectedDow === rawDow
 
   // Completion per day: the user's real call logs on that calendar date.
   // Today additionally merges optimistic logs and applies the local resets.
@@ -226,7 +238,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
       <div className="rounded-2xl bg-jubo-navy p-6 text-white shadow-md">
         <div className="flex items-start justify-between gap-3">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/55">
-            {isToday ? 'Today' : 'This week'} · {dateLabel}
+            {isActualToday ? 'Today' : isToday ? 'Up next' : 'This week'} · {dateLabel}
           </p>
           {isToday && (
             <button
@@ -273,7 +285,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
         {/* Ring + streak/to-go + Next Up */}
         <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-center">
           <div className="flex flex-shrink-0 flex-col items-center gap-3">
-            <HeroRing percent={heroPct} done={done} goal={goal} pctLabel={pct} />
+            <HeroRing percent={heroPct} done={done} goal={goal} pill={`${pct}%${isActualToday ? ' today' : ''}`} />
             <div className="flex items-center gap-5">
               <div className="text-center">
                 <p className="flex items-center justify-center gap-1 text-xl font-bold tabular-nums">
@@ -340,7 +352,8 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
             const dayDone = dayQueue.filter((i) => dayCalled.has(i.recordId)).length
             const dayGoal = dayQueue.length
             const active = d.weekday === selectedDow
-            const today = d.weekday === todayDow
+            // Badge only on the true calendar day (no badge on weekends).
+            const today = d.weekday === rawDow
             return (
               <button key={d.weekday} onClick={() => setSelectedDow(d.weekday)}
                 className={cn(
@@ -369,7 +382,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
           className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
           <span className="flex items-center gap-2 text-sm font-bold text-foreground">
             {collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
-            {theme.shortLabel} · {isToday ? "today's list" : `${selDay.date.toLocaleDateString(undefined, { weekday: 'long' })} list`}
+            {theme.shortLabel} · {isActualToday ? "today's list" : `${selDay.date.toLocaleDateString(undefined, { weekday: 'long' })} list`}
           </span>
           <span className="text-xs tabular-nums text-muted-foreground">{done}/{goal} called</span>
         </button>
@@ -424,7 +437,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
 }
 
 // ── Hero progress ring (SVG; tween driven by the timer above) ──
-function HeroRing({ percent, done, goal, pctLabel }: { percent: number; done: number; goal: number; pctLabel: number }) {
+function HeroRing({ percent, done, goal, pill }: { percent: number; done: number; goal: number; pill: string }) {
   const size = 176, stroke = 13
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
@@ -439,7 +452,7 @@ function HeroRing({ percent, done, goal, pctLabel }: { percent: number; done: nu
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-4xl font-bold tabular-nums">{done}</span>
         <span className="text-xs text-white/60">of {goal} called</span>
-        <span className="mt-1.5 rounded-full bg-white/10 px-2 py-0.5 text-2xs font-semibold text-emerald-300">{pctLabel}% today</span>
+        <span className="mt-1.5 rounded-full bg-white/10 px-2 py-0.5 text-2xs font-semibold text-emerald-300">{pill}</span>
       </div>
     </div>
   )
@@ -524,7 +537,7 @@ function CallRow({ item, weekday, log, actionable, pending, onLog, onUndo, onOpe
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <button onClick={onOpen} className="truncate text-sm font-bold text-foreground hover:underline">{item.title}</button>
+            <button onClick={onOpen} className="max-w-full truncate text-sm font-bold text-foreground hover:underline">{item.title}</button>
             <PriorityChip priority={item.priority} />
             <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2 py-0.5 text-2xs font-medium text-foreground/80">
               <span className="h-1.5 w-1.5 rounded-full bg-jubo-green" aria-hidden /> {item.boardName}
