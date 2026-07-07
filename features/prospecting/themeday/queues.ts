@@ -61,8 +61,9 @@ const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
 type BoardSpec = { canonical: string; kind: ThemeBoardKind; match: (squashedName: string) => boolean }
 
 const DAY_BOARD_SPECS: Record<number, BoardSpec[]> = {
+  // Monday pulls ONLY Realtor boards (e.g. "Realtors (Top 40)") — partner/
+  // referral boards are intentionally excluded per Medina's call rhythm.
   1: [
-    { canonical: 'Realtors / Partners', kind: 'default', match: (n) => n.includes('partner') },
     { canonical: 'Realtors (Top 40)', kind: 'default', match: (n) => n.includes('realtor') },
   ],
   2: [
