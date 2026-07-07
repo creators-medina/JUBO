@@ -235,7 +235,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
   return (
     <section className="space-y-4">
       {/* ── Navy hero ── */}
-      <div className="rounded-2xl bg-jubo-navy p-6 text-white shadow-md">
+      <div className="rounded-2xl bg-jubo-navy p-6 text-white shadow-md sm:p-8">
         <div className="flex items-start justify-between gap-3">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/55">
             {isActualToday ? 'Today' : isToday ? 'Up next' : 'This week'} · {dateLabel}
@@ -250,7 +250,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
             </button>
           )}
         </div>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">{theme.label}</h1>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">{theme.label}</h1>
 
         {/* Pulled-from board chips — real matched boards; missing ones reported. */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -283,8 +283,8 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
         )}
 
         {/* Ring + streak/to-go + Next Up */}
-        <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-center">
-          <div className="flex flex-shrink-0 flex-col items-center gap-3">
+        <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-10">
+          <div className="flex flex-shrink-0 flex-col items-center gap-4">
             <HeroRing percent={heroPct} done={done} goal={goal} pill={`${pct}%${isActualToday ? ' today' : ''}`} />
             <div className="flex items-center gap-5">
               <div className="text-center">
@@ -301,7 +301,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
             </div>
           </div>
 
-          <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.05] p-4 sm:p-5">
+          <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.05] p-4 sm:p-6">
             {win ? (
               <div className="py-2 text-center lg:text-left">
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-300/90">Day complete</p>
@@ -368,7 +368,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
 
       {/* ── Mon–Fri week strip ── */}
       <div className="overflow-x-auto">
-        <div className="grid min-w-[600px] grid-cols-5 gap-2.5">
+        <div className="grid min-w-[600px] grid-cols-5 gap-3">
           {week.map((d) => {
             const dayCalled = calledForDay(d.weekday)
             const dayQueue = data.days[d.weekday]?.items ?? []
@@ -402,7 +402,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
       {/* ── Today's list ── */}
       <div className="rounded-2xl border border-border bg-card shadow-sm">
         <button onClick={() => setCollapsed((c) => !c)}
-          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left sm:px-5">
           <span className="flex items-center gap-2 text-sm font-bold text-foreground">
             {collapsed ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronUp className="h-4 w-4 text-muted-foreground" />}
             {theme.shortLabel} · {isActualToday ? "today's list" : `${selDay.date.toLocaleDateString(undefined, { weekday: 'long' })} list`}
@@ -461,7 +461,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
 
 // ── Hero progress ring (SVG; tween driven by the timer above) ──
 function HeroRing({ percent, done, goal, pill }: { percent: number; done: number; goal: number; pill: string }) {
-  const size = 176, stroke = 13
+  const size = 208, stroke = 15
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   const dash = c * (Math.max(0, Math.min(100, percent)) / 100)
@@ -479,7 +479,7 @@ function HeroRing({ percent, done, goal, pill }: { percent: number; done: number
           strokeLinecap="round" strokeDasharray={`${dash} ${c - dash}`} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-4xl font-bold tabular-nums">{done}</span>
+        <span className="text-5xl font-bold tabular-nums">{done}</span>
         <span className="text-xs text-white/60">of {goal} called</span>
         <span className="mt-1.5 rounded-full bg-white/10 px-2 py-0.5 text-2xs font-semibold text-emerald-300">{pill}</span>
       </div>
@@ -488,7 +488,7 @@ function HeroRing({ percent, done, goal, pill }: { percent: number; done: number
 }
 
 function MiniRing({ done, goal }: { done: number; goal: number }) {
-  const size = 40, stroke = 3.5
+  const size = 46, stroke = 4
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   const pct = goal > 0 ? Math.min(1, done / goal) : 0
@@ -559,7 +559,7 @@ function CallRow({ item, weekday, log, actionable, pending, onLog, onUndo, onOpe
 }) {
   const logged = log != null
   return (
-    <div className={cn('px-4 py-3', logged && 'opacity-60')}>
+    <div className={cn('px-4 py-3.5 sm:px-5', logged && 'opacity-60')}>
       <div className="flex items-start gap-3">
         <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-jubo-gold-soft text-xs font-bold text-jubo-gold">
           {initials(item.title)}
