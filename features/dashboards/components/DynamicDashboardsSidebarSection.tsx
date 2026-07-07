@@ -18,14 +18,19 @@ interface DashboardItem {
 
 /** Dashboards store either an emoji or a lucide icon NAME (e.g. "Sunrise").
  *  Rendering the name as text made rows read "Sunrise Win the Day" — resolve
- *  real lucide names to the icon component; anything else renders as-is. */
-function DashboardIcon({ icon }: { icon: string | null }) {
+ *  real lucide names to the icon component; anything else renders as-is.
+ *  Shared with the dashboard page header (pass sizing via className). */
+export function DashboardIcon({ icon, className = 'h-4 w-4 flex-shrink-0', emojiClassName = 'text-base leading-none' }: {
+  icon: string | null
+  className?: string
+  emojiClassName?: string
+}) {
   if (icon && /^[A-Za-z][A-Za-z0-9]*$/.test(icon)) {
     const C = (Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[icon]
-    if (C) return <C className="h-4 w-4 flex-shrink-0" />
+    if (C) return <C className={className} />
   }
-  if (icon) return <span className="text-base leading-none">{icon}</span>
-  return <LayoutDashboard className="h-4 w-4 flex-shrink-0" />
+  if (icon) return <span className={emojiClassName}>{icon}</span>
+  return <LayoutDashboard className={className} />
 }
 
 export function DynamicDashboardsSidebarSection({
