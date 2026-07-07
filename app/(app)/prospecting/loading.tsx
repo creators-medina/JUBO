@@ -1,7 +1,7 @@
 export default function Loading() {
   // Skeleton mirrors the cockpit: navy hero → week strip → today's list.
   return (
-    <div className="w-full space-y-4 px-4 py-6 sm:px-8 lg:px-12">
+    <div className="mx-auto w-full max-w-5xl space-y-4 px-4 py-6 sm:px-6">
       <div className="h-[360px] animate-pulse rounded-2xl bg-jubo-navy/90" />
       <div className="grid grid-cols-5 gap-2.5">
         {Array.from({ length: 5 }).map((_, i) => (

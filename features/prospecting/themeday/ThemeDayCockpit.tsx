@@ -235,7 +235,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
   return (
     <section className="space-y-4">
       {/* ── Navy hero ── */}
-      <div className="rounded-2xl bg-jubo-navy p-6 text-white shadow-md sm:p-8">
+      <div className="rounded-2xl bg-jubo-navy p-6 text-white shadow-md sm:p-7">
         <div className="flex items-start justify-between gap-3">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/55">
             {isActualToday ? 'Today' : isToday ? 'Up next' : 'This week'} · {dateLabel}
@@ -250,7 +250,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
             </button>
           )}
         </div>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">{theme.label}</h1>
+        <h1 className="mt-1 text-3xl font-bold tracking-tight">{theme.label}</h1>
 
         {/* Pulled-from board chips — real matched boards; missing ones reported. */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -258,7 +258,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
           {queue.boards.map((b) => (
             <Link key={b.id} href={`/boards/${b.id}`}
               className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-white/90 transition-colors hover:bg-white/15">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden /> {b.name}
+              <span className="h-1.5 w-1.5 rounded-full bg-[#D96B57]" aria-hidden /> {b.name}
             </Link>
           ))}
           {queue.missingBoards.map((name) => (
@@ -272,10 +272,11 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
         {theme.guidance.length > 0 && (
           <div className="mt-4">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/45">Today&apos;s playbook</p>
-            <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Horizontal row that wraps — compact, like the reference. */}
+            <div className="mt-2 flex flex-wrap gap-x-7 gap-y-1.5">
               {theme.guidance.map((g, i) => (
                 <span key={i} className="inline-flex items-start gap-2 text-[13px] text-white/85">
-                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-300/90" aria-hidden /> {g}
+                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[#E8B3A5]" aria-hidden /> {g}
                 </span>
               ))}
             </div>
@@ -283,8 +284,8 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
         )}
 
         {/* Ring + streak/to-go + Next Up */}
-        <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-10">
-          <div className="flex flex-shrink-0 flex-col items-center gap-4">
+        <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-8">
+          <div className="flex flex-shrink-0 flex-col items-center gap-3.5">
             <HeroRing percent={heroPct} done={done} goal={goal} pill={`${pct}%${isActualToday ? ' today' : ''}`} />
             <div className="flex items-center gap-5">
               <div className="text-center">
@@ -304,8 +305,8 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
           <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.05] p-4 sm:p-6">
             {win ? (
               <div className="py-2 text-center lg:text-left">
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-300/90">Day complete</p>
-                <p className="mt-1 text-2xl font-bold text-emerald-300">You won today <span aria-hidden>🎉</span></p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#E8B3A5]">Day complete</p>
+                <p className="mt-1 text-2xl font-bold text-[#E8B3A5]">You won today <span aria-hidden>🎉</span></p>
                 <p className="mt-1 text-sm text-white/70">Every {theme.shortLabel.toLowerCase()} contact is logged. Anything more is a bonus.</p>
               </div>
             ) : nextUp ? (
@@ -318,7 +319,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   <PriorityChip priority={nextUp.priority} onDark />
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2 py-0.5 text-2xs font-medium text-white/85">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden /> {nextUp.boardName}
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#D96B57]" aria-hidden /> {nextUp.boardName}
                   </span>
                   {nextUp.stage && <span className="text-xs text-white/60">{nextUp.stage}</span>}
                 </div>
@@ -410,7 +411,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
           <span className="text-xs tabular-nums text-muted-foreground">{done}/{goal} called</span>
         </button>
         <div className="h-1 w-full bg-surface-2">
-          <div className="h-full bg-jubo-green transition-all duration-500 ease-out" style={{ width: `${pct}%` }} />
+          <div className="h-full bg-[#B8492C] transition-all duration-500 ease-out" style={{ width: `${pct}%` }} />
         </div>
 
         {!collapsed && (
@@ -461,7 +462,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
 
 // ── Hero progress ring (SVG; tween driven by the timer above) ──
 function HeroRing({ percent, done, goal, pill }: { percent: number; done: number; goal: number; pill: string }) {
-  const size = 208, stroke = 15
+  const size = 176, stroke = 13
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   const dash = c * (Math.max(0, Math.min(100, percent)) / 100)
@@ -470,8 +471,8 @@ function HeroRing({ percent, done, goal, pill }: { percent: number; done: number
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
         <defs>
           <linearGradient id="jubo-theme-ring" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#8FE6AE" />
-            <stop offset="100%" stopColor="#2F7D4A" />
+            <stop offset="0%" stopColor="#D96B57" />
+            <stop offset="100%" stopColor="#9E2F1F" />
           </linearGradient>
         </defs>
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth={stroke} />
@@ -479,16 +480,16 @@ function HeroRing({ percent, done, goal, pill }: { percent: number; done: number
           strokeLinecap="round" strokeDasharray={`${dash} ${c - dash}`} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-5xl font-bold tabular-nums">{done}</span>
+        <span className="text-4xl font-bold tabular-nums">{done}</span>
         <span className="text-xs text-white/60">of {goal} called</span>
-        <span className="mt-1.5 rounded-full bg-white/10 px-2 py-0.5 text-2xs font-semibold text-emerald-300">{pill}</span>
+        <span className="mt-1.5 rounded-full bg-white/10 px-2 py-0.5 text-2xs font-semibold text-[#E8B3A5]">{pill}</span>
       </div>
     </div>
   )
 }
 
 function MiniRing({ done, goal }: { done: number; goal: number }) {
-  const size = 46, stroke = 4
+  const size = 44, stroke = 3.5
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   const pct = goal > 0 ? Math.min(1, done / goal) : 0
@@ -496,7 +497,7 @@ function MiniRing({ done, goal }: { done: number; goal: number }) {
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90 text-surface-2">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="currentColor" strokeWidth={stroke} />
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#5f8a68" strokeWidth={stroke}
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#B8492C" strokeWidth={stroke}
           strokeLinecap="round" strokeDasharray={`${c * pct} ${c * (1 - pct)}`} className="transition-all duration-500" />
       </svg>
       <span className="absolute text-xs font-bold tabular-nums text-foreground">{done}</span>
@@ -524,7 +525,7 @@ function LogCallDropdown({ disabled, onSelect, compact }: {
     <div ref={ref} className="relative inline-block">
       <button disabled={disabled} onClick={() => setOpen((o) => !o)}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-lg bg-jubo-green font-semibold text-white shadow-sm transition-colors hover:bg-jubo-green/90 disabled:opacity-50',
+          'inline-flex items-center gap-1.5 rounded-lg bg-[#B8492C] font-semibold text-white shadow-sm transition-colors hover:bg-[#96351F] disabled:opacity-50',
           compact ? 'px-2.5 py-1.5 text-xs' : 'px-3.5 py-2 text-sm',
         )}>
         <Phone className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} /> Log call <ChevronDown className="h-3.5 w-3.5 opacity-80" />
@@ -536,7 +537,7 @@ function LogCallDropdown({ disabled, onSelect, compact }: {
               onClick={() => { setOpen(false); onSelect(o.outcome) }}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:bg-surface-2">
               <o.icon className={cn('h-3.5 w-3.5',
-                o.tone === 'win' ? 'text-jubo-green' : o.tone === 'amber' ? 'text-jubo-gold' : 'text-muted-foreground')} />
+                o.tone === 'win' ? 'text-[#B8492C]' : o.tone === 'amber' ? 'text-jubo-gold' : 'text-muted-foreground')} />
               {o.label}
             </button>
           ))}
@@ -569,7 +570,7 @@ function CallRow({ item, weekday, log, actionable, pending, onLog, onUndo, onOpe
             <button onClick={onOpen} className="max-w-full truncate text-sm font-bold text-foreground hover:underline">{item.title}</button>
             <PriorityChip priority={item.priority} />
             <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2 py-0.5 text-2xs font-medium text-foreground/80">
-              <span className="h-1.5 w-1.5 rounded-full bg-jubo-green" aria-hidden /> {item.boardName}
+              <span className="h-1.5 w-1.5 rounded-full bg-[#D96B57]" aria-hidden /> {item.boardName}
             </span>
           </div>
           {item.stage && <p className="mt-0.5 text-xs text-muted-foreground">{item.stage}</p>}
@@ -605,7 +606,7 @@ function OutcomeBadge({ outcome }: { outcome: string | null }) {
   const label = outcome ? (OUTCOME_SHORT[outcome] ?? OUTCOME_LABEL[outcome as CommunicationOutcome] ?? outcome) : 'Logged'
   return (
     <span className={cn('rounded-full px-2 py-0.5 text-2xs font-semibold',
-      tone === 'win' ? 'bg-jubo-green-soft text-jubo-green'
+      tone === 'win' ? 'bg-[#E8B3A5]/40 text-[#96351F]'
         : tone === 'amber' ? 'bg-jubo-gold-soft text-jubo-gold'
         : 'bg-surface-2 text-muted-foreground')}>
       {label}
