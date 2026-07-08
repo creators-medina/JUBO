@@ -29,6 +29,8 @@ export type RecordDragHover = {
   hoverGroupName: string | null
   /** A collapsed board-section header being hovered (dwell → auto-expand). */
   hoverSectionKey: string | null
+  /** Pointer is anywhere over the app sidebar (drag preview goes compact). */
+  overSidebar: boolean
 }
 
 export type RecordDragState = RecordDragHover & {
@@ -40,6 +42,7 @@ export type RecordDragState = RecordDragHover & {
 const IDLE: RecordDragState = {
   recordId: null, fromBoardId: null, title: null,
   hoverBoardId: null, hoverBoardName: null, hoverGroupId: null, hoverGroupName: null, hoverSectionKey: null,
+  overSidebar: false,
 }
 
 let state: RecordDragState = IDLE
@@ -58,7 +61,8 @@ export function setRecordDragHover(hover: RecordDragHover) {
   if (
     state.hoverBoardId === hover.hoverBoardId &&
     state.hoverGroupId === hover.hoverGroupId &&
-    state.hoverSectionKey === hover.hoverSectionKey
+    state.hoverSectionKey === hover.hoverSectionKey &&
+    state.overSidebar === hover.overSidebar
   ) return
   emit({ ...state, ...hover })
 }

@@ -22,7 +22,7 @@ import { BulkActionBar } from './BulkActionBar'
 import { DragOverlayRow } from './DragOverlayRow'
 import { useBoardRealtime } from '@/hooks/useBoardRealtime'
 import { moveRecord, reorderRecords, updateRecord, moveRecordToBoard, getMoveTargets } from '@/features/records/actions'
-import { startRecordDrag, setRecordDragHover, endRecordDrag } from '../dnd/recordDragBridge'
+import { startRecordDrag, setRecordDragHover, endRecordDrag, useRecordDrag } from '../dnd/recordDragBridge'
 import { useToast } from '@/features/feedback/ToastProvider'
 import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, isFieldVisibleInGroup, type FieldVisibilityRow } from '@/features/fields/visibility'
 import { computeGroupChecklist } from '@/features/fields/checklist'
@@ -260,6 +260,9 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
           hoverGroupId: groupEl?.dataset.recordDropGroup ?? null,
           hoverGroupName: groupEl?.dataset.recordDropGroupName ?? null,
           hoverSectionKey: sectionEl?.dataset.recordDropSection ?? null,
+          // Over the sidebar (or its portal flyout): the drag preview goes
+          // compact so it never covers the drop targets.
+          overSidebar: !!(el?.closest?.('[data-app-sidebar]') || boardEl || groupEl || sectionEl),
         })
         // Edge autoscroll: nudge the sidebar's scroll container when the
         // pointer sits near its top/bottom edge during a record drag.
@@ -1026,6 +1029,14 @@ function DragPreview({ data }: { data: any }) {
   const width = active?.rect?.current?.initial?.width
   const widthStyle = width ? { width: `${width}px` } : undefined
 
+  // Over the sidebar the full card/row preview would cover the drop targets —
+  // morph to a compact pill (initials + name) so the destination boards and
+  // the stage flyout stay fully visible while "carrying" the record.
+  const recordDrag = useRecordDrag()
+  if (recordDrag.overSidebar && data.type === 'record') {
+    return <CompactDragPill title={String(data.record?.title ?? recordDrag.title ?? 'Record')} />
+  }
+
   if (data.view === 'kanban') {
     // Kanban cards are narrow. Clamp the lifted preview to a card-sized width and
     // always provide a concrete fallback, so it can NEVER stretch across the
@@ -1046,4 +1057,20 @@ function DragPreview({ data }: { data: any }) {
   const fvMap = (data.fieldValueMap ?? {}) as Record<string, any>
   const cells = fields.map((f) => ({ name: f.name, value: formatCellValue(f, fvMap[f.id]) }))
   return <div className="jubo-los-scope"><DragOverlayRow title={data.title} cells={cells} widthStyle={widthStyle} /></div>
+}
+
+/** Compact drag preview shown while the pointer is over the sidebar: a small
+ *  pill (initials + name) that never covers the destination boards or the
+ *  stage flyout. */
+function CompactDragPill({ title }: { title: string }) {
+  const words = title.trim().split(/\s+/)
+  const initials = ((words[0]?.[0] ?? '') + (words[1]?.[0] ?? '')).toUpperCase() || '•'
+  return (
+    <div className="jubo-los-scope flex w-fit max-w-[220px] cursor-grabbing items-center gap-2 rounded-full border border-jubo-border-strong bg-jubo-card py-1 pl-1 pr-3 shadow-2xl">
+      <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-jubo-gold-soft text-[10px] font-bold text-jubo-gold">
+        {initials}
+      </span>
+      <span className="truncate text-xs font-semibold text-foreground">{title}</span>
+    </div>
+  )
 }
