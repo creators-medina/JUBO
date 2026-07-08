@@ -272,6 +272,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
   return (
     <aside
+      data-app-sidebar
       className={cn(
         'jubo-navy-chrome relative flex h-full flex-col border-r border-sidebar-border bg-sidebar-bg transition-all duration-200 ease-in-out',
         collapsed ? 'w-14' : 'w-64'
