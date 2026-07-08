@@ -34,6 +34,21 @@ export const LEAD_SOURCES = [
 
 export type LeadSourceKey = (typeof LEAD_SOURCES)[number]['key']
 
+/** All canonical labels, in display order (pickers, templates, reporting). */
+export const LEAD_SOURCE_LABELS: string[] = LEAD_SOURCES.map((s) => s.label)
+
+/** Match a stored lead-source string to its canonical key (case/space
+ *  tolerant), or null when it's a legacy/imported value we don't recognize —
+ *  callers must surface those honestly, never coerce them. */
+export function canonicalSourceKeyForLabel(raw: string | null | undefined): LeadSourceKey | null {
+  if (!raw) return null
+  const n = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  for (const s of LEAD_SOURCES) {
+    if (s.label.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() === n) return s.key
+  }
+  return null
+}
+
 /** Starting CONVERSION assumptions (lead → funded), in percent. Editable and
  *  labeled as assumptions in the UI — never presented as facts. */
 export const DEFAULT_CONVERSION_RATES: Record<LeadSourceKey, number> = {
