@@ -133,4 +133,5 @@ export type LiveSessionStats = {
   meetings: number
 }
 
-export const DEFAULT_DAILY_CALL_GOAL = 25
+// Phase 1 (Daily Call Log): the product's daily outbound-call goal is 10.
+export const DEFAULT_DAILY_CALL_GOAL = 10

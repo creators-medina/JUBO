@@ -56,6 +56,10 @@ export type OnboardingAnswers = {
   buys_leads?: boolean
   recruiting?: boolean
   team_or_solo?: 'team' | 'solo'
+
+  // Daily Call Log (Phase 1) — editable daily outbound-call goal; read by the
+  // call-target resolver (features/prospecting/target) as 'daily_call_goal'.
+  daily_call_goal?: number
 }
 
 /** Derived tailoring summary, persisted so the rest of the app can read it. */

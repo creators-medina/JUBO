@@ -57,7 +57,7 @@ import { useSidebarSectionCollapsed } from '@/hooks/useSidebarSectionCollapsed'
 // tables that expect real board ids.
 const NAV_LINKS: Record<string, { label: string; icon: LucideIcon }> = {
   '/dashboard': { label: 'Dashboard', icon: LayoutDashboard },
-  '/prospecting': { label: 'Prospecting', icon: PhoneCall },
+  '/prospecting': { label: 'Daily Call Log', icon: PhoneCall },
   '/today': { label: 'Today', icon: Sunrise },
   '/business-plan': { label: 'Business Plan', icon: Gauge },
   '/goals': { label: 'Goals', icon: Target },

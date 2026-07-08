@@ -260,7 +260,7 @@ export function DashboardOverview({ data }: { data: DashboardOverviewData }) {
                 <Link href="/prospecting"
                   className="mt-2.5 inline-flex items-center gap-1.5 rounded-[10px] bg-white px-3.5 py-2 text-[13px] font-semibold transition-transform hover:-translate-y-px"
                   style={{ color: INK }}>
-                  Open prospecting →
+                  Open Daily Call Log →
                 </Link>
               </div>
             </div>

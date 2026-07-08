@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { buildThemeDayData } from '@/features/prospecting/themeday/queues'
 import { getProspectingStreak } from '@/features/prospecting/streak'
+import { getDailyCallTarget } from '@/features/prospecting/target'
 import { TrackView } from '@/features/analytics/TrackView'
 import { ThemeDayCockpit } from '@/features/prospecting/themeday/ThemeDayCockpit'
 
@@ -27,16 +28,24 @@ export default async function ProspectingPage() {
   if (!membership) redirect('/onboarding')
   const orgId = membership.organization_id
 
-  const [themeData, streak] = await Promise.all([
+  const [themeData, streak, dailyGoal] = await Promise.all([
     buildThemeDayData(orgId, user.id),
     getProspectingStreak(orgId, user.id),
+    // Daily Call Log goal — session > profile (daily_call_goal) > goal > 10.
+    getDailyCallTarget(orgId, user.id),
   ])
 
   return (
     <div className="h-full overflow-y-auto">
       <TrackView surface="prospecting" />
       <div className="w-full px-4 py-6 sm:px-8 lg:px-10">
-        <ThemeDayCockpit data={themeData} streak={streak} />
+        <ThemeDayCockpit
+          data={themeData}
+          streak={streak}
+          organizationId={orgId}
+          goal={dailyGoal.target}
+          goalSource={dailyGoal.label}
+        />
       </div>
     </div>
   )
