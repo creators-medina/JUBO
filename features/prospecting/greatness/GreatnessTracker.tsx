@@ -68,21 +68,36 @@ function MetricCard({ icon: Icon, label, value, sub, note, chip }: {
 
 function LeadSourceBreakdown({ data, win, phrase }: { data: GreatnessData; win: GreatnessWindowKey; phrase: string }) {
   const ls = data.leadSource
+  // Windowed entry splits (mirror each card's headline definition)…
   const newLeadCounts = ls.newLeads?.[win] ?? {}
+  const paCounts = ls.preApprovals?.[win] ?? {}
   const fundedCounts = ls.funded?.[win] ?? {}
-  // Union of sources seen in either metric this window; Unassigned always
-  // renders last so unattributed records are visible, never hidden.
-  const sources = [...new Set([...Object.keys(newLeadCounts), ...Object.keys(fundedCounts)])]
+  // …and the pipeline split, which is CURRENT-STATE (not windowed), exactly
+  // like the Deals in Pipeline card's headline number.
+  const pipeCounts = ls.pipeline ?? {}
+  const cols: { label: string; counts: Record<string, number> }[] = [
+    { label: 'New Leads', counts: newLeadCounts },
+    { label: 'Pre-Approvals', counts: paCounts },
+    { label: 'In Pipeline (now)', counts: pipeCounts },
+    { label: 'Funded Loans', counts: fundedCounts },
+  ]
+  // Union of sources seen in any metric; Unassigned always renders last so
+  // unattributed records are visible, never hidden.
+  const sources = [...new Set(cols.flatMap((c) => Object.keys(c.counts)))]
     .filter((s) => s !== 'Unassigned')
-    .sort((a, b) => (fundedCounts[b] ?? 0) - (fundedCounts[a] ?? 0) || (newLeadCounts[b] ?? 0) - (newLeadCounts[a] ?? 0))
-  const hasUnassigned = (newLeadCounts['Unassigned'] ?? 0) + (fundedCounts['Unassigned'] ?? 0) > 0
+    .sort((a, b) =>
+      (fundedCounts[b] ?? 0) - (fundedCounts[a] ?? 0)
+      || (pipeCounts[b] ?? 0) - (pipeCounts[a] ?? 0)
+      || (newLeadCounts[b] ?? 0) - (newLeadCounts[a] ?? 0),
+    )
+  const hasUnassigned = cols.some((c) => (c.counts['Unassigned'] ?? 0) > 0)
   const empty = !ls.tracked || ls.assignedCount === 0
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-sm font-bold text-foreground">Lead Source Breakdown</h3>
-        <span className="text-2xs text-muted-foreground">New Leads &amp; Funded Loans {phrase} · real record attribution only</span>
+        <span className="text-2xs text-muted-foreground">Leads, pre-approvals &amp; funded {phrase} · pipeline is current · real record attribution only</span>
       </div>
       {empty ? (
         <p className="text-xs text-muted-foreground">
@@ -91,33 +106,36 @@ function LeadSourceBreakdown({ data, win, phrase }: { data: GreatnessData; win: 
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[420px] text-sm">
+          <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-border text-left text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <th className="py-1.5 pr-3">Source</th>
-                <th className="py-1.5 pr-3 text-right">New Leads</th>
-                <th className="py-1.5 text-right">Funded Loans</th>
+                {cols.map((c) => (
+                  <th key={c.label} className="py-1.5 pl-3 text-right">{c.label}</th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {sources.map((s) => (
                 <tr key={s}>
                   <td className="py-1.5 pr-3 font-medium text-foreground">{s}</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-foreground">{newLeadCounts[s] ?? 0}</td>
-                  <td className="py-1.5 text-right tabular-nums text-foreground">{fundedCounts[s] ?? 0}</td>
+                  {cols.map((c) => (
+                    <td key={c.label} className="py-1.5 pl-3 text-right tabular-nums text-foreground">{c.counts[s] ?? 0}</td>
+                  ))}
                 </tr>
               ))}
               {hasUnassigned && (
                 <tr>
                   <td className="py-1.5 pr-3 font-medium text-muted-foreground">Unassigned</td>
-                  <td className="py-1.5 pr-3 text-right tabular-nums text-muted-foreground">{newLeadCounts['Unassigned'] ?? 0}</td>
-                  <td className="py-1.5 text-right tabular-nums text-muted-foreground">{fundedCounts['Unassigned'] ?? 0}</td>
+                  {cols.map((c) => (
+                    <td key={c.label} className="py-1.5 pl-3 text-right tabular-nums text-muted-foreground">{c.counts['Unassigned'] ?? 0}</td>
+                  ))}
                 </tr>
               )}
             </tbody>
           </table>
           <p className="mt-2 text-2xs text-muted-foreground">
-            Counts records with a lead source set on the record — nothing is inferred from board names. Pre-approval and pipeline source splits arrive in a later pass.
+            Counts records with a lead source set on the record — nothing is inferred from board names. New Leads, Pre-Approvals, and Funded follow the timeframe above; In Pipeline is the current roster.
           </p>
         </div>
       )}
