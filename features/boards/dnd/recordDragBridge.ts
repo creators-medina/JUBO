@@ -21,15 +21,26 @@
 
 import { useSyncExternalStore } from 'react'
 
-export type RecordDragState = {
+export type RecordDragHover = {
+  hoverBoardId: string | null
+  hoverBoardName: string | null
+  /** A specific stage inside the hovered board's flyout (optional target). */
+  hoverGroupId: string | null
+  hoverGroupName: string | null
+  /** A collapsed board-section header being hovered (dwell → auto-expand). */
+  hoverSectionKey: string | null
+}
+
+export type RecordDragState = RecordDragHover & {
   recordId: string | null
   fromBoardId: string | null
   title: string | null
-  hoverBoardId: string | null
-  hoverBoardName: string | null
 }
 
-const IDLE: RecordDragState = { recordId: null, fromBoardId: null, title: null, hoverBoardId: null, hoverBoardName: null }
+const IDLE: RecordDragState = {
+  recordId: null, fromBoardId: null, title: null,
+  hoverBoardId: null, hoverBoardName: null, hoverGroupId: null, hoverGroupName: null, hoverSectionKey: null,
+}
 
 let state: RecordDragState = IDLE
 const listeners = new Set<() => void>()
@@ -39,13 +50,17 @@ function emit(next: RecordDragState) {
 }
 
 export function startRecordDrag(recordId: string, fromBoardId: string, title: string) {
-  emit({ recordId, fromBoardId, title, hoverBoardId: null, hoverBoardName: null })
+  emit({ ...IDLE, recordId, fromBoardId, title })
 }
 
-export function setRecordDragHover(boardId: string | null, boardName: string | null) {
+export function setRecordDragHover(hover: RecordDragHover) {
   if (state.recordId == null) return
-  if (state.hoverBoardId === boardId) return
-  emit({ ...state, hoverBoardId: boardId, hoverBoardName: boardName })
+  if (
+    state.hoverBoardId === hover.hoverBoardId &&
+    state.hoverGroupId === hover.hoverGroupId &&
+    state.hoverSectionKey === hover.hoverSectionKey
+  ) return
+  emit({ ...state, ...hover })
 }
 
 /** Clears the bridge and returns the final state (read the drop target from it). */

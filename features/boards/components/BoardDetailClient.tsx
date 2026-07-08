@@ -251,8 +251,26 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
       startRecordDrag(a.recordId as string, (a.boardId ?? board.id) as string, String(a.record?.title ?? ''))
       const onMove = (e: PointerEvent) => {
         const el = document.elementFromPoint(e.clientX, e.clientY)
-        const target = (el?.closest?.('[data-record-drop-board]') ?? null) as HTMLElement | null
-        setRecordDragHover(target?.dataset.recordDropBoard ?? null, target?.dataset.recordDropName ?? null)
+        const boardEl = (el?.closest?.('[data-record-drop-board]') ?? null) as HTMLElement | null
+        const groupEl = (el?.closest?.('[data-record-drop-group]') ?? null) as HTMLElement | null
+        const sectionEl = (el?.closest?.('[data-record-drop-section]') ?? null) as HTMLElement | null
+        setRecordDragHover({
+          hoverBoardId: boardEl?.dataset.recordDropBoard ?? null,
+          hoverBoardName: boardEl?.dataset.recordDropName ?? null,
+          hoverGroupId: groupEl?.dataset.recordDropGroup ?? null,
+          hoverGroupName: groupEl?.dataset.recordDropGroupName ?? null,
+          hoverSectionKey: sectionEl?.dataset.recordDropSection ?? null,
+        })
+        // Edge autoscroll: nudge the sidebar's scroll container when the
+        // pointer sits near its top/bottom edge during a record drag.
+        const scroller = document.querySelector('[data-sidebar-scroll]') as HTMLElement | null
+        if (scroller) {
+          const r = scroller.getBoundingClientRect()
+          if (e.clientX >= r.left - 8 && e.clientX <= r.right + 8) {
+            if (e.clientY < r.top + 44) scroller.scrollTop -= 14
+            else if (e.clientY > r.bottom - 44) scroller.scrollTop += 14
+          }
+        }
       }
       window.addEventListener('pointermove', onMove)
       recordDragCleanup.current = () => window.removeEventListener('pointermove', onMove)
@@ -274,23 +292,49 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     const bridge = stopRecordDragBridge()
     const dragged = active.data.current
 
-    // ── Cross-board move: dropped on a sidebar board row. ──
+    // ── Cross-board move: dropped on a sidebar board row (or its stage flyout). ──
     if (dragged?.type === 'record' && bridge.hoverBoardId) {
       const recordId = dragged.recordId as string
       const toBoardId = bridge.hoverBoardId
       const toBoardName = bridge.hoverBoardName ?? 'that board'
+
+      // Same board: a flyout stage drop is an INTENTIONAL stage move — route
+      // it through the same moveRecord wrapper as any in-board stage change.
       if (toBoardId === board.id) {
-        toast.info('Already on this board.')
+        const toGroupId = bridge.hoverGroupId
+        if (!toGroupId) { toast.info('Already on this board.'); return }
+        if (toGroupId === dragged.fromGroupId) { toast.info('Already in that stage.'); return }
+        isMutating.current = true
+        setLocalRecords(prev => prev.map(r => r.id === recordId ? { ...r, group_id: toGroupId } : r))
+        setPendingMoveIds(prev => { const n = new Set(prev); n.add(recordId); return n })
+        try {
+          await moveRecord(recordId, toGroupId, board.id)
+          toast.success(`Moved to ${bridge.hoverGroupName ?? 'stage'}`)
+          router.refresh()
+        } catch {
+          setLocalRecords(serverRecords) // rollback
+          setPendingMoveIds(new Set())
+          toast.error('Could not move the record — try again.')
+        } finally {
+          isMutating.current = false
+        }
         return
       }
+
       isMutating.current = true
       setPendingMoveIds(prev => new Set(prev).add(recordId))
       try {
-        // Destination stage = the destination board's FIRST group (its own
-        // position order) — never guessed, never created. No groups → block.
-        const targets = await getMoveTargets()
-        const dest = targets.find((t) => t.id === toBoardId)
-        const toGroupId = dest?.groups[0]?.id
+        // Destination stage: the flyout's explicit stage when one was hovered,
+        // else the destination board's FIRST group (its own position order) —
+        // never guessed, never created. No groups → block.
+        let toGroupId = bridge.hoverGroupId
+        let destLabel = bridge.hoverGroupId ? `${toBoardName} · ${bridge.hoverGroupName ?? 'stage'}` : toBoardName
+        if (!toGroupId) {
+          const targets = await getMoveTargets()
+          const dest = targets.find((t) => t.id === toBoardId)
+          toGroupId = dest?.groups[0]?.id ?? null
+          destLabel = toBoardName
+        }
         if (!toGroupId) {
           toast.error(`"${toBoardName}" has no stages to receive records.`)
           return
@@ -303,7 +347,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
           toast.error('Could not move the record — try again.')
           return
         }
-        toast.success(`Moved to ${toBoardName}`)
+        toast.success(`Moved to ${destLabel}`)
         router.refresh()
       } catch {
         setLocalRecords(serverRecords) // rollback
