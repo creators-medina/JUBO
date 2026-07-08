@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/features/feedback/ToastProvider'
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { quickCallOutcome } from '@/features/communications/actions'
+import { saveOnboardingProgress } from '@/features/onboarding/actions'
 import { OUTCOME_LABEL, type CommunicationOutcome } from '@/features/communications/types'
 import { track } from '@/features/analytics/client'
 import { getWeekThemeDays } from '../coaching/themeDay'
@@ -109,11 +110,42 @@ function useTweenedPercent(target: number): number {
   return val
 }
 
-export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: ProspectingStreak }) {
+export function ThemeDayCockpit({ data, streak, organizationId, goal: goalProp, goalSource }: {
+  data: ThemeDayData
+  streak: ProspectingStreak
+  organizationId: string
+  /** Resolved daily call goal (session > profile > goal engine > default 10). */
+  goal: number
+  /** Human label for where the goal came from (shown as a tooltip). */
+  goalSource: string
+}) {
   const router = useRouter()
   const toast = useToast()
   const { openWorkspace } = useWorkspaceTabs()
   const [pending, startTransition] = useTransition()
+
+  // ── Editable daily goal (Phase 1) — persisted to the existing
+  // onboarding_profiles.answers.daily_call_goal key the target resolver reads.
+  const [goalOverride, setGoalOverride] = useState<number | null>(null)
+  const dailyGoal = goalOverride ?? goalProp
+  const [editingGoal, setEditingGoal] = useState(false)
+  const [goalDraft, setGoalDraft] = useState('')
+  const saveGoal = () => {
+    setEditingGoal(false)
+    const n = Math.max(1, Math.min(200, Math.round(Number(goalDraft))))
+    if (!Number.isFinite(n) || n === dailyGoal) return
+    setGoalOverride(n) // optimistic
+    startTransition(async () => {
+      try {
+        await saveOnboardingProgress(organizationId, { answers: { daily_call_goal: n } })
+        toast.success(`Daily goal set to ${n} calls`)
+        router.refresh()
+      } catch {
+        setGoalOverride(null)
+        toast.error('Could not save the goal — try again.')
+      }
+    })
+  }
 
   const rawDow = new Date().getDay()
   // Weekend default → Monday (existing app convention for theme days).
@@ -213,8 +245,36 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
   const pct = goal > 0 ? Math.min(100, Math.round((done / goal) * 100)) : 0
   const win = goal > 0 && done >= goal
   const nextUp = uncalled[0] ?? null
-  const toGo = Math.max(0, goal - done)
   const ordered = [...uncalled, ...queue.items.filter((i) => called.has(i.recordId))]
+
+  // ── Daily-goal progress (Phase 1): ALL of the LO's calls logged today —
+  // the goal measures real activity, not just this list. Real logs win; an
+  // optimistic local log counts only until its record shows a server log
+  // (so refresh never double-counts). Reset day intentionally does NOT
+  // subtract from this — a call counts when it is logged.
+  const callsTodayServer = useMemo(() => {
+    let count = 0
+    const recordIds = new Set<string>()
+    for (const l of data.weekLogs) {
+      if (l.channel !== 'call') continue
+      if (localDateKey(new Date(l.occurredAt)) !== todayKey) continue
+      count += 1
+      recordIds.add(l.recordId)
+    }
+    return { count, recordIds }
+  }, [data.weekLogs, todayKey])
+  const callsToday = callsTodayServer.count +
+    [...localLogs.keys()].filter((id) => !callsTodayServer.recordIds.has(id)).length
+  const goalPct = Math.min(100, Math.round((callsToday / Math.max(1, dailyGoal)) * 100))
+  const goalHit = callsToday >= dailyGoal && dailyGoal > 0
+
+  // Hero ring: on the actionable day it tracks the DAILY GOAL; on planning
+  // days it keeps showing that day's queue completion.
+  const ringDone = isToday ? callsToday : done
+  const ringGoal = isToday ? dailyGoal : goal
+  const ringPct = isToday ? goalPct : pct
+  const ringSub = isToday ? `of ${dailyGoal}-call goal` : `of ${goal} called`
+  const toGo = Math.max(0, ringGoal - ringDone)
 
   const logCall = (recordId: string, outcome: CommunicationOutcome) => {
     if (inFlight.current.has(recordId)) return
@@ -257,7 +317,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
       <div className="rounded-2xl bg-jubo-navy p-6 text-white shadow-md sm:p-7">
         <div className="flex items-start justify-between gap-3">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/55">
-            {isActualToday ? 'Today' : isToday ? 'Up next' : 'This week'} · {dateLabel}
+            Daily Call Log · {isActualToday ? 'Today' : isToday ? 'Up next' : 'This week'} · {dateLabel}
           </p>
           {isToday && (
             <button
@@ -305,7 +365,36 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
         {/* Ring + streak/to-go + Next Up */}
         <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-center lg:gap-8">
           <div className="flex flex-shrink-0 flex-col items-center gap-3.5">
-            <HeroRing percent={pct} done={done} goal={goal} pill={`${pct}%${isActualToday ? ' today' : ''}`} />
+            <HeroRing percent={ringPct} done={ringDone} sub={ringSub} pill={`${ringPct}%${isActualToday ? ' today' : ''}`} />
+            {isToday && (
+              editingGoal ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    autoFocus
+                    type="number"
+                    min={1}
+                    max={200}
+                    value={goalDraft}
+                    onChange={(e) => setGoalDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); saveGoal() }
+                      if (e.key === 'Escape') { e.preventDefault(); setEditingGoal(false) }
+                    }}
+                    aria-label="Daily call goal"
+                    className="w-16 rounded-md border border-white/25 bg-white/10 px-2 py-1 text-center text-sm font-bold tabular-nums text-white focus:outline-none focus:ring-1 focus:ring-white/40"
+                  />
+                  <button onClick={saveGoal} className="rounded-md bg-white/15 px-2 py-1 text-xs font-semibold text-white hover:bg-white/25">Save</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setGoalDraft(String(dailyGoal)); setEditingGoal(true) }}
+                  title={goalSource}
+                  className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/45 transition-colors hover:text-white/80"
+                >
+                  Daily goal {dailyGoal} · edit
+                </button>
+              )
+            )}
             <div className="flex items-center gap-5">
               <div className="text-center">
                 <p className="flex items-center justify-center gap-1 text-xl font-bold tabular-nums">
@@ -330,6 +419,11 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
               </div>
             ) : nextUp ? (
               <>
+                {isToday && goalHit && (
+                  <p className="mb-1.5 text-xs font-semibold text-[#E8B3A5]">
+                    🎯 Daily goal hit — every call from here is a bonus.
+                  </p>
+                )}
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/45">Next up</p>
                 <button onClick={() => openWorkspace({ recordId: nextUp.recordId, title: nextUp.title })}
                   className="mt-0.5 block max-w-full truncate text-xl font-bold text-white hover:underline">
@@ -464,6 +558,13 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
                   Planning view — call logging is available on the day itself. Completion shown is from calls logged that day.
                 </p>
               )}
+              {/* Low-volume day: never fake contacts to fill the goal — show
+                  the real list and say so plainly. */}
+              {isToday && queue.items.length > 0 && queue.items.length < dailyGoal && (
+                <p className="px-4 py-2 text-2xs text-muted-foreground sm:px-5">
+                  Only {queue.items.length} contact{queue.items.length === 1 ? '' : 's'} in today&apos;s bucket — every one counts toward your {dailyGoal}-call goal.
+                </p>
+              )}
               {ordered.map((item) => {
                 const log = called.get(item.recordId)
                 return (
@@ -486,7 +587,7 @@ export function ThemeDayCockpit({ data, streak }: { data: ThemeDayData; streak: 
 // The timer tween lives INSIDE the ring so its ~24 frames re-render only this
 // small component — never the whole cockpit (that render storm, multiplied by
 // the per-day completion scans, is what froze the dashboard).
-function HeroRing({ percent, done, goal, pill }: { percent: number; done: number; goal: number; pill: string }) {
+function HeroRing({ percent, done, sub, pill }: { percent: number; done: number; sub: string; pill: string }) {
   const tweened = useTweenedPercent(percent)
   const size = 176, stroke = 13
   const r = (size - stroke) / 2
@@ -507,7 +608,7 @@ function HeroRing({ percent, done, goal, pill }: { percent: number; done: number
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-4xl font-bold tabular-nums">{done}</span>
-        <span className="text-xs text-white/60">of {goal} called</span>
+        <span className="text-xs text-white/60">{sub}</span>
         <span className="mt-1.5 rounded-full bg-white/10 px-2 py-0.5 text-2xs font-semibold text-[#E8B3A5]">{pill}</span>
       </div>
     </div>

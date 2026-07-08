@@ -180,7 +180,7 @@ export function ProspectingCockpit({
 
             {/* ── Theme Day cockpit (Prospecting Redesign): navy hero + week
                 strip + today's call list, driven by the real source boards. ── */}
-            <ThemeDayCockpit data={themeData} streak={streak} />
+            <ThemeDayCockpit data={themeData} streak={streak} organizationId={organizationId} goal={todayGoal} goalSource={targetLabel} />
 
             {/* ── Session + today snapshot (kept from the previous cockpit) ── */}
             <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
