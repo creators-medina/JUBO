@@ -62,6 +62,15 @@ All assumptions are **editable by the LO**:
 
 Onboarding should eventually collect these fields (Phase 4).
 
+**Canonical source (Phase 3 decision):** the `production_plan_*` keys in
+`onboarding_profiles.answers` are the canonical planning-assumption source (income goal,
+loan amount, bps, split, mix, conversions), read by the `/production-plan` page and the pure
+math module `features/production-plan/calc`. The existing `production_goals` table continues
+to power the legacy `/business-plan` coaching page, the Goals page, and the Dashboard goal
+card — those were intentionally left untouched in Phase 3. A later phase consolidates the
+two so one income goal drives everything; until then the Production Plan page is the source
+of truth for Business Plan Math.
+
 ## Lead sources
 
 - Lead-source tags/fields **do not currently exist as stored data**.

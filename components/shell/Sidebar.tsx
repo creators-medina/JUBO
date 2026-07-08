@@ -28,6 +28,7 @@ import {
   Workflow,
   Upload,
   FileJson,
+  Calculator,
   ChevronLeft,
   ChevronRight,
   Search,
@@ -60,6 +61,7 @@ const NAV_LINKS: Record<string, { label: string; icon: LucideIcon }> = {
   '/prospecting': { label: 'Daily Call Log', icon: PhoneCall },
   '/today': { label: 'Today', icon: Sunrise },
   '/business-plan': { label: 'Business Plan', icon: Gauge },
+  '/production-plan': { label: 'Production Plan', icon: Calculator },
   '/goals': { label: 'Goals', icon: Target },
   '/forecasts': { label: 'Forecasts', icon: TrendingUp },
   '/settings/workflows': { label: 'Workflows', icon: Workflow },
@@ -74,7 +76,7 @@ type NavGroupKey = 'utility' | 'insights' | 'setup'
 const DEFAULT_GROUP_ORDER = ['boards', 'insights', 'setup'] as const
 const DEFAULT_GROUP_ITEMS: Record<NavGroupKey, readonly string[]> = {
   utility: ['/dashboard', '/prospecting', '/today'],
-  insights: ['/business-plan', '/goals', '/forecasts'],
+  insights: ['/business-plan', '/production-plan', '/goals', '/forecasts'],
   setup: ['/settings/workflows', '/imports', '/blueprints', '/settings/integrations', '/settings'],
 }
 const NAVLINK_DND_TYPE = 'text/jubo-navlink'

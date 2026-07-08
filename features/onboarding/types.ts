@@ -60,6 +60,18 @@ export type OnboardingAnswers = {
   // Daily Call Log (Phase 1) — editable daily outbound-call goal; read by the
   // call-target resolver (features/prospecting/target) as 'daily_call_goal'.
   daily_call_goal?: number
+
+  // Production Plan (Phase 3) — Business Plan Math assumptions, all editable
+  // by the LO (features/production-plan/calc). These keys are the CANONICAL
+  // planning-assumption source; `production_goals` continues to power the
+  // legacy Business Plan / Goals pages until a later consolidation phase.
+  production_plan_annual_net_income_goal?: number
+  production_plan_average_loan_amount?: number
+  production_plan_gross_comp_bps?: number
+  production_plan_lo_split_percent?: number
+  production_plan_net_comp_bps_override?: number | null
+  production_plan_lead_source_mix?: Record<string, number>
+  production_plan_conversion_rates?: Record<string, number>
 }
 
 /** Derived tailoring summary, persisted so the rest of the app can read it. */
