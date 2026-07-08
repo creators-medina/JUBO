@@ -37,16 +37,55 @@ export type LeadSourceKey = (typeof LEAD_SOURCES)[number]['key']
 /** All canonical labels, in display order (pickers, templates, reporting). */
 export const LEAD_SOURCE_LABELS: string[] = LEAD_SOURCES.map((s) => s.label)
 
-/** Match a stored lead-source string to its canonical key (case/space
- *  tolerant), or null when it's a legacy/imported value we don't recognize —
- *  callers must surface those honestly, never coerce them. */
+const normalize = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+/** Phase 5.1 — conservative alias map for legacy/imported lead-source values
+ *  (normalized string → canonical key). DISPLAY/REPORTING ONLY: saved field
+ *  values are never rewritten, and the record picker keeps showing the raw
+ *  value. Only unambiguous mappings belong here — deliberately NOT aliased:
+ *  'Past Client' (repeat vs referral is not decidable), 'Self-Sourced' and
+ *  'Purchased Lead' (no clear canonical home), generic 'Referral'. Those stay
+ *  visible as their own explicit rows. */
+export const SOURCE_ALIASES: Record<string, LeadSourceKey> = {
+  'website': 'website_lead',
+  'web lead': 'website_lead',
+  'facebook': 'facebook_ad',
+  'facebook ads': 'facebook_ad',
+  'fb ad': 'facebook_ad',
+  'fb ads': 'facebook_ad',
+  'insta': 'instagram',
+  'ig': 'instagram',
+  'realtor': 'realtor_referral',
+  'agent referral': 'realtor_referral',
+  'realtor partner': 'realtor_referral',
+  'online': 'online_lead',
+  'internet lead': 'online_lead',
+  'friend': 'personal_friend',
+  'past client referral': 'past_client_referral',
+  'repeat client': 'past_client_repeat',
+  'past client repeat': 'past_client_repeat',
+}
+
+/** Match a stored lead-source string to its canonical key — exact canonical
+ *  label first (case/space tolerant), then the conservative alias map. Null
+ *  when the value isn't recognizable — callers must surface those honestly
+ *  as their own rows, never coerce them. */
 export function canonicalSourceKeyForLabel(raw: string | null | undefined): LeadSourceKey | null {
   if (!raw) return null
-  const n = raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const n = normalize(raw)
   for (const s of LEAD_SOURCES) {
-    if (s.label.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() === n) return s.key
+    if (normalize(s.label) === n) return s.key
   }
-  return null
+  return SOURCE_ALIASES[n] ?? null
+}
+
+/** Display label for a stored lead-source value: the canonical label when the
+ *  value (or a known alias) matches, otherwise the raw value unchanged — an
+ *  unknown source stays visible as itself, never hidden or renamed. */
+export function displaySourceLabel(raw: string): string {
+  const key = canonicalSourceKeyForLabel(raw)
+  if (!key) return raw
+  return LEAD_SOURCES.find((s) => s.key === key)!.label
 }
 
 /** Starting CONVERSION assumptions (lead → funded), in percent. Editable and

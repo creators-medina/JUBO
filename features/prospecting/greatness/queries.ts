@@ -29,6 +29,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { createClient } from '@/lib/supabase/server'
+import { displaySourceLabel } from '@/features/production-plan/calc'
 
 export type GreatnessWindowKey = 'today' | 'week' | 'month' | 'year'
 export const GREATNESS_WINDOWS: GreatnessWindowKey[] = ['today', 'week', 'month', 'year']
@@ -337,7 +338,10 @@ export async function buildGreatnessData(organizationId: string, userId: string)
         .in('record_id', chunk)
       for (const fv of (fvs ?? []) as { record_id: string; value_text: string | null }[]) {
         const v = fv.value_text?.trim()
-        if (v && !sourceOf.has(fv.record_id)) sourceOf.set(fv.record_id, v)
+        // Phase 5.1 — fold legacy/imported values into canonical labels for
+        // REPORTING ONLY (saved values untouched); unknown values keep their
+        // raw text and stay visible as their own rows.
+        if (v && !sourceOf.has(fv.record_id)) sourceOf.set(fv.record_id, displaySourceLabel(v))
       }
     }
   }
