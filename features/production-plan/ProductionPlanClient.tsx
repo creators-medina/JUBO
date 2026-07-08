@@ -305,9 +305,22 @@ export function ProductionPlanClient({ organizationId, initial, greatness, daily
   )
 }
 
+type MixMetricKey = 'newLeads' | 'preApprovals' | 'pipeline' | 'funded'
+
 function SourceMixComparison({ mix, greatness }: { mix: Record<LeadSourceKey, number>; greatness: GreatnessData }) {
   const ls = greatness.leadSource
-  const yearCounts = ls.newLeads?.year ?? {}
+  // Phase 5.2 — actual mix viewable per metric. Each option reuses the exact
+  // Greatness Tracker attribution: YTD entries for leads/pre-approvals/funded,
+  // the current roster for pipeline (definitions are never forked here).
+  const metrics: { key: MixMetricKey; label: string; scope: string; counts: Record<string, number> | null }[] = [
+    { key: 'newLeads', label: 'New Leads', scope: 'New Leads YTD', counts: ls.newLeads?.year ?? null },
+    { key: 'preApprovals', label: 'Pre-Approvals', scope: 'Pre-Approvals YTD', counts: ls.preApprovals?.year ?? null },
+    { key: 'pipeline', label: 'Pipeline', scope: 'current pipeline', counts: ls.pipeline },
+    { key: 'funded', label: 'Funded', scope: 'Funded Loans YTD', counts: ls.funded?.year ?? null },
+  ]
+  const [metric, setMetric] = useState<MixMetricKey>('newLeads')
+  const active = metrics.find((m) => m.key === metric)!
+  const yearCounts = active.counts ?? {}
 
   // Fold raw stored labels into canonical sources; legacy/imported values we
   // don't recognize aggregate into an explicit "unrecognized" row (never
@@ -323,12 +336,33 @@ function SourceMixComparison({ mix, greatness }: { mix: Record<LeadSourceKey, nu
   }
   const assignedTotal = [...actualByKey.values()].reduce((s, n) => s + n, 0) + unrecognized
 
+  const metricPicker = (
+    <div className="flex items-center gap-1" role="tablist" aria-label="Actual-mix metric">
+      {metrics.map((m) => (
+        <button
+          key={m.key}
+          role="tab"
+          aria-selected={metric === m.key}
+          onClick={() => setMetric(m.key)}
+          className={cn(
+            'rounded-md px-2 py-0.5 text-2xs font-semibold transition-colors',
+            metric === m.key ? 'bg-jubo-navy text-white' : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground',
+          )}>
+          {m.label}
+        </button>
+      ))}
+    </div>
+  )
+
   if (assignedTotal === 0) {
     return (
       <div className="mt-4 border-t border-border pt-3">
-        <p className="text-xs font-semibold text-foreground">Planned vs actual source mix</p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-semibold text-foreground">Planned vs actual source mix</p>
+          {metricPicker}
+        </div>
         <p className="mt-1 text-2xs text-muted-foreground">
-          No lead-source attribution yet. Add a lead source on records to unlock source reporting — your planned mix above stays the target.
+          No lead-source attribution for {active.scope} yet. Add a lead source on records to unlock source reporting — your planned mix above stays the target.
         </p>
       </div>
     )
@@ -341,7 +375,10 @@ function SourceMixComparison({ mix, greatness }: { mix: Record<LeadSourceKey, nu
 
   return (
     <div className="mt-4 border-t border-border pt-3">
-      <p className="text-xs font-semibold text-foreground">Planned vs actual source mix — New Leads YTD</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-foreground">Planned vs actual source mix — {active.scope}</p>
+        {metricPicker}
+      </div>
       <div className="mt-2 overflow-x-auto">
         <table className="w-full min-w-[420px] text-sm">
           <thead>
@@ -349,7 +386,7 @@ function SourceMixComparison({ mix, greatness }: { mix: Record<LeadSourceKey, nu
               <th className="py-1.5 pr-3">Source</th>
               <th className="py-1.5 pr-3 text-right">Planned %</th>
               <th className="py-1.5 pr-3 text-right">Actual %</th>
-              <th className="py-1.5 text-right">Actual leads</th>
+              <th className="py-1.5 text-right">Actual count</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
@@ -374,7 +411,7 @@ function SourceMixComparison({ mix, greatness }: { mix: Record<LeadSourceKey, nu
       </div>
       <p className="mt-2 text-2xs text-muted-foreground">
         Actual source mix only includes records with a lead source assigned
-        {unassigned > 0 ? ` — ${unassigned.toLocaleString()} new lead${unassigned === 1 ? '' : 's'} YTD ${unassigned === 1 ? 'is' : 'are'} unassigned and excluded from the percentages` : ''}.
+        {unassigned > 0 ? ` — ${unassigned.toLocaleString()} record${unassigned === 1 ? '' : 's'} in ${active.scope} ${unassigned === 1 ? 'is' : 'are'} unassigned and excluded from the percentages` : ''}.
       </p>
     </div>
   )

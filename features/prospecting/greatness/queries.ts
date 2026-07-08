@@ -55,6 +55,11 @@ export type LeadSourceAttribution = {
   /** Distinct counted records that actually have a lead-source value. */
   assignedCount: number
   newLeads: SourceWindowCounts | null
+  /** Phase 5.2 — same deduped entries the Pre-Approvals metric counts. */
+  preApprovals: SourceWindowCounts | null
+  /** Phase 5.2 — CURRENT Loan In Process roster by source (current-state,
+   *  not windowed — mirrors that card's headline number). */
+  pipeline: Record<string, number> | null
   funded: SourceWindowCounts | null
 }
 
@@ -278,12 +283,15 @@ export async function buildGreatnessData(organizationId: string, userId: string)
   // by record_id (a record on the board AND in a named stage counts once —
   // entry events and current-state both collapse through Sets).
   let preApprovals: GreatnessData['preApprovals'] = null
+  let paEntries: EntryEvent[] = []
   if (paGroupIds.size > 0) {
     const inPa = (r: RecordRow) => paBoardIds.has(r.board_id) || (r.group_id != null && paGroupIds.has(r.group_id))
     const moveEntries = entriesInto(paGroupIds)
     const created = createdInFallback(inPa, moveEntries)
+    const all = [...moveEntries, ...created]
     const currentIds = new Set(records.filter(inPa).map((r) => r.id))
-    const { entries, scope, filterIds } = scopeAndCount([...moveEntries, ...created], [...currentIds])
+    const { entries, scope, filterIds } = scopeAndCount(all, [...currentIds])
+    paEntries = filterIds ? all.filter((e) => filterIds.has(e.recordId)) : all
     const currentCount = filterIds ? [...currentIds].filter((id) => filterIds.has(id)).length : currentIds.size
     preApprovals = { entries, scope, currentCount, stageNames: paStageNames }
   }
@@ -291,13 +299,14 @@ export async function buildGreatnessData(organizationId: string, userId: string)
   // ── Deals in Pipeline: Loan In Process — current roster (open stages) is
   // the headline; entries over time come from movement history.
   let pipeline: GreatnessData['pipeline'] = null
+  let pipelineCurrentIds: string[] = []
   if (lipBoardIds.size > 0) {
     const inLip = (r: RecordRow) => lipBoardIds.has(r.board_id) && !(r.group_id != null && !lipGroupIds.has(r.group_id))
     const moveEntries = entriesInto(lipGroupIds)
     const currentIds = new Set(records.filter(inLip).map((r) => r.id))
     const { entries, scope, filterIds } = scopeAndCount(moveEntries, [...currentIds])
-    const currentCount = filterIds ? [...currentIds].filter((id) => filterIds.has(id)).length : currentIds.size
-    pipeline = { entries, scope, currentCount }
+    pipelineCurrentIds = filterIds ? [...currentIds].filter((id) => filterIds.has(id)) : [...currentIds]
+    pipeline = { entries, scope, currentCount: pipelineCurrentIds.length }
   }
 
   // ── Funded Loans: movements into funded/closed/post-closing stages on the
@@ -317,7 +326,7 @@ export async function buildGreatnessData(organizationId: string, userId: string)
   // 'lead_source' (template-seeded, imported, or picker-provisioned), read
   // per counted record. No board-name inference, no defaults, no backfill —
   // records without a value are counted as 'Unassigned', never hidden.
-  const leadSource: LeadSourceAttribution = { tracked: false, assignedCount: 0, newLeads: null, funded: null }
+  const leadSource: LeadSourceAttribution = { tracked: false, assignedCount: 0, newLeads: null, preApprovals: null, pipeline: null, funded: null }
   const { data: lsFields } = await supabase
     .from('fields')
     .select('id')
@@ -326,7 +335,12 @@ export async function buildGreatnessData(organizationId: string, userId: string)
   const lsFieldIds = ((lsFields ?? []) as { id: string }[]).map((f) => f.id)
   leadSource.tracked = lsFieldIds.length > 0
 
-  const attributionIds = [...new Set([...newLeadsEntries, ...fundedEntries].map((e) => e.recordId))]
+  const attributionIds = [...new Set([
+    ...newLeadsEntries.map((e) => e.recordId),
+    ...paEntries.map((e) => e.recordId),
+    ...pipelineCurrentIds,
+    ...fundedEntries.map((e) => e.recordId),
+  ])]
   const sourceOf = new Map<string, string>()
   if (lsFieldIds.length > 0 && attributionIds.length > 0) {
     for (let i = 0; i < attributionIds.length; i += 200) {
@@ -363,7 +377,18 @@ export async function buildGreatnessData(organizationId: string, userId: string)
     return out
   }
   if (newLeads) leadSource.newLeads = breakdownFor(newLeadsEntries)
+  if (preApprovals) leadSource.preApprovals = breakdownFor(paEntries)
   if (funded) leadSource.funded = breakdownFor(fundedEntries)
+  // Pipeline is current-state (mirrors its card's headline): the current
+  // Loan In Process roster grouped by source, Unassigned included.
+  if (pipeline) {
+    const counts: Record<string, number> = {}
+    for (const id of pipelineCurrentIds) {
+      const label = sourceOf.get(id) ?? 'Unassigned'
+      counts[label] = (counts[label] ?? 0) + 1
+    }
+    leadSource.pipeline = counts
+  }
 
   return { calls, newLeads, preApprovals, pipeline, funded, leadSource, missing, movementsTruncated }
 }
