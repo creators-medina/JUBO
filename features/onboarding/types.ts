@@ -13,6 +13,7 @@ export type OnboardingStepKey =
   | 'welcome'
   | 'production'
   | 'goals'
+  | 'plan'
   | 'workflow'
   | 'focus'
   | 'imports'
@@ -72,6 +73,14 @@ export type OnboardingAnswers = {
   production_plan_net_comp_bps_override?: number | null
   production_plan_lead_source_mix?: Record<string, number>
   production_plan_conversion_rates?: Record<string, number>
+
+  // Business-plan intake (Phase 4) — capacity/database context collected in
+  // the onboarding "Plan" step. Planning inputs only; no record-level fields.
+  realtor_partner_count?: number
+  past_client_count?: number
+  online_leads_per_month?: number
+  target_markets?: string
+  support_capacity?: 'just_me' | 'shared_assistant' | 'dedicated_assistant' | 'full_team'
 }
 
 /** Derived tailoring summary, persisted so the rest of the app can read it. */
@@ -154,7 +163,7 @@ export type OnboardingUploadRow = {
 
 // ── Question schema (data-driven wizard) ────────────────────────────────────
 
-export type QuestionType = 'number' | 'currency' | 'text' | 'select' | 'boolean' | 'weighted'
+export type QuestionType = 'number' | 'currency' | 'text' | 'select' | 'boolean' | 'weighted' | 'source_mix'
 
 export type QuestionOption = { value: string; label: string }
 

@@ -204,7 +204,9 @@ export function assumptionsFromAnswers(answers: Record<string, unknown>): PlanAs
   }
   return {
     annualNetIncomeGoal: num(answers.production_plan_annual_net_income_goal) ?? PLAN_DEFAULTS.annualNetIncomeGoal,
-    averageLoanAmount: num(answers.production_plan_average_loan_amount),
+    // Falls back to the LO's own onboarding "average loan size" answer (their
+    // stated history — not an invented number) until a planning value is set.
+    averageLoanAmount: num(answers.production_plan_average_loan_amount) ?? num(answers.average_loan_size),
     grossCompBps: num(answers.production_plan_gross_comp_bps) ?? PLAN_DEFAULTS.grossCompBps,
     loSplitPercent: num(answers.production_plan_lo_split_percent) ?? PLAN_DEFAULTS.loSplitPercent,
     netCompBpsOverride: num(answers.production_plan_net_comp_bps_override),

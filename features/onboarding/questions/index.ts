@@ -56,6 +56,109 @@ export const ONBOARDING_STEPS: StepDefinition[] = [
     ],
   },
   {
+    // Phase 4 — business-planning intake. Seeds the same production_plan_*
+    // answers the /production-plan page reads (features/production-plan/calc),
+    // so the LO's plan is ready the moment onboarding finishes. Numbers here
+    // are EDITABLE ASSUMPTIONS (placeholders suggest defaults; nothing is
+    // saved unless the LO types it). Conversion rates are intentionally NOT
+    // asked here — Phase 3 defaults apply, editable on /production-plan.
+    key: 'plan',
+    railLabel: 'Plan',
+    title: 'Your business plan inputs',
+    subtitle:
+      'A quick planning intake: your net income goal and comp assumptions. Jubo reverse-engineers the funded loans and leads required — the full plan lives on the Production Plan page.',
+    questions: [
+      {
+        key: 'production_plan_annual_net_income_goal',
+        label: 'Annual net LO comp goal',
+        helper: 'What YOU take home — not company revenue. Most LOs start from $500,000.',
+        type: 'currency',
+        placeholder: 'e.g. 500,000',
+      },
+      {
+        key: 'production_plan_average_loan_amount',
+        label: 'Average loan amount (planning)',
+        helper: 'Your market’s typical loan. If you skip this, your average loan size from the Production step is used.',
+        type: 'currency',
+        placeholder: 'e.g. 400,000',
+        optional: true,
+      },
+      {
+        key: 'production_plan_gross_comp_bps',
+        label: 'Gross comp (bps)',
+        helper: 'Editable assumption — defaults to 275 bps if left blank.',
+        type: 'number',
+        placeholder: 'e.g. 275',
+        optional: true,
+      },
+      {
+        key: 'production_plan_lo_split_percent',
+        label: 'LO net split (%)',
+        helper: 'Your share of gross comp — defaults to 80% if left blank. Net comp is derived honestly (gross × split).',
+        type: 'number',
+        placeholder: 'e.g. 80',
+        optional: true,
+      },
+      {
+        key: 'daily_call_goal',
+        label: 'Daily call goal',
+        helper: 'Powers your Daily Call Log — defaults to 10 outbound calls/day.',
+        type: 'number',
+        placeholder: 'e.g. 10',
+        optional: true,
+      },
+      {
+        key: 'production_plan_lead_source_mix',
+        label: 'Desired lead-source mix',
+        helper:
+          'Where you WANT business to come from — a planning target, not actual attribution (lead-source tracking on records comes later). Aim for a total of 100%.',
+        type: 'source_mix',
+        optional: true,
+      },
+      {
+        key: 'realtor_partner_count',
+        label: 'Realtor partners you work with',
+        type: 'number',
+        placeholder: 'e.g. 12',
+        optional: true,
+      },
+      {
+        key: 'past_client_count',
+        label: 'Past clients in your database',
+        type: 'number',
+        placeholder: 'e.g. 250',
+        optional: true,
+      },
+      {
+        key: 'online_leads_per_month',
+        label: 'Online leads per month (expected)',
+        type: 'number',
+        placeholder: 'e.g. 20',
+        optional: true,
+      },
+      {
+        key: 'target_markets',
+        label: 'Target markets',
+        helper: 'Cities/areas you focus on.',
+        type: 'text',
+        placeholder: 'e.g. Austin, Round Rock',
+        optional: true,
+      },
+      {
+        key: 'support_capacity',
+        label: 'Support capacity',
+        type: 'select',
+        optional: true,
+        options: [
+          { value: 'just_me', label: 'Just me' },
+          { value: 'shared_assistant', label: 'Shared assistant' },
+          { value: 'dedicated_assistant', label: 'Dedicated assistant' },
+          { value: 'full_team', label: 'Full team' },
+        ],
+      },
+    ],
+  },
+  {
     key: 'workflow',
     railLabel: 'Business',
     title: 'How do you source business?',
