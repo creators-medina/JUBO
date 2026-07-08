@@ -316,7 +316,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Nav — utility pinned on top; the group BLOCKS below render in the
           user's saved order (drag a group header to reorder blocks). */}
-      <nav className="flex-1 space-y-4 overflow-y-auto px-2 py-3">
+      <nav data-sidebar-scroll className="flex-1 space-y-4 overflow-y-auto px-2 py-3">
         {/* Utility links (pinned block; items still movable). */}
         <div className="space-y-0.5" {...groupContainerDnD('utility')}>
           {renderGroupItems('utility')}

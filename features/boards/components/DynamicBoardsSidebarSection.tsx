@@ -25,6 +25,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronDown, Columns3, MessageSquare, Plus, UserPlus, FileText } from 'lucide-react'
@@ -36,6 +37,7 @@ import { useSidebarSectionLabel } from '@/hooks/useSidebarSectionLabel'
 import { useSidebarSlot } from '@/hooks/useSidebarSlot'
 import { useSidebarSectionOverrides, type SidebarSectionKey } from '@/hooks/useSidebarSectionOverrides'
 import { useRecordDrag } from '../dnd/recordDragBridge'
+import { getMoveTargets } from '@/features/records/actions'
 import { InlineRenameText } from '@/components/primitives/InlineRenameText'
 import { formatVolume } from './BoardStageSummary'
 import { pickLoanAmountFieldId, resolveLoanAmount } from '@/features/fields/loanAmount'
@@ -138,8 +140,36 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   // groups). Display-only — board_type is never mutated by a drag.
   const { overrides: sectionOverrides, setOverride: setSectionOverride } = useSidebarSectionOverrides()
   // Live record drag from the board area (cross-board move): while active,
-  // every board row here is a drop target; the hovered one highlights.
+  // every board row here is a drop target; the hovered one highlights and
+  // grows a stage flyout so the drop can target a specific stage.
   const recordDrag = useRecordDrag()
+  // Stage lists per board for the flyout — fetched once, on the first record
+  // drag of the session (read-only getMoveTargets; null = not loaded yet).
+  const [stagesByBoard, setStagesByBoard] = useState<Map<string, { id: string; name: string }[]> | null>(null)
+  useEffect(() => {
+    if (!recordDrag.recordId || stagesByBoard !== null) return
+    let cancelled = false
+    getMoveTargets()
+      .then((targets) => {
+        if (!cancelled) setStagesByBoard(new Map(targets.map((t) => [t.id, t.groups])))
+      })
+      .catch(() => { /* stays null → retried on the next drag */ })
+    return () => { cancelled = true }
+  }, [recordDrag.recordId, stagesByBoard])
+
+  // Dwell-to-expand: hovering a COLLAPSED section header for a beat during a
+  // record drag opens it so its boards become droppable.
+  const forceOpenGenerateRef = generateSection.forceOpen
+  const forceOpenWorkLoansRef = workLoansSection.forceOpen
+  useEffect(() => {
+    if (!recordDrag.recordId || !recordDrag.hoverSectionKey) return
+    const key = recordDrag.hoverSectionKey
+    const id = window.setTimeout(() => {
+      if (key === 'generate') forceOpenGenerateRef()
+      else if (key === 'workloans') forceOpenWorkLoansRef()
+    }, 350)
+    return () => window.clearTimeout(id)
+  }, [recordDrag.recordId, recordDrag.hoverSectionKey, forceOpenGenerateRef, forceOpenWorkLoansRef])
 
   useEffect(() => {
     if (!currentOrganization) return
@@ -423,11 +453,23 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
 
   if (boards.length === 0 && collapsed) return null
 
+  // Stage flyout for the hovered drop-target board (rendered in a portal so
+  // the sidebar's scroll container can't clip it; it measures its own anchor).
+  const hoverBoard = recordDrag.hoverBoardId ? boards.find((b) => b.id === recordDrag.hoverBoardId) : undefined
+  const stageFlyout = hoverBoard ? (
+    <StageFlyout
+      board={hoverBoard}
+      groups={stagesByBoard?.get(hoverBoard.id)}
+      hoverGroupId={recordDrag.hoverGroupId}
+    />
+  ) : null
+
   // Collapsed: icons-only flat list (no card, no headers, no reordering).
   // All Boards keeps its place in the rail as a plain icon link.
   if (collapsed) {
     return (
       <div className="space-y-0.5">
+        {stageFlyout}
         {boards.map((b) => renderBoard(b, false))}
         <Link
           href="/boards"
@@ -506,7 +548,7 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   // matches even in a collapsed group (searching should never hide hits).
   const generateBlock = (visGenerate.length > 0 || showConversations || (!q && allBoardsPlacement.section === 'generate')) && (
     <div key="generate" className="space-y-0.5">
-      <div {...headerDnD('generate')} className={cn(!q && 'cursor-grab active:cursor-grabbing')} title="Drag onto the other section header to swap sections">
+      <div {...headerDnD('generate')} data-record-drop-section="generate" className={cn(!q && 'cursor-grab active:cursor-grabbing')} title="Drag onto the other section header to swap sections">
         <SectionHeader
           icon={<UserPlus className="h-3.5 w-3.5" />}
           chipClass="bg-emerald-400/15 text-emerald-300"
@@ -543,7 +585,7 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   // WORK LOANS — active pipeline. Collapsible like Generate.
   const workLoansBlock = (visWorkLoans.length > 0 || (!q && allBoardsPlacement.section === 'workloans')) && (
     <div key="workloans" className="space-y-0.5">
-      <div {...headerDnD('workloans')} className={cn(!q && 'cursor-grab active:cursor-grabbing')} title="Drag onto the other section header to swap sections">
+      <div {...headerDnD('workloans')} data-record-drop-section="workloans" className={cn(!q && 'cursor-grab active:cursor-grabbing')} title="Drag onto the other section header to swap sections">
         <SectionHeader
           icon={<FileText className="h-3.5 w-3.5" />}
           chipClass="bg-sky-400/15 text-sky-300"
@@ -567,6 +609,7 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
 
   return (
     <div className="space-y-4">
+      {stageFlyout}
       {/* Work Loans Pipeline card — real totals from records.value (read-only). */}
       {!q && (
         <div className="rounded-xl border border-[#e6c478]/25 bg-white/[0.04] px-3 py-2.5 shadow-sm">
@@ -602,6 +645,65 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
 
       {boardSections}
     </div>
+  )
+}
+
+/** Stage flyout for the hovered cross-board drop target: lists the board's
+ *  stages so the drop can land in a SPECIFIC stage (dropping on the board row
+ *  itself still means "first stage"). Rendered in a body portal (the sidebar
+ *  scroll container would clip it) and it carries the board's drop attributes,
+ *  so hovering the flyout keeps the drag target alive. */
+function StageFlyout({ board, groups, hoverGroupId }: {
+  board: Board
+  groups: { id: string; name: string }[] | undefined
+  hoverGroupId: string | null
+}) {
+  // Measure the hovered row (the FIRST element carrying the board's drop
+  // attribute — this portal renders after it in the DOM) in an effect, never
+  // during render.
+  const [anchor, setAnchor] = useState<{ right: number; top: number } | null>(null)
+  useEffect(() => {
+    const el = document.querySelector(`[data-record-drop-board="${board.id}"]`)
+    const r = el?.getBoundingClientRect()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAnchor(r ? { right: r.right, top: r.top } : null)
+  }, [board.id])
+  if (!anchor) return null
+  const top = Math.max(8, Math.min(anchor.top, window.innerHeight - 320))
+  return createPortal(
+    <div
+      data-record-drop-board={board.id}
+      data-record-drop-name={board.name}
+      className="fixed z-[100] w-56 rounded-xl border border-white/15 bg-jubo-navy p-1.5 text-white shadow-xl"
+      style={{ left: anchor.right + 6, top }}
+    >
+      <p className="px-2 pb-1 pt-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-white/45">
+        Move to stage · {board.name}
+      </p>
+      {groups === undefined ? (
+        <p className="px-2 py-1.5 text-xs text-white/55">Loading stages…</p>
+      ) : groups.length === 0 ? (
+        <p className="px-2 py-1.5 text-xs text-white/55">No stages on this board</p>
+      ) : (
+        <div className="max-h-64 overflow-y-auto">
+          {groups.map((g) => (
+            <div
+              key={g.id}
+              data-record-drop-group={g.id}
+              data-record-drop-group-name={g.name}
+              className={cn(
+                'truncate rounded-md px-2 py-1.5 text-xs',
+                hoverGroupId === g.id ? 'bg-[#e6c478] font-semibold text-[#0f1d3d]' : 'text-white/85',
+              )}
+            >
+              {g.name}
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="px-2 pb-0.5 pt-1 text-[9px] text-white/35">Drop on the board name = first stage</p>
+    </div>,
+    document.body,
   )
 }
 
