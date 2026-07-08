@@ -35,6 +35,7 @@ import { useSidebarSectionCollapsed } from '@/hooks/useSidebarSectionCollapsed'
 import { useSidebarSectionLabel } from '@/hooks/useSidebarSectionLabel'
 import { useSidebarSlot } from '@/hooks/useSidebarSlot'
 import { useSidebarSectionOverrides, type SidebarSectionKey } from '@/hooks/useSidebarSectionOverrides'
+import { useRecordDrag } from '../dnd/recordDragBridge'
 import { InlineRenameText } from '@/components/primitives/InlineRenameText'
 import { formatVolume } from './BoardStageSummary'
 import { pickLoanAmountFieldId, resolveLoanAmount } from '@/features/fields/loanAmount'
@@ -136,6 +137,9 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   // Per-browser Generate ↔ Work Loans placement overrides (drag between
   // groups). Display-only — board_type is never mutated by a drag.
   const { overrides: sectionOverrides, setOverride: setSectionOverride } = useSidebarSectionOverrides()
+  // Live record drag from the board area (cross-board move): while active,
+  // every board row here is a drop target; the hovered one highlights.
+  const recordDrag = useRecordDrag()
 
   useEffect(() => {
     if (!currentOrganization) return
@@ -328,11 +332,17 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
     const isOver = dragOverId === board.id && draggingId != null && draggingId !== board.id
     // The All Boards row drops onto board rows too (it lives in the same list).
     const isAllBoardsOver = dragOverId === board.id && draggingAllBoards
+    // A record card is being dragged from the board area (pointer-based
+    // bridge, separate from this component's native HTML5 drags).
+    const recordTarget = recordDrag.recordId != null
+    const recordHover = recordDrag.hoverBoardId === board.id
     const count = statsByBoard.get(board.id)?.count ?? 0
     const renaming = renamingBoardId === board.id
     return (
       <div
         key={board.id}
+        data-record-drop-board={board.id}
+        data-record-drop-name={board.name}
         draggable={draggable && !renaming}
         onDragStart={draggable ? (e) => {
           e.dataTransfer.setData(DND_TYPE, board.id)
@@ -360,6 +370,9 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
           draggable && 'cursor-grab active:cursor-grabbing',
           isDragging && 'opacity-40',
           (isOver || isAllBoardsOver) && 'ring-1 ring-inset ring-white/30',
+          // Record-drag drop target states (Monday-style cross-board move).
+          recordTarget && !recordHover && 'ring-1 ring-inset ring-white/15',
+          recordHover && 'bg-white/10 ring-1 ring-inset ring-[#e6c478]',
         )}
       >
         <Link
@@ -392,9 +405,15 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
                 onEditingChange={(ed) => setRenamingBoardId(ed ? board.id : null)}
                 onSave={(next) => renameBoard(board.id, next)}
               />
-              <span className="flex-shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground/70">
-                {count}
-              </span>
+              {recordHover ? (
+                <span className="flex-shrink-0 rounded-full bg-[#e6c478] px-1.5 py-0.5 text-[10px] font-bold text-[#0f1d3d]">
+                  Move here
+                </span>
+              ) : (
+                <span className="flex-shrink-0 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground/70">
+                  {count}
+                </span>
+              )}
             </>
           )}
         </Link>

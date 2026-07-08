@@ -21,7 +21,9 @@ import { AutomationsModal } from '@/features/workflows/components/AutomationsMod
 import { BulkActionBar } from './BulkActionBar'
 import { DragOverlayRow } from './DragOverlayRow'
 import { useBoardRealtime } from '@/hooks/useBoardRealtime'
-import { moveRecord, reorderRecords, updateRecord } from '@/features/records/actions'
+import { moveRecord, reorderRecords, updateRecord, moveRecordToBoard, getMoveTargets } from '@/features/records/actions'
+import { startRecordDrag, setRecordDragHover, endRecordDrag } from '../dnd/recordDragBridge'
+import { useToast } from '@/features/feedback/ToastProvider'
 import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, isFieldVisibleInGroup, type FieldVisibilityRow } from '@/features/fields/visibility'
 import { computeGroupChecklist } from '@/features/fields/checklist'
 import { pickLoanAmountFieldId, loanAmountForSum } from '@/features/fields/loanAmount'
@@ -228,15 +230,91 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.4' } } }),
   }
 
+  // ── Cross-board drop via the sidebar (record-drag bridge) ──
+  // dnd-kit drags are pointer-based, so the drag survives crossing into the
+  // sidebar (outside this DndContext) on its own. While a record drag is
+  // live we hit-test the pointer against sidebar board rows and publish the
+  // hovered target; on drop, that target wins over any dnd-kit `over`.
+  const toast = useToast()
+  const recordDragCleanup = useRef<(() => void) | null>(null)
+  const stopRecordDragBridge = useCallback(() => {
+    recordDragCleanup.current?.()
+    recordDragCleanup.current = null
+    return endRecordDrag()
+  }, [])
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveRecord(event.active.data.current?.record ?? null)
     setActiveData(event.active.data.current ?? null)
+    const a = event.active.data.current
+    if (a?.type === 'record') {
+      startRecordDrag(a.recordId as string, (a.boardId ?? board.id) as string, String(a.record?.title ?? ''))
+      const onMove = (e: PointerEvent) => {
+        const el = document.elementFromPoint(e.clientX, e.clientY)
+        const target = (el?.closest?.('[data-record-drop-board]') ?? null) as HTMLElement | null
+        setRecordDragHover(target?.dataset.recordDropBoard ?? null, target?.dataset.recordDropName ?? null)
+      }
+      window.addEventListener('pointermove', onMove)
+      recordDragCleanup.current = () => window.removeEventListener('pointermove', onMove)
+    }
   }
+
+  const handleDragCancel = useCallback(() => {
+    setActiveRecord(null)
+    setActiveData(null)
+    recordDragCleanup.current?.()
+    recordDragCleanup.current = null
+    endRecordDrag()
+  }, [])
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveRecord(null)
     setActiveData(null)
+    const bridge = stopRecordDragBridge()
+    const dragged = active.data.current
+
+    // ── Cross-board move: dropped on a sidebar board row. ──
+    if (dragged?.type === 'record' && bridge.hoverBoardId) {
+      const recordId = dragged.recordId as string
+      const toBoardId = bridge.hoverBoardId
+      const toBoardName = bridge.hoverBoardName ?? 'that board'
+      if (toBoardId === board.id) {
+        toast.info('Already on this board.')
+        return
+      }
+      isMutating.current = true
+      setPendingMoveIds(prev => new Set(prev).add(recordId))
+      try {
+        // Destination stage = the destination board's FIRST group (its own
+        // position order) — never guessed, never created. No groups → block.
+        const targets = await getMoveTargets()
+        const dest = targets.find((t) => t.id === toBoardId)
+        const toGroupId = dest?.groups[0]?.id
+        if (!toGroupId) {
+          toast.error(`"${toBoardName}" has no stages to receive records.`)
+          return
+        }
+        // Optimistic: the record (and its subitems) leave this board now.
+        setLocalRecords(prev => prev.filter(r => r.id !== recordId && r.parent_record_id !== recordId))
+        const res = await moveRecordToBoard(recordId, toBoardId, toGroupId)
+        if ('error' in res) {
+          setLocalRecords(serverRecords) // rollback — the card returns
+          toast.error('Could not move the record — try again.')
+          return
+        }
+        toast.success(`Moved to ${toBoardName}`)
+        router.refresh()
+      } catch {
+        setLocalRecords(serverRecords) // rollback
+        toast.error('Could not move the record — try again.')
+      } finally {
+        setPendingMoveIds(prev => { const n = new Set(prev); n.delete(recordId); return n })
+        isMutating.current = false
+      }
+      return
+    }
+
     if (!over) return
 
     // Phase 37B-2 — data-driven (works for table rows AND kanban cards). Only
@@ -333,7 +411,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     } finally {
       isMutating.current = false
     }
-  }, [serverRecords, router, localRecords])
+  }, [serverRecords, router, localRecords, board.id, toast, stopRecordDragBridge])
 
   const handleOptimisticMove = useCallback((recordId: string, toGroupId: string) => {
     isMutating.current = true
@@ -563,7 +641,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   }, [groups, valueByGroup, totalByGroup, hasAnyValue])
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
       {/* jubo-los-scope: re-themes the board subtree to the warm LOS-light
           palette (cream surfaces / tan borders / dusty-red primary) via scoped
           token overrides; the dark app shell remains the navy frame. */}
@@ -882,7 +960,9 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
         />
       </div>
 
-      <DragOverlay dropAnimation={dropAnimation}>
+      {/* pointer-events: none keeps elementFromPoint hit-testing (the sidebar
+          cross-board bridge) seeing through the drag ghost. */}
+      <DragOverlay dropAnimation={dropAnimation} style={{ pointerEvents: 'none' }}>
         {activeData && <DragPreview data={activeData} />}
       </DragOverlay>
     </DndContext>
