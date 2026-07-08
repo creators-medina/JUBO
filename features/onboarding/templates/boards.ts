@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import type { BoardType, FieldType } from '@/types/database'
+import { LEAD_SOURCE_LABELS } from '@/features/production-plan/calc'
 
 export type BoardFieldSpec = {
   name: string
@@ -50,7 +51,10 @@ const C = {
 const LEAD_FIELDS: BoardFieldSpec[] = [
   { name: 'Email', field_type: 'email' },
   { name: 'Phone', field_type: 'phone' },
-  { name: 'Lead Source', field_type: 'select', options: ['Self-Sourced', 'Realtor Referral', 'Past Client', 'Purchased Lead', 'Website', 'Other'] },
+  // Phase 5 — the 15 canonical planning categories (same list as the
+  // Production Plan mix + record picker). Template-only: existing orgs'
+  // already-provisioned Lead Source fields are never touched.
+  { name: 'Lead Source', field_type: 'select', options: [...LEAD_SOURCE_LABELS] },
   { name: 'Loan Amount', field_type: 'currency' },
   { name: 'Loan Type', field_type: 'select', options: ['Conventional', 'FHA', 'VA', 'USDA', 'Jumbo', 'Non-QM'] },
   { name: 'Loan Purpose', field_type: 'select', options: ['Purchase', 'Refinance', 'Cash-Out Refi', 'HELOC'] },

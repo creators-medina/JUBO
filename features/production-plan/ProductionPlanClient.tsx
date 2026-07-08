@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/features/feedback/ToastProvider'
 import { saveOnboardingProgress } from '@/features/onboarding/actions'
 import type { GreatnessData } from '@/features/prospecting/greatness/queries'
-import { computePlan, type PlanAssumptions, type LeadSourceKey } from './calc'
+import { LEAD_SOURCES, canonicalSourceKeyForLabel, computePlan, type PlanAssumptions, type LeadSourceKey } from './calc'
 
 const fmtMoney = (n: number | null, digits = 0): string =>
   n == null ? '—' : n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: digits, minimumFractionDigits: 0 })
@@ -295,9 +295,87 @@ export function ProductionPlanClient({ organizationId, initial, greatness, daily
             hint={plan.requiredFundedLoans != null ? `plan: ${fmtNum(plan.requiredFundedLoans)}/yr` : undefined} />
         </div>
         <p className="mt-2 text-2xs text-muted-foreground">
-          Movement-based actuals only count in-app moves since movement tracking began — earlier history may not appear. Per-source actuals arrive once lead-source tracking is built (later phase).
+          Movement-based actuals only count in-app moves since movement tracking began — earlier history may not appear.
         </p>
+
+        {/* ── Phase 5 — planned vs actual source mix (real attribution only) ── */}
+        <SourceMixComparison mix={a.mix} greatness={greatness} />
       </Card>
+    </div>
+  )
+}
+
+function SourceMixComparison({ mix, greatness }: { mix: Record<LeadSourceKey, number>; greatness: GreatnessData }) {
+  const ls = greatness.leadSource
+  const yearCounts = ls.newLeads?.year ?? {}
+
+  // Fold raw stored labels into canonical sources; legacy/imported values we
+  // don't recognize aggregate into an explicit "unrecognized" row (never
+  // silently coerced), and Unassigned stays outside the percentage mix.
+  const actualByKey = new Map<LeadSourceKey, number>()
+  let unrecognized = 0
+  let unassigned = 0
+  for (const [label, count] of Object.entries(yearCounts)) {
+    if (label === 'Unassigned') { unassigned += count; continue }
+    const key = canonicalSourceKeyForLabel(label)
+    if (key) actualByKey.set(key, (actualByKey.get(key) ?? 0) + count)
+    else unrecognized += count
+  }
+  const assignedTotal = [...actualByKey.values()].reduce((s, n) => s + n, 0) + unrecognized
+
+  if (assignedTotal === 0) {
+    return (
+      <div className="mt-4 border-t border-border pt-3">
+        <p className="text-xs font-semibold text-foreground">Planned vs actual source mix</p>
+        <p className="mt-1 text-2xs text-muted-foreground">
+          No lead-source attribution yet. Add a lead source on records to unlock source reporting — your planned mix above stays the target.
+        </p>
+      </div>
+    )
+  }
+
+  const rows = LEAD_SOURCES
+    .map((s) => ({ label: s.label, planned: mix[s.key] ?? 0, actualCount: actualByKey.get(s.key) ?? 0 }))
+    .filter((r) => r.planned > 0 || r.actualCount > 0)
+  const pctOf = (n: number) => Math.round((n / assignedTotal) * 1000) / 10
+
+  return (
+    <div className="mt-4 border-t border-border pt-3">
+      <p className="text-xs font-semibold text-foreground">Planned vs actual source mix — New Leads YTD</p>
+      <div className="mt-2 overflow-x-auto">
+        <table className="w-full min-w-[420px] text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <th className="py-1.5 pr-3">Source</th>
+              <th className="py-1.5 pr-3 text-right">Planned %</th>
+              <th className="py-1.5 pr-3 text-right">Actual %</th>
+              <th className="py-1.5 text-right">Actual leads</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/60">
+            {rows.map((r) => (
+              <tr key={r.label}>
+                <td className="py-1.5 pr-3 font-medium text-foreground">{r.label}</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums text-muted-foreground">{r.planned}%</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums text-foreground">{pctOf(r.actualCount)}%</td>
+                <td className="py-1.5 text-right tabular-nums text-foreground">{r.actualCount}</td>
+              </tr>
+            ))}
+            {unrecognized > 0 && (
+              <tr>
+                <td className="py-1.5 pr-3 font-medium text-muted-foreground">Other / unrecognized values</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums text-muted-foreground">—</td>
+                <td className="py-1.5 pr-3 text-right tabular-nums text-muted-foreground">{pctOf(unrecognized)}%</td>
+                <td className="py-1.5 text-right tabular-nums text-muted-foreground">{unrecognized}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-2xs text-muted-foreground">
+        Actual source mix only includes records with a lead source assigned
+        {unassigned > 0 ? ` — ${unassigned.toLocaleString()} new lead${unassigned === 1 ? '' : 's'} YTD ${unassigned === 1 ? 'is' : 'are'} unassigned and excluded from the percentages` : ''}.
+      </p>
     </div>
   )
 }

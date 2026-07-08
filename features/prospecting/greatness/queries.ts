@@ -44,12 +44,28 @@ export type EntryMetric = {
   scope: MetricScope
 }
 
+/** Per-window source → distinct-record counts. 'Unassigned' is a real row —
+ *  records without a lead_source value are shown, never hidden or inferred. */
+export type SourceWindowCounts = Record<GreatnessWindowKey, Record<string, number>>
+
+export type LeadSourceAttribution = {
+  /** True when at least one `lead_source` field exists in this workspace. */
+  tracked: boolean
+  /** Distinct counted records that actually have a lead-source value. */
+  assignedCount: number
+  newLeads: SourceWindowCounts | null
+  funded: SourceWindowCounts | null
+}
+
 export type GreatnessData = {
   calls: GreatnessCounts
   newLeads: (EntryMetric & { usedCreatedFallback: boolean }) | null
   preApprovals: (EntryMetric & { currentCount: number; stageNames: string[] }) | null
   pipeline: (EntryMetric & { currentCount: number }) | null
   funded: (EntryMetric & { stageNames: string[] }) | null
+  /** Phase 5 — real per-record lead_source attribution (field values only;
+   *  nothing inferred from board names, nothing backfilled). */
+  leadSource: LeadSourceAttribution
   /** Canonical board/stage mappings that could not be found (reported, never faked). */
   missing: string[]
   /** True if the year-window movement scan hit its hard bound. */
@@ -245,10 +261,15 @@ export async function buildGreatnessData(organizationId: string, userId: string)
 
   // ── New Leads: entries into Initial Consult + created-in fallback.
   let newLeads: GreatnessData['newLeads'] = null
+  // Scope-filtered entry lists kept for the Phase 5 source breakdown so the
+  // attribution counts the exact same records as the headline metric.
+  let newLeadsEntries: EntryEvent[] = []
   if (icBoardIds.size > 0) {
     const moveEntries = entriesInto(icGroupIds)
     const created = createdInFallback((r) => icBoardIds.has(r.board_id), moveEntries)
-    const { entries, scope } = scopeAndCount([...moveEntries, ...created])
+    const all = [...moveEntries, ...created]
+    const { entries, scope, filterIds } = scopeAndCount(all)
+    newLeadsEntries = filterIds ? all.filter((e) => filterIds.has(e.recordId)) : all
     newLeads = { entries, scope, usedCreatedFallback: created.length > 0 }
   }
 
@@ -282,10 +303,63 @@ export async function buildGreatnessData(organizationId: string, userId: string)
   // Closing board. Movement created_at IS the funded date (never updated_at).
   // No created-in fallback here — an import date is not a funded date.
   let funded: GreatnessData['funded'] = null
+  let fundedEntries: EntryEvent[] = []
   if (fundedGroupIds.size > 0) {
-    const { entries, scope } = scopeAndCount(entriesInto(fundedGroupIds))
+    const all = entriesInto(fundedGroupIds)
+    const { entries, scope, filterIds } = scopeAndCount(all)
+    fundedEntries = filterIds ? all.filter((e) => filterIds.has(e.recordId)) : all
     funded = { entries, scope, stageNames: fundedStageNames }
   }
 
-  return { calls, newLeads, preApprovals, pipeline, funded, missing, movementsTruncated }
+  // ── Phase 5 — lead-source attribution (New Leads + Funded only; the other
+  // metric splits are deferred). REAL field values only: fields with slug
+  // 'lead_source' (template-seeded, imported, or picker-provisioned), read
+  // per counted record. No board-name inference, no defaults, no backfill —
+  // records without a value are counted as 'Unassigned', never hidden.
+  const leadSource: LeadSourceAttribution = { tracked: false, assignedCount: 0, newLeads: null, funded: null }
+  const { data: lsFields } = await supabase
+    .from('fields')
+    .select('id')
+    .eq('organization_id', organizationId)
+    .eq('slug', 'lead_source')
+  const lsFieldIds = ((lsFields ?? []) as { id: string }[]).map((f) => f.id)
+  leadSource.tracked = lsFieldIds.length > 0
+
+  const attributionIds = [...new Set([...newLeadsEntries, ...fundedEntries].map((e) => e.recordId))]
+  const sourceOf = new Map<string, string>()
+  if (lsFieldIds.length > 0 && attributionIds.length > 0) {
+    for (let i = 0; i < attributionIds.length; i += 200) {
+      const chunk = attributionIds.slice(i, i + 200)
+      const { data: fvs } = await supabase
+        .from('field_values')
+        .select('record_id, value_text')
+        .in('field_id', lsFieldIds)
+        .in('record_id', chunk)
+      for (const fv of (fvs ?? []) as { record_id: string; value_text: string | null }[]) {
+        const v = fv.value_text?.trim()
+        if (v && !sourceOf.has(fv.record_id)) sourceOf.set(fv.record_id, v)
+      }
+    }
+  }
+  leadSource.assignedCount = attributionIds.filter((id) => sourceOf.has(id)).length
+
+  const breakdownFor = (entryList: EntryEvent[]): SourceWindowCounts => {
+    const out = {} as SourceWindowCounts
+    for (const w of GREATNESS_WINDOWS) {
+      const s = starts[w].getTime()
+      const ids = new Set<string>()
+      for (const e of entryList) if (new Date(e.at).getTime() >= s) ids.add(e.recordId)
+      const counts: Record<string, number> = {}
+      for (const id of ids) {
+        const label = sourceOf.get(id) ?? 'Unassigned'
+        counts[label] = (counts[label] ?? 0) + 1
+      }
+      out[w] = counts
+    }
+    return out
+  }
+  if (newLeads) leadSource.newLeads = breakdownFor(newLeadsEntries)
+  if (funded) leadSource.funded = breakdownFor(fundedEntries)
+
+  return { calls, newLeads, preApprovals, pipeline, funded, leadSource, missing, movementsTruncated }
 }

@@ -24,6 +24,7 @@ import { NoteList } from '@/features/workspace/notes/NoteList'
 import { createNote } from '@/features/workspace/notes/actions'
 import { createTask } from '@/features/tasks/actions'
 import { LoanPropertyTab } from './LoanPropertyTab'
+import { LeadSourceCard } from './LeadSourceCard'
 import { BorrowerTab } from './BorrowerTab'
 import { FinancialTab } from './FinancialTab'
 import { upsertFieldValue, moveRecord } from '@/features/records/actions'
@@ -315,6 +316,10 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
               </div>
             </div>
 
+            {/* Phase 5 — per-record lead-source attribution (planning-honest:
+                set by the LO, never inferred). */}
+            <LeadSourceCard recordId={recordId} boardId={boardId ?? null} organizationId={card.record.organizationId} />
+
             {/* Existing controls preserved below the handoff's four cards. */}
             {loan && (
               <div className="jubo-los-card p-3.5">
@@ -443,6 +448,8 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
       {activeTab === 'overview' && !isLoanLike && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="space-y-4">
+            {/* Phase 5 — lead-source attribution on generic record cards too. */}
+            <LeadSourceCard recordId={recordId} boardId={boardId ?? null} organizationId={card.record.organizationId} />
             <Section title="Record summary">
               {card.thisBoard.length > 0 ? (
                 card.thisBoard.slice(0, 12).map((f) => <Field key={f.fieldId} label={f.name} value={f.value || null} />)
