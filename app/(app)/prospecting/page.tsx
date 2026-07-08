@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { buildThemeDayData } from '@/features/prospecting/themeday/queues'
 import { getProspectingStreak } from '@/features/prospecting/streak'
 import { getDailyCallTarget } from '@/features/prospecting/target'
+import { buildGreatnessData } from '@/features/prospecting/greatness/queries'
+import { GreatnessTracker } from '@/features/prospecting/greatness/GreatnessTracker'
 import { TrackView } from '@/features/analytics/TrackView'
 import { ThemeDayCockpit } from '@/features/prospecting/themeday/ThemeDayCockpit'
 
@@ -28,11 +30,13 @@ export default async function ProspectingPage() {
   if (!membership) redirect('/onboarding')
   const orgId = membership.organization_id
 
-  const [themeData, streak, dailyGoal] = await Promise.all([
+  const [themeData, streak, dailyGoal, greatness] = await Promise.all([
     buildThemeDayData(orgId, user.id),
     getProspectingStreak(orgId, user.id),
     // Daily Call Log goal — session > profile (daily_call_goal) > goal > 10.
     getDailyCallTarget(orgId, user.id),
+    // Greatness Tracker (Phase 2) — read-only scoreboard aggregation.
+    buildGreatnessData(orgId, user.id),
   ])
 
   return (
@@ -46,6 +50,11 @@ export default async function ProspectingPage() {
           goal={dailyGoal.target}
           goalSource={dailyGoal.label}
         />
+        {/* Greatness Tracker — the Phase 2 scoreboard, below the Daily Call
+            Log and independent of the hero/week/list layout above. */}
+        <div className="mt-8">
+          <GreatnessTracker data={greatness} />
+        </div>
       </div>
     </div>
   )
