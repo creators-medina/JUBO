@@ -29,7 +29,7 @@ import { getFollowUpsDue, type FollowUpDueItem } from '@/features/communications
 import { getProductionGoals } from '@/features/goals/queries'
 import { buildThemeDayData } from '@/features/prospecting/themeday/queues'
 import { getThemeDayFor } from '@/features/prospecting/coaching/themeDay'
-import { isClosedGroupName, mondayOf, startOfMonthOf, startOfQuarterOf } from '@/features/metrics/shared'
+import { isOpenPipelineRecord, mondayOf, startOfMonthOf, startOfQuarterOf } from '@/features/metrics/shared'
 import { detectClosingFundedGroups, entriesIntoSet, distinctEntryIdsInWindow, type EntryEvent, type MovementRow } from '@/features/metrics/funded'
 
 const MAX_RECORDS = 2000
@@ -71,8 +71,6 @@ function windows(period: PeriodKey, now: Date): [Date, Date] {
   }
   const cur = startOfQuarterOf(now); const prev = new Date(cur); prev.setMonth(prev.getMonth() - 3); return [cur, prev]
 }
-
-const isClosedGroup = isClosedGroupName
 
 export async function buildDashboardOverview(organizationId: string, userId: string): Promise<DashboardOverviewData> {
   const supabase = await createClient()
@@ -235,14 +233,17 @@ export async function buildDashboardOverview(organizationId: string, userId: str
     kpis[p] = { cur: kpisFor(curStart, now), prev: kpisFor(prevStart, curStart) }
   }
 
-  // ── Active pipeline: work-loans boards, count + loan total (open stages) ──
+  // ── Active pipeline: work-loans boards, count + loan total. Population =
+  // the shared isOpenPipelineRecord rule (active records in open stages) —
+  // the same rule the sidebar's Work Loans Pipeline card uses, so the two
+  // totals always agree. (This fetch is already status='active'-filtered.)
   const pipeline: PipelineStage[] = boards
     .filter((b) => isWorkLoansBoard(b))
     .map((b) => {
       let count = 0, money = 0
       for (const r of records) {
         if (r.board_id !== b.id) continue
-        if (isClosedGroup(r.group_id ? groupName.get(r.group_id) : null)) continue
+        if (!isOpenPipelineRecord('active', r.group_id ? groupName.get(r.group_id) : null)) continue
         count += 1
         money += loanAmount(r)
       }

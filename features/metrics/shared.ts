@@ -22,6 +22,18 @@ export function isClosedGroupName(name: string | null | undefined): boolean {
   return CLOSED_GROUP_WORDS.some((w) => n.includes(w))
 }
 
+/** The app's single "active pipeline" population rule (Step 4): a record
+ *  counts toward pipeline money/count totals only while it is an ACTIVE
+ *  record sitting in an OPEN (non-funded/closed) stage. Used by the
+ *  Dashboard's Active pipeline and the sidebar's Work Loans Pipeline card
+ *  so the two totals can never disagree. */
+export function isOpenPipelineRecord(
+  status: string | null | undefined,
+  groupName: string | null | undefined,
+): boolean {
+  return status === 'active' && !isClosedGroupName(groupName)
+}
+
 /** Local midnight of the given date (new Date; input untouched). */
 export function startOfDay(d: Date): Date {
   const x = new Date(d)
