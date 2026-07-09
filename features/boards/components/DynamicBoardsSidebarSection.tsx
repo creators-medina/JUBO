@@ -41,6 +41,7 @@ import { getMoveTargets } from '@/features/records/actions'
 import { InlineRenameText } from '@/components/primitives/InlineRenameText'
 import { formatVolume } from './BoardStageSummary'
 import { pickLoanAmountFieldId, resolveLoanAmount } from '@/features/fields/loanAmount'
+import { isClosedGroupName, isOpenPipelineRecord } from '@/features/metrics/shared'
 import { cn } from '@/lib/utils'
 
 /** Cross-component board-rename signal (e.g. renamed from the board page
@@ -55,7 +56,7 @@ interface Board {
   position?: number
 }
 
-type RecordRow = { id: string; board_id: string | null; value: number | null; parent_record_id: string | null }
+type RecordRow = { id: string; board_id: string | null; group_id: string | null; status: string | null; value: number | null; parent_record_id: string | null }
 
 // Work Loans = the active loan pipeline. Primary signal is the STORED
 // board_type ('pipeline'); the name matchers only catch journey boards that
@@ -113,6 +114,8 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   const [recordRows, setRecordRows] = useState<RecordRow[]>([])
   // record_id → its board's loan_amount FIELD value (value_number), when set.
   const [loanByRecord, setLoanByRecord] = useState<Map<string, number>>(new Map())
+  // Funded/closed stage ids (shared classifier) — see the pipeline card memo.
+  const [closedGroupIds, setClosedGroupIds] = useState<Set<string>>(new Set())
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   // Board currently being renamed inline — pauses that item's drag + navigation.
@@ -201,10 +204,26 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
       // by RLS. Drives counts + pipeline value; never written.
       const recs = await supabase
         .from('records')
-        .select('id, board_id, value, parent_record_id')
+        .select('id, board_id, group_id, status, value, parent_record_id')
         .eq('organization_id', currentOrganization.id)
         .eq('is_archived', false)
       if (!cancelled) setRecordRows(((recs.data ?? []) as RecordRow[]))
+
+      // Funded/closed stage ids (shared classifier) — the pipeline card
+      // excludes records sitting in them, matching the Dashboard's Active
+      // pipeline population exactly. Board nav count pills stay unfiltered
+      // (they mirror everything on the board).
+      const { data: groupRows } = await supabase
+        .from('board_groups')
+        .select('id, name')
+        .eq('organization_id', currentOrganization.id)
+      if (!cancelled) {
+        setClosedGroupIds(new Set(
+          ((groupRows ?? []) as { id: string; name: string }[])
+            .filter((g) => isClosedGroupName(g.name))
+            .map((g) => g.id),
+        ))
+      }
 
       // Resolve each record's base loan amount the SAME way the board header
       // does: the loan_amount FIELD value. Load the org's currency fields, pick
@@ -265,7 +284,8 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
     }
   }
 
-  // Per-board rollups from the records read (top-level records only).
+  // Per-board rollups from the records read (top-level records only) — feeds
+  // the nav count pills, which mirror EVERYTHING on a board.
   const statsByBoard = useMemo(() => {
     const m = new Map<string, { count: number; value: number; valued: number }>()
     for (const r of recordRows) {
@@ -280,6 +300,25 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
     }
     return m
   }, [recordRows, loanByRecord])
+
+  // Step 4 (pipeline-total consistency): the PIPELINE CARD counts only the
+  // Dashboard's "Active pipeline" population — active records in OPEN stages
+  // (shared isOpenPipelineRecord rule; funded/closed stages excluded) — so
+  // the sidebar's dollar total can never disagree with the Dashboard's.
+  const pipelineStatsByBoard = useMemo(() => {
+    const m = new Map<string, { count: number; value: number; valued: number }>()
+    for (const r of recordRows) {
+      if (!r.board_id || r.parent_record_id) continue
+      if (r.group_id && closedGroupIds.has(r.group_id)) continue
+      if (!isOpenPipelineRecord(r.status, null)) continue // status gate (group handled above)
+      const s = m.get(r.board_id) ?? { count: 0, value: 0, valued: 0 }
+      s.count += 1
+      const v = resolveLoanAmount(loanByRecord.get(r.id) ?? null, r.value)
+      if (v != null && v > 0) { s.value += v; s.valued += 1 }
+      m.set(r.board_id, s)
+    }
+    return m
+  }, [recordRows, loanByRecord, closedGroupIds])
 
   const generateBoards = useMemo(
     () => boards.filter((b) => boardSectionKey(b, sectionOverrides) === 'generate'),
@@ -309,12 +348,12 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   const pipeline = useMemo(() => {
     let value = 0, count = 0, valued = 0
     for (const b of workLoanBoards) {
-      const s = statsByBoard.get(b.id)
+      const s = pipelineStatsByBoard.get(b.id)
       if (!s) continue
       value += s.value; count += s.count; valued += s.valued
     }
     return { value, count, avg: valued > 0 ? value / valued : 0 }
-  }, [workLoanBoards, statsByBoard])
+  }, [workLoanBoards, pipelineStatsByBoard])
 
   // Reorder within the flat list (preserves global boards.position semantics).
   // Dropping onto a board in the OTHER group also moves the dragged board into
@@ -610,9 +649,13 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
   return (
     <div className="space-y-4">
       {stageFlyout}
-      {/* Work Loans Pipeline card — real totals from records.value (read-only). */}
+      {/* Work Loans Pipeline card — open-stage active loans only (shared
+          pipeline rule), so this total always matches the Dashboard. */}
       {!q && (
-        <div className="rounded-xl border border-[#e6c478]/25 bg-white/[0.04] px-3 py-2.5 shadow-sm">
+        <div
+          className="rounded-xl border border-[#e6c478]/25 bg-white/[0.04] px-3 py-2.5 shadow-sm"
+          title="Loan amounts on active loans in open stages of Work Loans boards — funded/closed stages excluded. Matches the Dashboard's Active pipeline."
+        >
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#e6c478]">Work Loans Pipeline</p>
           <p className="mt-1 text-2xl font-bold leading-none tabular-nums text-foreground">
             {formatVolume(pipeline.value) || '$0'}
@@ -621,7 +664,7 @@ export function DynamicBoardsSidebarSection({ collapsed, filter = '' }: { collap
           {pipeline.value > 0 && (
             <div className="mt-2 flex h-1 gap-0.5 overflow-hidden rounded-full">
               {workLoanBoards.map((b, i) => {
-                const v = statsByBoard.get(b.id)?.value ?? 0
+                const v = pipelineStatsByBoard.get(b.id)?.value ?? 0
                 if (v <= 0) return null
                 return (
                   <div
