@@ -224,9 +224,9 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   // Realtime
   useBoardRealtime(board.id, isMutating)
 
-  // DnD
-  const [activeRecord, setActiveRecord] = useState<any>(null)
-  // 37B-2E — full drag payload (record + precomputed face / row refs) for the overlay.
+  // DnD — 37B-2E: the full drag payload (record + precomputed face / row
+  // refs) drives the overlay; a separate activeRecord state was never read
+  // and was removed (Step 9 lint burn-down).
   const [activeData, setActiveData] = useState<any>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -261,7 +261,6 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   }, [])
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveRecord(event.active.data.current?.record ?? null)
     setActiveData(event.active.data.current ?? null)
     const a = event.active.data.current
     if (a?.type === 'record') {
@@ -307,7 +306,6 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   }
 
   const handleDragCancel = useCallback(() => {
-    setActiveRecord(null)
     setActiveData(null)
     recordDragCleanup.current?.()
     recordDragCleanup.current = null
@@ -316,7 +314,6 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
-    setActiveRecord(null)
     setActiveData(null)
     const bridge = stopRecordDragBridge()
     const dragged = active.data.current
