@@ -155,9 +155,12 @@ export function GreatnessTracker({ data }: { data: GreatnessData }) {
     <section className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-foreground">Greatness Tracker</h2>
+          {/* Renamed from "Greatness Tracker" (rework Phase 1): that name now
+              belongs to the MANUAL weekly grid in the hero. This section is
+              the automated, CRM-verified metrics — definitions unchanged. */}
+          <h2 className="text-lg font-bold text-foreground">Verified Results</h2>
           <p className="text-sm text-muted-foreground">
-            Track how daily activity turns into leads, pre-approvals, pipeline, and funded loans.
+            What the CRM verifies from real activity — leads, pre-approvals, pipeline, and funded loans.
           </p>
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm" role="tablist" aria-label="Reporting window">
