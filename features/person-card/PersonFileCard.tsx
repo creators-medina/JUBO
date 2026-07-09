@@ -1,20 +1,26 @@
 'use client'
 
 // ─────────────────────────────────────────────────────────────────────────
-// Person / File Card V2 (Phase 39A) — Arrive-inspired file workspace.
+// Person / File Card — Layout 4a trifold workspace.
 //
-// Overview tab is REAL: it composes the 36D-1 read model (snapshot bindings,
-// activities, current-group checklist) with the 36E-1 Communicate context (real
-// SMS thread + composer, notes, members) — reusing the shipped pieces, not
-// re-shelling them. The three Arrive tabs are structured "coming soon" shells.
-// Computed metrics (PI/TI/DTI/LTV) are honest placeholders — never fabricated.
-// No new data model, no calculations, no functional Arrive forms.
+// Loan-shaped records render as THREE floating cards on the workspace desk:
+// Conversations (left) · the Hub (middle: header slot + stage stepper +
+// metric strip + section rail + section content) · Notes & Tasks (right).
+// Both side cards fold independently into narrow spines (content fully
+// unmounted while folded) and the hub widens into the freed space.
+//
+// Layout/IA restructure ONLY: every field keeps its source, every action
+// keeps its existing handler (getFileCardData read model, upsertFieldValue,
+// moveRecord, createNote/createTask, SMSComposeBox, quickCallOutcome).
+// Generic-shaped records keep their existing single-card layout untouched.
+// Computed metrics (LTV/DTI) stay the same display-only derivations —
+// never fabricated; DSCR/LTC still render an honest "—".
 // ─────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useState, useCallback, useRef, useTransition } from 'react'
-import { Loader2, CheckSquare, Square, Plug } from 'lucide-react'
+import { Loader2, CheckSquare, Square, Plug, LayoutGrid, Landmark, User, DollarSign } from 'lucide-react'
 import { getFileCardData, type PersonCardData, type LoanCommandData } from './actions'
-import { deriveLoanMetrics, LoanSummaryStrip, FileSnapshotPanel, SnapRow, nameInitials } from './FileSummary'
+import { deriveLoanMetrics, LoanSummaryStrip, SummaryMetric, SnapRow, nameInitials } from './FileSummary'
 import type { CommunicateContext } from '@/features/communications/communicate'
 import { SMSComposeBox } from '@/features/conversations/compose/SMSComposeBox'
 import { NoteList } from '@/features/workspace/notes/NoteList'
@@ -25,7 +31,7 @@ import { LeadSourceCard } from './LeadSourceCard'
 import { QuickContact } from './QuickContact'
 // Step 9 split — the messaging pieces (Feed timeline + Composer) moved
 // verbatim to cardMessaging.tsx; behavior identical.
-import { Feed, Composer, type Filter } from './cardMessaging'
+import { Feed, type Filter } from './cardMessaging'
 import { BorrowerTab } from './BorrowerTab'
 import { FinancialTab } from './FinancialTab'
 import { upsertFieldValue, moveRecord } from '@/features/records/actions'
@@ -33,17 +39,34 @@ import { upsertFieldValue, moveRecord } from '@/features/records/actions'
 import { NextActionCard } from '@/features/workspace/components/NextActionCard'
 import { ParticipantRibbon } from '@/features/workspace/command/ParticipantRibbon'
 import { computeOpportunitySignals } from '@/features/mortgage/scoring/opportunities'
+// Layout 4a — side cards (Conversations · Notes & Tasks) + spine collapse.
+import { ConversationsCard, NotesTasksCard, type SideTab } from './trifoldCards'
+import { LOCAL_KEYS } from '@/lib/localKeys'
 import { useToast } from '@/features/feedback/ToastProvider'
 import { cn } from '@/lib/utils'
 
 type Tab = 'overview' | 'loan' | 'borrower' | 'financial'
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'loan', label: 'Loan & Property Info' },
-  { key: 'borrower', label: 'Borrower Info' },
-  { key: 'financial', label: 'Financial Info' },
+// Same section keys/labels as the previous tab strip (labels unchanged);
+// icons are presentation-only for the 4a rail. Documents is deliberately
+// absent: no document list/status model exists in the app today, and the
+// 4a ground rule is to never invent data.
+const TABS: { key: Tab; label: string; Icon: React.ElementType }[] = [
+  { key: 'overview', label: 'Overview', Icon: LayoutGrid },
+  { key: 'loan', label: 'Loan & Property Info', Icon: Landmark },
+  { key: 'borrower', label: 'Borrower Info', Icon: User },
+  { key: 'financial', label: 'Financial Info', Icon: DollarSign },
 ]
+
+// Trifold column widths per fold state (full literal classes so Tailwind
+// JIT sees them). Side cards ~320px expanded / 84px spine; the hub takes
+// the freed space, with the grid-template transition animating the shift.
+const TRIFOLD_GRID: Record<string, string> = {
+  'open-open': 'xl:grid-cols-[320px_minmax(0,1fr)_320px]',
+  'closed-open': 'xl:grid-cols-[84px_minmax(0,1fr)_320px]',
+  'open-closed': 'xl:grid-cols-[320px_minmax(0,1fr)_84px]',
+  'closed-closed': 'xl:grid-cols-[84px_minmax(0,1fr)_84px]',
+}
 
 /** Record-summary ordering (operator audit): contact info first. */
 function summaryRank(f: { name: string; fieldType: string }): number {
@@ -54,7 +77,14 @@ function summaryRank(f: { name: string; fieldType: string }): number {
   return 3
 }
 
-export function PersonFileCard({ recordId, onRequestClose }: { recordId: string; onRequestClose?: () => void }) {
+export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
+  recordId: string
+  onRequestClose?: () => void
+  /** Layout 4a — the workspace header + stage stepper, passed down from
+   *  WorkspacePanel so they render INSIDE the hub card (same JSX, same
+   *  data and handlers; only where it renders moved). */
+  headerSlot?: React.ReactNode
+}) {
   const [card, setCard] = useState<PersonCardData | null | undefined>(undefined)
   const [comms, setComms] = useState<CommunicateContext | undefined>(undefined)
   // Phase C3 — current-board command bundle (loan shape only).
@@ -62,6 +92,12 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
   const [tab, setTab] = useState<Tab>('overview')
   const [filter, setFilter] = useState<Filter>('all')
   const [busy, setBusy] = useState<string | null>(null)
+  // Layout 4a — trifold layout state (side-card folds + right-card tab),
+  // persisted per user + record through the localStorage key registry.
+  const [leftCollapsed, setLeftCollapsed] = useState(false)
+  const [rightCollapsed, setRightCollapsed] = useState(false)
+  const [sideTab, setSideTab] = useState<SideTab>('notes')
+  const prefsUid = useRef<string | null>(null)
   // Phase D9 — composer draft state lives here so the ALWAYS-VISIBLE
   // bottom-right Save footer can act on it (honest per-mode behavior).
   const [composerMode, setComposerMode] = useState<'sms' | 'email' | 'note' | 'task'>('sms')
@@ -72,11 +108,9 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
   const [composerError, setComposerError] = useState<string | null>(null)
   const [smsDraft, setSmsDraft] = useState('')
   const [confirmDiscard, setConfirmDiscard] = useState(false)
-  // Quick Contact: anchor for the Text jump + condensed-by-default state for
-  // the Conversation panel (the feed scrolls internally — history is never
-  // cut off; Expand restores the original full height).
+  // Anchor for the Text/Note jumps — the Conversations card (loan trifold)
+  // or the Activity & messages section (generic shape).
   const conversationAnchorRef = useRef<HTMLDivElement>(null)
-  const [convoExpanded, setConvoExpanded] = useState(false)
   // The card must OPEN at the top (Quick Contact visible). Guards against any
   // child stealing scroll on mount (e.g. an autofocused input being scrolled
   // into view) — reset the tab body's scroll whenever content/tab mounts.
@@ -115,11 +149,61 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
   }, [card])
   useEffect(() => { tabBodyRef.current?.scrollTo({ top: 0 }) }, [tab])
 
+  // Layout 4a — hydrate the saved trifold layout (folds · hub section ·
+  // Notes/Tasks tab) once the comms context resolves the user id. Saved
+  // values are strictly validated; anything unexpected keeps the defaults.
+  useEffect(() => {
+    if (comms === undefined) return
+    const uid = comms?.currentUserId ?? null
+    prefsUid.current = uid
+    try {
+      /* eslint-disable react-hooks/set-state-in-effect */
+      if (window.localStorage.getItem(LOCAL_KEYS.contactCardLeftCollapsed(uid, recordId)) === '1') setLeftCollapsed(true)
+      if (window.localStorage.getItem(LOCAL_KEYS.contactCardRightCollapsed(uid, recordId)) === '1') setRightCollapsed(true)
+      const savedSection = window.localStorage.getItem(LOCAL_KEYS.contactCardHubSection(uid, recordId))
+      if (savedSection && TABS.some((t) => t.key === savedSection)) setTab(savedSection as Tab)
+      const savedSideTab = window.localStorage.getItem(LOCAL_KEYS.contactCardSideTab(uid, recordId))
+      if (savedSideTab === 'notes' || savedSideTab === 'tasks') setSideTab(savedSideTab)
+      /* eslint-enable react-hooks/set-state-in-effect */
+    } catch { /* defaults stand */ }
+  }, [comms, recordId])
+
+  // Preference writes (per-browser UI state only — never backend).
+  const savePref = (key: string, value: string) => {
+    try { window.localStorage.setItem(key, value) } catch { /* view-only */ }
+  }
+  const toggleLeft = () => setLeftCollapsed((c) => {
+    savePref(LOCAL_KEYS.contactCardLeftCollapsed(prefsUid.current, recordId), c ? '0' : '1')
+    return !c
+  })
+  const toggleRight = () => setRightCollapsed((c) => {
+    savePref(LOCAL_KEYS.contactCardRightCollapsed(prefsUid.current, recordId), c ? '0' : '1')
+    return !c
+  })
+  const selectSection = (t: Tab) => {
+    setTab(t)
+    savePref(LOCAL_KEYS.contactCardHubSection(prefsUid.current, recordId), t)
+  }
+  const selectSideTab = (t: SideTab) => {
+    setSideTab(t)
+    savePref(LOCAL_KEYS.contactCardSideTab(prefsUid.current, recordId), t)
+  }
+
   if (card === undefined) {
-    return <div className="flex items-center gap-2 py-6 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading file…</div>
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-lg">
+        {headerSlot}
+        <div className="flex items-center gap-2 px-5 py-6 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading file…</div>
+      </div>
+    )
   }
   if (card === null) {
-    return <div className="rounded-lg border border-dashed border-border bg-card p-6 text-center text-xs text-muted-foreground">File unavailable for this record.</div>
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-lg">
+        {headerSlot}
+        <div className="m-5 rounded-lg border border-dashed border-border bg-card p-6 text-center text-xs text-muted-foreground">File unavailable for this record.</div>
+      </div>
+    )
   }
 
   const email = comms?.email ?? null
@@ -130,7 +214,6 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
   // (generic/partner/past_client) gets a generic record card: the same universal
   // shell (feed, checklist, notes) without the loan framing and loan-only tabs.
   const isLoanLike = card.templateKey === 'loan' || card.templateKey === 'lead'
-  const visibleTabs = isLoanLike ? TABS : TABS.filter((t) => t.key === 'overview')
   const activeTab: Tab = isLoanLike ? tab : 'overview'
 
   // Phase D5 — resolve every summary metric ONCE from the already-loaded loan
@@ -138,22 +221,15 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
   const m = isLoanLike && loan ? deriveLoanMetrics(loan) : null
   const rec = (loan?.record ?? {}) as { title?: string; next_action?: string | null; next_action_completed_at?: string | null }
   const borrowerName = rec.title ?? 'Borrower'
-  const nextStep = rec.next_action && !rec.next_action_completed_at ? rec.next_action : null
-  const openConditions = card.checklist.hasChecklist ? card.checklist.totalCount - card.checklist.completedCount : 0
   const openTaskCount = (card.tasks as { completed_at: string | null }[]).filter((t) => !t.completed_at).length
 
   // Quick Contact → Text: jump to the EXISTING SMS composer (loan shape:
   // the Conversation card's pinned composer; generic shape: the Activity &
   // messages compose box). The send flow itself is untouched.
   const jumpToText = () => {
-    if (isLoanLike) { setTab('overview'); setComposerMode('sms') }
-    // Let a tab switch render before scrolling to the composer area.
-    setTimeout(() => conversationAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60)
-  }
-  // Quick Contact → Note: same jump, existing composer note mode (the same
-  // createNote path the composer already uses — no new write behavior).
-  const jumpToNote = () => {
-    setTab('overview'); setComposerMode('note')
+    // Loan trifold: make sure the Conversations card is unfolded, in SMS mode.
+    if (isLoanLike) { setLeftCollapsed(false); setComposerMode('sms') }
+    // Let the layout render before scrolling to the composer area.
     setTimeout(() => conversationAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60)
   }
 
@@ -170,15 +246,6 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
   // Secondary-card content by key — every card reuses the existing actions
   // and data; nothing here adds a write path.
   const railTasks = card.tasks as RailTask[]
-  const openTasks = railTasks.filter((t) => !t.completed_at)
-  const upcomingTasks = [...openTasks]
-    .sort((a, b) => {
-      if (!a.due_date && !b.due_date) return 0
-      if (!a.due_date) return 1
-      if (!b.due_date) return -1
-      return a.due_date.localeCompare(b.due_date)
-    })
-    .slice(0, 6)
   const signals = loan ? computeOpportunitySignals(loan, card.templateKey).slice(0, 3) : []
 
   // Footer Save — the same existing actions the composer used (createNote /
@@ -233,233 +300,121 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
     })
   }
 
-  return (
-    // Pinned shell: the metric strip + tab strip stay fixed; only the tab
-    // content below scrolls (the modal itself has a fixed height).
-    <div className="flex h-full min-h-0 flex-col gap-3">
-      {/* Quick Contact — call/text/email/log-call visible immediately, no
-          scrolling (existing actions only; see QuickContact). */}
-      <div className="flex-shrink-0">
-        <QuickContact
-          phone={comms?.phone ?? null}
-          email={email}
-          recordId={recordId}
-          onText={jumpToText}
-          onNote={isLoanLike ? jumpToNote : undefined}
-          onLogged={load}
-        />
-      </div>
-      {/* Reference metric strip — Loan Amount · LTV · FICO · Rate · DSCR ·
-          LTC · Est. Closing · Type. Real values or an honest "—". */}
-      {m && <div className="flex-shrink-0"><LoanSummaryStrip m={m} /></div>}
-      {/* C1-FIX-2 — the borrower identity + comms actions live in the ONE
-          WorkspacePanel command header above (avatar · name · role/board/owner ·
-          phone, plus call/email/move/expand/close). This card renders only its
-          four-tab strip, directly beneath that header + the stage tracker.
-          A generic board (one tab) shows no strip — just the single header. */}
-      {visibleTabs.length > 1 && (
-        <div className="flex flex-shrink-0 gap-1 overflow-x-auto border-b border-border">
-          {visibleTabs.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={cn('whitespace-nowrap border-b-2 -mb-px px-3 py-2 text-xs font-medium transition-colors',
-                activeTab === t.key ? 'border-jubo-red text-jubo-navy' : 'border-transparent text-muted-foreground hover:text-foreground')}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Persistent 236px left rail beside every tab (the file command
-          center); stacks above the content on narrow screens. On xl the
-          wrapper stops scrolling so the Overview can pin its composer —
-          columns scroll internally instead; below xl the whole tab scrolls. */}
-      <div ref={tabBodyRef} className={cn(
-        'min-h-0 flex-1 overflow-y-auto',
-        // Detail tabs keep the 236px snapshot rail; the Overview tab owns its
-        // full 3-column layout (handoff), so the rail is not doubled there.
-        m && activeTab !== 'overview' && 'grid grid-cols-1 content-start gap-4 xl:grid-cols-[236px_minmax(0,1fr)] xl:content-stretch xl:overflow-hidden',
-        // Overview scrolls as ONE page (base overflow-y-auto): scrolling down
-        // reveals every card; only the Conversation feed scrolls internally.
-      )}>
-        {m && activeTab !== 'overview' && (
-          <div className="min-h-0 xl:overflow-y-auto">
-            <FileSnapshotPanel
-              m={m}
-              borrowerName={borrowerName}
-              phone={comms?.phone ?? null}
-              nextStep={nextStep}
-              openConditions={openConditions}
-              openTasks={openTaskCount}
-            />
-          </div>
+  // Persistent card footer — an always-clickable `Save` that saves any
+  // explicit Note/Task draft (the same existing createNote/createTask the
+  // composer uses) and then closes the card. It never sends SMS/email: SMS
+  // keeps its real Send inside the composer, and an email draft keeps its
+  // honest "Open in mail" action alongside. Identical on both card shapes.
+  const footer = (
+    <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-jubo-border-strong/60 px-4 py-2.5">
+      <span className="text-2xs text-jubo-muted">Changes save automatically</span>
+      <div className="flex min-w-0 items-center gap-2">
+        {composerError && <span className="truncate text-2xs font-medium text-jubo-red">{composerError}</span>}
+        {!composerError && confirmDiscard && (
+          <span className="truncate text-2xs font-medium text-jubo-red">
+            Unsent {composerMode === 'sms' ? 'text' : 'email'} draft — Save again to close without sending
+          </span>
         )}
-        <div className={cn('min-w-0 space-y-4', m && activeTab === 'overview' ? 'min-h-0' : 'min-h-0 xl:overflow-y-auto')}>
+        {isLoanLike && composerMode === 'email' && email && composerText.trim() && (
+          <a
+            href={`mailto:${email}?body=${encodeURIComponent(composerText)}`}
+            className="rounded-md border border-jubo-red px-4 py-1.5 text-xs font-semibold text-jubo-red transition-colors hover:bg-jubo-red/10"
+          >
+            Open in mail
+          </a>
+        )}
+        <button
+          onClick={footerSaveAndClose}
+          disabled={composerPending}
+          title={
+            isLoanLike && composerText.trim() && (composerMode === 'note' || (composerMode === 'task' && boardId))
+              ? 'Save the current draft and close'
+              : 'Everything is saved automatically — close the card'
+          }
+          className="rounded-md bg-jubo-red px-5 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-jubo-red-dark disabled:opacity-60"
+        >
+          {composerPending ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </div>
+  )
 
-      {/* ── LOAN-shape Overview — handoff 3-column layout: ~300px structured
-             data | fluid Conversation | ~300px activity widgets, 14px gaps,
-             each column scrolling independently inside the fixed tab body.
-             Right-column order is deliberate: Phase Checklist and Notes stay
-             visible at the top without scrolling. ── */}
-      {activeTab === 'overview' && isLoanLike && (
-        <div className="jubo-los-page grid grid-cols-1 gap-3.5 rounded-xl p-3.5 xl:grid-cols-[300px_minmax(0,1fr)_300px]">
+  // ── Layout 4a — LOAN shape: three floating cards on the desk. Below xl
+  //    the trifold stacks (hub first) and the page scrolls; on xl the side
+  //    cards top-align at natural height while the hub fills the desk. ──
+  if (isLoanLike) {
+    const gridClass = TRIFOLD_GRID[`${leftCollapsed ? 'closed' : 'open'}-${rightCollapsed ? 'closed' : 'open'}`]
+    return (
+      <div className={cn(
+        'grid h-full min-h-0 grid-cols-1 content-start gap-3.5 overflow-y-auto',
+        'xl:content-stretch xl:items-start xl:overflow-visible xl:transition-[grid-template-columns] xl:duration-300',
+        gridClass,
+      )}>
+        {/* LEFT — Conversations (or its folded spine). */}
+        <div className="order-2 flex min-h-0 flex-col xl:order-none xl:max-h-full">
+          <ConversationsCard
+            collapsed={leftCollapsed}
+            onToggle={toggleLeft}
+            card={card}
+            comms={comms}
+            recordId={recordId}
+            email={email}
+            borrowerName={borrowerName}
+            ownerName={m?.ownerName ?? null}
+            filter={filter}
+            onFilterChange={setFilter}
+            onChanged={load}
+            composerMode={composerMode}
+            onComposerModeChange={(mode) => { setComposerMode(mode); setConfirmDiscard(false) }}
+            composerText={composerText}
+            onComposerTextChange={(t) => { setComposerText(t); setConfirmDiscard(false); setComposerError(null) }}
+            onComposerSubmit={footerSave}
+            onSmsDraftChange={(t) => { setSmsDraft(t); setConfirmDiscard(false) }}
+            anchorRef={conversationAnchorRef}
+          />
+        </div>
 
-          {/* LEFT — structured data: Loan Amount · Property · Financial · Contacts. */}
-          <div className="grid grid-cols-1 content-start gap-3.5 md:grid-cols-2 xl:grid-cols-1">
-            <div className="jubo-los-card p-3.5">
-              <p className="jubo-los-section-label">Loan Amount</p>
-              <p className={cn('mt-1 text-[26px] font-bold leading-tight tracking-tight tabular-nums', m?.loanAmount ? 'text-jubo-navy' : 'text-jubo-muted/40')}>
-                {m?.loanAmount ?? '—'}
-              </p>
-              {(m?.loanType || m?.purpose) && (
-                <p className="text-2xs text-jubo-muted">{[m?.loanType, m?.purpose].filter(Boolean).join(' · ')}</p>
-              )}
-            </div>
+        {/* MIDDLE — the Hub: header · stepper · metric strip · section rail
+            + section content · footer. */}
+        <div className="order-1 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-lg xl:order-none xl:h-full xl:self-stretch">
+          {headerSlot}
+          {/* Metric strip — Loan Amount · LTV · FICO · Rate · DSCR · LTC ·
+              Est. Closing · Type. Real values or an honest "—". */}
+          {m && <div className="flex-shrink-0 px-4 pt-3"><LoanSummaryStrip m={m} /></div>}
 
-            <div className="jubo-los-card p-3.5">
-              <p className="jubo-los-section-label mb-1.5">Property</p>
-              <div className="space-y-0.5">
-                <SnapRow label="Address" value={m?.address ?? null} />
-                <SnapRow label="City / State" value={m?.cityState ?? null} />
-                <SnapRow
-                  label={m?.propertyValue ? 'Est. value' : m?.appraisedValue ? 'Appraised' : 'Value'}
-                  value={m?.propertyValue ?? m?.appraisedValue ?? null}
-                />
-                <SnapRow label="Type" value={m?.propertyType ?? null} />
-              </div>
-            </div>
-
-            <div className="jubo-los-card p-3.5">
-              <p className="jubo-los-section-label mb-1.5">Financial</p>
-              <div className="space-y-0.5">
-                <SnapRow label="Income" value={m?.income ?? null} />
-                <SnapRow label="Assets" value={m?.assets ?? null} />
-                <SnapRow label="Liabilities" value={m?.liabilities ?? null} />
-                <SnapRow label="DTI" value={m?.dti ?? null} />
-                <SnapRow label="DSCR" value={m?.dscr ?? null} />
-                <SnapRow label="Total PITI" value={m?.totalPiti ?? null} />
-              </div>
-            </div>
-
-            <div className="jubo-los-card p-3.5">
-              <p className="jubo-los-section-label mb-2">Contacts</p>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-jubo-red text-[10px] font-bold text-white">
-                    {nameInitials(borrowerName)}
-                  </span>
-                  <div className="min-w-0 text-xs leading-tight">
-                    <p className="truncate font-semibold text-jubo-text">{borrowerName}</p>
-                    <p className="truncate text-2xs text-jubo-muted">Borrower{comms?.phone ? ` · ${comms.phone}` : ''}</p>
-                  </div>
-                </div>
-                {m?.ownerName && (
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white" style={{ background: '#3f83c4' }}>
-                      {nameInitials(m.ownerName)}
-                    </span>
-                    <div className="min-w-0 text-xs leading-tight">
-                      <p className="truncate font-semibold text-jubo-text">{m.ownerName}</p>
-                      <p className="truncate text-2xs text-jubo-muted">Loan Officer</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Phase 5 — per-record lead-source attribution (planning-honest:
-                set by the LO, never inferred). */}
-            <LeadSourceCard recordId={recordId} boardId={boardId ?? null} organizationId={card.record.organizationId} />
-
-            {/* Existing controls preserved below the handoff's four cards. */}
-            {loan && (
-              <div className="jubo-los-card p-3.5">
-                <p className="jubo-los-section-label mb-2">Move to Stage</p>
-                <MoveToStage
-                  recordId={recordId}
-                  boardId={loan.record.board_id}
-                  groups={loan.groups as MoveGroup[]}
-                  currentGroupId={loan.record.group_id ?? null}
-                  onMoved={load}
-                />
-              </div>
-            )}
-            {loan && <ParticipantRibbon data={loan} />}
-          </div>
-
-          {/* CENTER — Conversation: filter pills, date-grouped feed, composer
-              pinned at the bottom. Condensed by default (the feed scrolls
-              internally, so full history stays accessible); Expand restores
-              the original full height. */}
-          <div
-            ref={conversationAnchorRef}
-            className={cn(
-              'flex flex-col overflow-hidden rounded-xl border border-jubo-border-strong/70 bg-card shadow-sm',
-              convoExpanded ? 'min-h-[24rem] xl:max-h-[42rem]' : 'min-h-[15rem] xl:max-h-[26rem]',
-            )}>
-            <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
-              <p className="text-base font-bold tracking-tight text-jubo-navy">Conversation</p>
-              <div className="flex items-center gap-1.5">
-                <div className="flex gap-0.5 rounded-lg bg-jubo-card-soft p-0.5">
-                  {(['all', 'comms', 'pipeline'] as Filter[]).map((f) => (
-                    <button key={f} onClick={() => setFilter(f)}
-                      className={cn('rounded-md px-2.5 py-0.5 text-2xs font-medium capitalize transition-colors',
-                        filter === f ? 'bg-jubo-navy text-white' : 'text-muted-foreground hover:text-foreground')}>{f}</button>
+          <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 p-4 sm:grid-cols-[172px_minmax(0,1fr)] sm:content-stretch">
+            {/* Rail — section menu (client-side switching only) + the
+                existing Next Step block and opportunity signals. */}
+            <div className="flex min-h-0 flex-col gap-3 sm:overflow-y-auto">
+              <div>
+                <p className="jubo-los-section-label mb-1.5">Sections</p>
+                <div className="flex flex-row flex-wrap gap-1 sm:flex-col">
+                  {TABS.map(({ key, label, Icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => selectSection(key)}
+                      className={cn(
+                        'flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs font-semibold transition-colors',
+                        activeTab === key
+                          ? 'border-jubo-red/40 bg-white text-jubo-navy shadow-sm'
+                          : 'border-transparent text-muted-foreground hover:bg-jubo-card-soft hover:text-foreground',
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5 flex-shrink-0" aria-hidden />
+                      <span className="min-w-0 flex-1">{label}</span>
+                    </button>
                   ))}
                 </div>
-                <button
-                  onClick={() => setConvoExpanded((e) => !e)}
-                  className="rounded-md px-2 py-0.5 text-2xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-                  title={convoExpanded ? 'Condense the conversation panel' : 'Expand to full height'}>
-                  {convoExpanded ? 'Condense' : 'Expand'}
-                </button>
               </div>
-            </div>
-            <Feed card={card} comms={comms} filter={filter} borrowerName={borrowerName} ownerName={m?.ownerName ?? null} tall />
-            <div className="flex-shrink-0 border-t border-border p-2.5">
-              <Composer
-                recordId={recordId}
-                comms={comms}
-                email={email}
-                onChanged={load}
-                mode={composerMode}
-                onModeChange={(m) => { setComposerMode(m); setConfirmDiscard(false) }}
-                text={composerText}
-                onTextChange={(t) => { setComposerText(t); setConfirmDiscard(false); setComposerError(null) }}
-                onSubmit={footerSave}
-                onSmsDraftChange={(t) => { setSmsDraft(t); setConfirmDiscard(false) }}
-              />
-            </div>
-          </div>
-
-          {/* RIGHT — activity widgets in the handoff's exact order:
-              Phase Checklist · Notes · Next Step · Tasks. */}
-          <div className="grid grid-cols-1 content-start gap-3.5 md:grid-cols-2 xl:grid-cols-1">
-            <PhaseChecklistCard
-              checklist={card.checklist}
-              stageName={m?.stage ?? null}
-              busy={busy}
-              onToggle={toggleChecklist}
-            />
-
-            <div className="jubo-los-card overflow-hidden">
-              <div className="border-b border-jubo-border/60 px-4 py-3">
-                <p className="text-sm font-bold tracking-tight text-jubo-navy">Notes</p>
-              </div>
-              <div className="min-h-[16rem] p-3.5">
-                {comms ? (
-                  <NoteList organizationId={card.record.organizationId} recordId={recordId} notes={comms.notes} currentUserId={comms.currentUserId} members={comms.members} prominent taskContext={boardId ? { boardId } : undefined} onChanged={load} />
-                ) : <div className="flex items-center gap-2 py-2 text-2xs text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> …</div>}
-              </div>
-            </div>
-
-            {loan && (
-              <div className="space-y-2">
-                <NextActionCard
-                  recordId={recordId}
-                  nextAction={rec.next_action ?? null}
-                  nextActionDueAt={(loan.record as { next_action_due_at?: string | null }).next_action_due_at ?? null}
-                  nextActionCompletedAt={rec.next_action_completed_at ?? null}
-                />
+              <div className="mt-auto space-y-2 pt-2">
+                {loan && (
+                  <NextActionCard
+                    recordId={recordId}
+                    nextAction={rec.next_action ?? null}
+                    nextActionDueAt={(loan.record as { next_action_due_at?: string | null }).next_action_due_at ?? null}
+                    nextActionCompletedAt={rec.next_action_completed_at ?? null}
+                  />
+                )}
                 {signals.length > 0 && (
                   <div className="jubo-los-card space-y-1 px-3 py-2.5">
                     {signals.map((s) => (
@@ -476,38 +431,170 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
                   </div>
                 )}
               </div>
-            )}
+            </div>
 
-            <div className="jubo-los-card p-3.5">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <p className="text-[13px] font-bold tracking-tight text-jubo-navy">Tasks</p>
-                {openTaskCount > 0 && (
-                  <span className="rounded-full bg-jubo-gold-soft px-2 py-0.5 text-[10px] font-bold tabular-nums text-jubo-gold">{openTaskCount}</span>
-                )}
-              </div>
-              {upcomingTasks.length === 0 ? (
-                <p className="text-2xs italic text-jubo-muted">No open tasks.</p>
-              ) : (
-                <div className="space-y-1">
-                  {upcomingTasks.map((t) => {
-                    const overdue = t.due_date && new Date(t.due_date) < new Date()
-                    return (
-                      <div key={t.id} className="flex items-center gap-2">
-                        <span className="flex-1 truncate text-xs text-jubo-text">{t.title}</span>
-                        {t.due_date && (
-                          <span className={cn('text-2xs tabular-nums', overdue ? 'text-jubo-red' : 'text-jubo-muted')}>
-                            {new Date(t.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                          </span>
-                        )}
+            {/* Section content — existing groupings and bindings only. */}
+            <div ref={tabBodyRef} className="min-h-0 sm:overflow-y-auto">
+              {activeTab === 'overview' && (
+                <div className="space-y-3.5">
+                  {/* Loan Snapshot — the same resolved metrics as the strip,
+                      loan amount dominant (values/formats unchanged). */}
+                  <div className="jubo-los-card p-3.5">
+                    <p className="jubo-los-section-label">Loan Snapshot</p>
+                    <p className={cn('mt-1 text-[26px] font-bold leading-tight tracking-tight tabular-nums', m?.loanAmount ? 'text-jubo-navy' : 'text-jubo-muted/40')}>
+                      {m?.loanAmount ?? '—'}
+                    </p>
+                    {m && (
+                      <div className="mt-2 flex flex-wrap items-center divide-x divide-jubo-border/70">
+                        <SummaryMetric label="LTV" value={m.ltv} />
+                        <SummaryMetric label="Rate" value={m.rate} />
+                        <SummaryMetric label="FICO" value={m.fico} />
+                        <SummaryMetric label="Type" value={m.loanType ?? m.purpose} />
+                        <SummaryMetric label="Est. Closing" value={m.closing} />
                       </div>
-                    )
-                  })}
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
+                    <div className="jubo-los-card p-3.5">
+                      <p className="jubo-los-section-label mb-1.5">Property</p>
+                      <div className="space-y-0.5">
+                        <SnapRow label="Address" value={m?.address ?? null} />
+                        <SnapRow label="City / State" value={m?.cityState ?? null} />
+                        <SnapRow
+                          label={m?.propertyValue ? 'Est. value' : m?.appraisedValue ? 'Appraised' : 'Value'}
+                          value={m?.propertyValue ?? m?.appraisedValue ?? null}
+                        />
+                        <SnapRow label="Type" value={m?.propertyType ?? null} />
+                        <SnapRow label="Occupancy" value={m?.occupancy ?? null} />
+                      </div>
+                    </div>
+
+                    <div className="jubo-los-card p-3.5">
+                      <p className="jubo-los-section-label mb-1.5">Financial Summary</p>
+                      <div className="space-y-0.5">
+                        <SnapRow label="Income" value={m?.income ?? null} />
+                        <SnapRow label="Assets" value={m?.assets ?? null} />
+                        <SnapRow label="Liabilities" value={m?.liabilities ?? null} />
+                        <SnapRow label="DTI" value={m?.dti ?? null} />
+                        <SnapRow label="DSCR" value={m?.dscr ?? null} />
+                        <SnapRow label="Total PITI" value={m?.totalPiti ?? null} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <PhaseChecklistCard
+                    checklist={card.checklist}
+                    stageName={m?.stage ?? null}
+                    busy={busy}
+                    onToggle={toggleChecklist}
+                  />
+
+                  {/* Existing stage control preserved (same moveRecord path). */}
+                  {loan && (
+                    <div className="jubo-los-card p-3.5">
+                      <p className="jubo-los-section-label mb-2">Move to Stage</p>
+                      <MoveToStage
+                        recordId={recordId}
+                        boardId={loan.record.board_id}
+                        groups={loan.groups as MoveGroup[]}
+                        currentGroupId={loan.record.group_id ?? null}
+                        onMoved={load}
+                      />
+                    </div>
+                  )}
                 </div>
+              )}
+
+              {activeTab === 'loan' && (
+                <LoanPropertyTab recordId={recordId} boardId={card.record.boardId} organizationId={card.record.organizationId} />
+              )}
+
+              {activeTab === 'borrower' && (
+                <div className="space-y-3.5">
+                  <BorrowerTab recordId={recordId} />
+                  {/* File team + contacts — the same participant data. */}
+                  {loan && <ParticipantRibbon data={loan} />}
+                  <div className="jubo-los-card p-3.5">
+                    <p className="jubo-los-section-label mb-2">Contacts</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-jubo-red text-[10px] font-bold text-white">
+                          {nameInitials(borrowerName)}
+                        </span>
+                        <div className="min-w-0 text-xs leading-tight">
+                          <p className="truncate font-semibold text-jubo-text">{borrowerName}</p>
+                          <p className="truncate text-2xs text-jubo-muted">Borrower{comms?.phone ? ` · ${comms.phone}` : ''}</p>
+                        </div>
+                      </div>
+                      {m?.ownerName && (
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white" style={{ background: '#3f83c4' }}>
+                            {nameInitials(m.ownerName)}
+                          </span>
+                          <div className="min-w-0 text-xs leading-tight">
+                            <p className="truncate font-semibold text-jubo-text">{m.ownerName}</p>
+                            <p className="truncate text-2xs text-jubo-muted">Loan Officer</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {/* Phase 5 — per-record lead-source attribution (planning-
+                      honest: set by the LO, never inferred). */}
+                  <LeadSourceCard recordId={recordId} boardId={boardId ?? null} organizationId={card.record.organizationId} />
+                </div>
+              )}
+
+              {activeTab === 'financial' && (
+                <FinancialTab recordId={recordId} />
               )}
             </div>
           </div>
+
+          {footer}
         </div>
-      )}
+
+        {/* RIGHT — Notes & Tasks (or its folded spine). */}
+        <div className="order-3 flex min-h-0 flex-col xl:order-none xl:max-h-full">
+          <NotesTasksCard
+            collapsed={rightCollapsed}
+            onToggle={toggleRight}
+            activeTab={sideTab}
+            onTabChange={selectSideTab}
+            organizationId={card.record.organizationId}
+            recordId={recordId}
+            boardId={boardId ?? null}
+            comms={comms}
+            tasks={railTasks}
+            openTaskCount={openTaskCount}
+            onChanged={load}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // ── GENERIC shape — the existing single-card layout with unchanged
+  //    content (Quick Contact bar included), now hosting the header slot
+  //    at the top of its one card. ──
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-lg">
+      {headerSlot}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
+        {/* Quick Contact — call/text/email/log-call visible immediately, no
+            scrolling (existing actions only; see QuickContact). */}
+        <div className="flex-shrink-0">
+          <QuickContact
+            phone={comms?.phone ?? null}
+            email={email}
+            recordId={recordId}
+            onText={jumpToText}
+            onLogged={load}
+          />
+        </div>
+        <div ref={tabBodyRef} className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-w-0 space-y-4">
 
       {/* ── GENERIC-shape Overview (unchanged) ── */}
       {activeTab === 'overview' && !isLoanLike && (
@@ -578,60 +665,13 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
         </div>
       )}
 
-      {/* Loan-only tabs — never render on a generic board (also gated out of the
-          tab strip above; the activeTab guard makes them unreachable there). */}
-      {isLoanLike && activeTab === 'loan' && (
-        <LoanPropertyTab recordId={recordId} boardId={card.record.boardId} organizationId={card.record.organizationId} />
-      )}
-      {isLoanLike && activeTab === 'borrower' && (
-        <BorrowerTab recordId={recordId} />
-      )}
-      {isLoanLike && activeTab === 'financial' && (
-        <FinancialTab recordId={recordId} />
-      )}
+          </div>
         </div>
-      </div>
-
-      {/* Persistent modal footer — an always-clickable `Save` that saves any
-          explicit Note/Task draft (the same existing createNote/createTask the
-          composer uses) and then closes the card, exactly like X. It never
-          sends SMS/email: SMS keeps its real Send inside the composer, and an
-          email draft keeps its honest "Open in mail" action alongside. */}
-      <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-jubo-border-strong/60 pt-2">
-        <span className="text-2xs text-jubo-muted">Changes save automatically</span>
-        <div className="flex min-w-0 items-center gap-2">
-          {composerError && <span className="truncate text-2xs font-medium text-jubo-red">{composerError}</span>}
-          {!composerError && confirmDiscard && (
-            <span className="truncate text-2xs font-medium text-jubo-red">
-              Unsent {composerMode === 'sms' ? 'text' : 'email'} draft — Save again to close without sending
-            </span>
-          )}
-          {activeTab === 'overview' && isLoanLike && composerMode === 'email' && email && composerText.trim() && (
-            <a
-              href={`mailto:${email}?body=${encodeURIComponent(composerText)}`}
-              className="rounded-md border border-jubo-red px-4 py-1.5 text-xs font-semibold text-jubo-red transition-colors hover:bg-jubo-red/10"
-            >
-              Open in mail
-            </a>
-          )}
-          <button
-            onClick={footerSaveAndClose}
-            disabled={composerPending}
-            title={
-              activeTab === 'overview' && isLoanLike && composerText.trim() && (composerMode === 'note' || (composerMode === 'task' && boardId))
-                ? 'Save the current draft and close'
-                : 'Everything is saved automatically — close the card'
-            }
-            className="rounded-md bg-jubo-red px-5 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-jubo-red-dark disabled:opacity-60"
-          >
-            {composerPending ? 'Saving…' : 'Save'}
-          </button>
-        </div>
+        {footer}
       </div>
     </div>
   )
 }
-
 function Section({ title, children, noPad }: { title: string; children: React.ReactNode; noPad?: boolean }) {
   return (
     <div className="rounded-xl border border-border bg-card">
