@@ -4,9 +4,12 @@
 // live CRM data; nothing is invented:
 //
 // • KPIs (week/month/quarter + prior-period deltas):
-//     funded volume/units — records sitting in funded/closed stages whose
-//       last update falls in the window (updated_at is the best available
-//       funded-at proxy; there is no funded_at column)
+//     funded volume/units — the UNIFIED movement-dated definition (Step 2,
+//       shared with Verified Results via features/metrics/funded): records
+//       that moved into a funded/closed/post-closing stage on the Closing
+//       board, dated by record_movements.created_at. updated_at is never
+//       used as a funded date; in-app movement history only — the UI labels
+//       that imported history may be incomplete.
 //     commission — summed from a real "commission" currency field when one
 //       exists; otherwise null → the card shows "—"
 //     new leads — records created in the window on non-pipeline boards
@@ -27,6 +30,7 @@ import { getProductionGoals } from '@/features/goals/queries'
 import { buildThemeDayData } from '@/features/prospecting/themeday/queues'
 import { getThemeDayFor } from '@/features/prospecting/coaching/themeDay'
 import { isClosedGroupName, mondayOf, startOfMonthOf, startOfQuarterOf } from '@/features/metrics/shared'
+import { detectClosingFundedGroups, entriesIntoSet, distinctEntryIdsInWindow, type EntryEvent, type MovementRow } from '@/features/metrics/funded'
 
 const MAX_RECORDS = 2000
 
@@ -152,28 +156,78 @@ export async function buildDashboardOverview(organizationId: string, userId: str
   }
   const loanAmount = (r: { id: string; value: number | null }) => loanAmountForSum(loanByRecord.get(r.id), r.value)
 
+  // ── Funded (Step 2 unification): the SAME movement-dated definition as
+  // Verified Results — records that MOVED INTO a funded/closed/post-closing
+  // stage on the Closing board, dated by record_movements.created_at.
+  // records.updated_at is no longer used as a funded date. Movement history
+  // only covers in-app moves since tracking began; the UI labels that.
+  const { fundedGroupIds } = detectClosingFundedGroups(
+    boards,
+    (groupsRes.data ?? []) as { id: string; board_id: string; name: string }[],
+  )
+  // Earliest window we report = the previous quarter's start.
+  const minStart = windows('quarter', now)[1]
+  let fundedEntries: EntryEvent[] = []
+  if (fundedGroupIds.size > 0) {
+    const { data: mvRows } = await supabase
+      .from('record_movements')
+      .select('record_id, from_group_id, to_group_id, created_at')
+      .eq('organization_id', organizationId)
+      .in('to_group_id', [...fundedGroupIds])
+      .gte('created_at', minStart.toISOString())
+      // Most-recent first — a truncated scan drops the oldest (prev-quarter
+      // tail), keeping the short windows exact.
+      .order('created_at', { ascending: false })
+      .limit(5000)
+    fundedEntries = entriesIntoSet((mvRows ?? []) as MovementRow[], fundedGroupIds)
+  }
+
+  // Loan/commission amounts for funded records that are no longer in the
+  // active roster (archived or status-changed since funding) — fetched in
+  // bounded chunks so historical dollars stay correct.
+  const extraValueById = new Map<string, number | null>()
+  const rosterIds = new Set(recordIds)
+  const fundedIdsMissing = [...new Set(fundedEntries.map((e) => e.recordId))]
+    .filter((id) => !rosterIds.has(id))
+  for (let i = 0; i < fundedIdsMissing.length; i += 200) {
+    const chunk = fundedIdsMissing.slice(i, i + 200)
+    const [{ data: recRows }, { data: fvRows }] = await Promise.all([
+      supabase.from('records').select('id, value').eq('organization_id', organizationId).in('id', chunk),
+      allFieldIds.length > 0
+        ? supabase.from('field_values').select('record_id, field_id, value_number').in('field_id', allFieldIds).in('record_id', chunk)
+        : Promise.resolve({ data: [] as never[] }),
+    ])
+    for (const r of (recRows ?? []) as { id: string; value: number | null }[]) extraValueById.set(r.id, r.value)
+    for (const fv of (fvRows ?? []) as { record_id: string; field_id: string; value_number: number | null }[]) {
+      if (loanFieldIds.has(fv.field_id) && typeof fv.value_number === 'number') loanByRecord.set(fv.record_id, fv.value_number)
+      if (commissionFieldIds.has(fv.field_id) && typeof fv.value_number === 'number') commissionByRecord.set(fv.record_id, (commissionByRecord.get(fv.record_id) ?? 0) + fv.value_number)
+    }
+  }
+  const recordById = new Map(records.map((r) => [r.id, r]))
+  const fundedAmount = (id: string): number => {
+    const r = recordById.get(id)
+    return loanAmountForSum(loanByRecord.get(id), r ? r.value : (extraValueById.get(id) ?? null))
+  }
+
   // ── KPIs per period (+ prior window) ──
   const hasCommissionField = commissionFieldIds.size > 0
   const kpisFor = (start: Date, end: Date): PeriodKpis => {
-    let funded = 0, units = 0, commission = 0, leads = 0
+    let funded = 0, commission = 0, leads = 0
+    // Funded: distinct records with a movement-dated entry in the window.
+    const fundedIds = distinctEntryIdsInWindow(fundedEntries, start, end)
+    for (const id of fundedIds) {
+      funded += fundedAmount(id)
+      commission += commissionByRecord.get(id) ?? 0
+    }
     for (const r of records) {
       const board = r.board_id ? boardById.get(r.board_id) : undefined
       if (!board) continue
-      const inClosed = isClosedGroup(r.group_id ? groupName.get(r.group_id) : null)
-      if (inClosed) {
-        const t = new Date(r.updated_at)
-        if (t >= start && t < end) {
-          units += 1
-          funded += loanAmount(r)
-          commission += commissionByRecord.get(r.id) ?? 0
-        }
-      }
       if (!isWorkLoansBoard(board)) {
         const c = new Date(r.created_at)
         if (c >= start && c < end) leads += 1
       }
     }
-    return { funded, units, commission: hasCommissionField ? commission : null, leads }
+    return { funded, units: fundedIds.size, commission: hasCommissionField ? commission : null, leads }
   }
   const kpis = {} as DashboardOverviewData['kpis']
   for (const p of ['week', 'month', 'quarter'] as PeriodKey[]) {

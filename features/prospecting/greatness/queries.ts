@@ -31,6 +31,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { displaySourceLabel } from '@/features/production-plan/calc'
 import { isClosedGroupName, startOfDay, mondayOf, startOfMonthOf, startOfYearOf } from '@/features/metrics/shared'
+import { detectClosingFundedGroups, entriesIntoSet } from '@/features/metrics/funded'
 
 export type GreatnessWindowKey = 'today' | 'week' | 'month' | 'year'
 export const GREATNESS_WINDOWS: GreatnessWindowKey[] = ['today', 'week', 'month', 'year']
@@ -138,7 +139,9 @@ export async function buildGreatnessData(organizationId: string, userId: string)
   const icBoardIds = new Set(boardIdsWhere((n) => n.includes('initialconsult')))
   const paBoardIds = new Set(boardIdsWhere((n) => n.includes('preapp')))
   const lipBoardIds = new Set(boardIdsWhere((n) => n.includes('inprocess')))
-  const closingBoardIds = new Set(boardIdsWhere((n) => n.includes('closing')))
+  // Funded definition comes from the shared module (features/metrics/funded)
+  // — the same detection the Dashboard KPIs use, so they can never drift.
+  const { closingBoardIds, fundedGroupIds, fundedStageNames } = detectClosingFundedGroups(boards, groups)
 
   const missing: string[] = []
   if (icBoardIds.size === 0) missing.push('Initial Consult board')
@@ -159,9 +162,6 @@ export async function buildGreatnessData(organizationId: string, userId: string)
   // Pipeline = Loan In Process OPEN stages (a funded/closed-named stage on
   // that board is not "in pipeline" — same rule as the Dashboard pipeline).
   const lipGroupIds = new Set(groups.filter((g) => lipBoardIds.has(g.board_id) && !isClosedGroupName(g.name)).map((g) => g.id))
-  const fundedGroups = groups.filter((g) => closingBoardIds.has(g.board_id) && isClosedGroupName(g.name))
-  const fundedGroupIds = new Set(fundedGroups.map((g) => g.id))
-  const fundedStageNames = [...new Set(fundedGroups.map((g) => g.name))]
   if (closingBoardIds.size > 0 && fundedGroupIds.size === 0) missing.push('funded/closed stage on the Closing board')
 
   // Boards whose records we need current-state + ownership for (includes any
@@ -225,10 +225,8 @@ export async function buildGreatnessData(organizationId: string, userId: string)
 
   // ── Entry events: a movement INTO the set from OUTSIDE it (stage shuffles
   // within the same set — e.g. funded → post-closing — never re-count).
-  const entriesInto = (set: Set<string>): EntryEvent[] =>
-    movements
-      .filter((m) => set.has(m.to_group_id) && !(m.from_group_id && set.has(m.from_group_id)))
-      .map((m) => ({ recordId: m.record_id, at: m.created_at }))
+  // Shared rule (features/metrics/funded) — same one the Dashboard KPIs use.
+  const entriesInto = (set: Set<string>): EntryEvent[] => entriesIntoSet(movements, set)
 
   // Created-in fallback: records created (or imported) directly into the set
   // this year with no arrival movement — their created_at is the entry date.
