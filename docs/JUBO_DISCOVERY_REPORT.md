@@ -71,8 +71,9 @@ Loan In Process · Closing · Inactive Loans · Pre-Approved · VIP's
   count **distinct record_ids** across both.
 - **Initial Consult is a board** — "New Lead" = movement into it (board_change), with
   created-in fallback for imports.
-- Dashboard-home KPIs currently use `updated_at` as the funded-date proxy;
-  `record_movements.created_at` is strictly better and should replace it in the Tracker.
+- Dashboard-home KPIs originally used `updated_at` as the funded-date proxy; as of
+  operator-audit Step 2 they use the same movement-dated definition as Verified Results
+  (`features/metrics/funded.ts` — `record_movements.created_at` into Closing funded stages).
 
 ## Metric feasibility
 

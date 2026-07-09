@@ -176,6 +176,11 @@ export function DashboardOverview({ data }: { data: DashboardOverviewData }) {
           </div>
         ))}
       </div>
+      {/* Funded honesty label (Step 2): movement-dated definition, shared
+          with Verified Results — never updated_at, never invented dates. */}
+      <p className="-mt-1.5 flex-none text-[11px]" style={{ color: MUTED }}>
+        Funded volume/units are dated by stage moves into the Closing board&apos;s funded stages — imported history may be incomplete.
+      </p>
 
       {/* ── Three-column body ── */}
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[1.42fr_1fr_1fr] lg:gap-[13px]">
