@@ -491,7 +491,7 @@ export function ThemeDayCockpit({ data, streak, organizationId, goal: goalProp, 
         {/* ── Greatness Tracker — MANUAL weekly activity grid (scoreboard
             only: self-reported numbers, zero CRM writes; the automated
             metrics live below as "Verified Results"). ── */}
-        <WeeklyActivityGrid userId={userId} />
+        <WeeklyActivityGrid userId={userId} organizationId={organizationId} />
       </div>
 
       {/* ── Mon–Fri week strip ── */}
