@@ -11,7 +11,7 @@
 // No new data model, no calculations, no functional Arrive forms.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useState, useCallback, useTransition } from 'react'
+import { useEffect, useState, useCallback, useRef, useTransition } from 'react'
 import {
   Loader2, CheckSquare, Square, Plug, ArrowUpRight, ArrowDownLeft,
   MessageSquare, Mail, StickyNote, ListChecks,
@@ -25,6 +25,7 @@ import { createNote } from '@/features/workspace/notes/actions'
 import { createTask } from '@/features/tasks/actions'
 import { LoanPropertyTab } from './LoanPropertyTab'
 import { LeadSourceCard } from './LeadSourceCard'
+import { QuickContact } from './QuickContact'
 import { BorrowerTab } from './BorrowerTab'
 import { FinancialTab } from './FinancialTab'
 import { upsertFieldValue, moveRecord } from '@/features/records/actions'
@@ -70,6 +71,11 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
   const [composerError, setComposerError] = useState<string | null>(null)
   const [smsDraft, setSmsDraft] = useState('')
   const [confirmDiscard, setConfirmDiscard] = useState(false)
+  // Quick Contact: anchor for the Text jump + condensed-by-default state for
+  // the Conversation panel (the feed scrolls internally — history is never
+  // cut off; Expand restores the original full height).
+  const conversationAnchorRef = useRef<HTMLDivElement>(null)
+  const [convoExpanded, setConvoExpanded] = useState(false)
   const toast = useToast()
 
   // Phase C4 — ONE resolver per open. getFileCardData reads each table once and
@@ -118,6 +124,15 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
   const nextStep = rec.next_action && !rec.next_action_completed_at ? rec.next_action : null
   const openConditions = card.checklist.hasChecklist ? card.checklist.totalCount - card.checklist.completedCount : 0
   const openTaskCount = (card.tasks as { completed_at: string | null }[]).filter((t) => !t.completed_at).length
+
+  // Quick Contact → Text: jump to the EXISTING SMS composer (loan shape:
+  // the Conversation card's pinned composer; generic shape: the Activity &
+  // messages compose box). The send flow itself is untouched.
+  const jumpToText = () => {
+    if (isLoanLike) { setTab('overview'); setComposerMode('sms') }
+    // Let a tab switch render before scrolling to the composer area.
+    setTimeout(() => conversationAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60)
+  }
 
   const toggleChecklist = (fieldId: string, complete: boolean) => {
     if (!boardId) return
@@ -199,6 +214,17 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
     // Pinned shell: the metric strip + tab strip stay fixed; only the tab
     // content below scrolls (the modal itself has a fixed height).
     <div className="flex h-full min-h-0 flex-col gap-3">
+      {/* Quick Contact — call/text/email/log-call visible immediately, no
+          scrolling (existing actions only; see QuickContact). */}
+      <div className="flex-shrink-0">
+        <QuickContact
+          phone={comms?.phone ?? null}
+          email={email}
+          recordId={recordId}
+          onText={jumpToText}
+          onLogged={load}
+        />
+      </div>
       {/* Reference metric strip — Loan Amount · LTV · FICO · Rate · DSCR ·
           LTC · Est. Closing · Type. Real values or an honest "—". */}
       {m && <div className="flex-shrink-0"><LoanSummaryStrip m={m} /></div>}
@@ -336,17 +362,32 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
             {loan && <ParticipantRibbon data={loan} />}
           </div>
 
-          {/* CENTER — Conversation, single full-height card: filter pills,
-              date-grouped feed, composer pinned at the bottom. */}
-          <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-xl border border-jubo-border-strong/70 bg-card shadow-sm xl:max-h-[42rem]">
+          {/* CENTER — Conversation: filter pills, date-grouped feed, composer
+              pinned at the bottom. Condensed by default (the feed scrolls
+              internally, so full history stays accessible); Expand restores
+              the original full height. */}
+          <div
+            ref={conversationAnchorRef}
+            className={cn(
+              'flex flex-col overflow-hidden rounded-xl border border-jubo-border-strong/70 bg-card shadow-sm',
+              convoExpanded ? 'min-h-[24rem] xl:max-h-[42rem]' : 'min-h-[15rem] xl:max-h-[26rem]',
+            )}>
             <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2">
               <p className="text-base font-bold tracking-tight text-jubo-navy">Conversation</p>
-              <div className="flex gap-0.5 rounded-lg bg-jubo-card-soft p-0.5">
-                {(['all', 'comms', 'pipeline'] as Filter[]).map((f) => (
-                  <button key={f} onClick={() => setFilter(f)}
-                    className={cn('rounded-md px-2.5 py-0.5 text-2xs font-medium capitalize transition-colors',
-                      filter === f ? 'bg-jubo-navy text-white' : 'text-muted-foreground hover:text-foreground')}>{f}</button>
-                ))}
+              <div className="flex items-center gap-1.5">
+                <div className="flex gap-0.5 rounded-lg bg-jubo-card-soft p-0.5">
+                  {(['all', 'comms', 'pipeline'] as Filter[]).map((f) => (
+                    <button key={f} onClick={() => setFilter(f)}
+                      className={cn('rounded-md px-2.5 py-0.5 text-2xs font-medium capitalize transition-colors',
+                        filter === f ? 'bg-jubo-navy text-white' : 'text-muted-foreground hover:text-foreground')}>{f}</button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setConvoExpanded((e) => !e)}
+                  className="rounded-md px-2 py-0.5 text-2xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  title={convoExpanded ? 'Condense the conversation panel' : 'Expand to full height'}>
+                  {convoExpanded ? 'Condense' : 'Expand'}
+                </button>
               </div>
             </div>
             <Feed card={card} comms={comms} filter={filter} borrowerName={borrowerName} ownerName={m?.ownerName ?? null} tall />
@@ -474,7 +515,7 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
             </Section>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3" ref={conversationAnchorRef}>
             <Section title="Activity & messages" noPad>
               <div className="flex gap-1 border-b border-border px-3 py-2">
                 {(['all', 'comms', 'tasks', 'pipeline'] as Filter[]).map((f) => (
