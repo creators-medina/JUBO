@@ -8,6 +8,9 @@
 
 import type { CandidateSignal, LeadTemperature, QueueBucketKey, ScoredLead } from '../types'
 
+/** Outcomes that mean "don't put this person back in the call queue" (Phase A2). */
+export const SUPPRESS_OUTCOMES = new Set(['do_not_contact', 'not_interested', 'wrong_number'])
+
 function daysUntil(iso: string | null): number | null {
   if (!iso) return null
   const t = new Date(iso).getTime()
@@ -33,6 +36,18 @@ export function scoreCandidate(sig: CandidateSignal, opts: { themeBoardSlug?: st
   let score = 0
   const reasons: string[] = []
   let bucket: QueueBucketKey = 'fresh'
+
+  // Phase A2 — never surface someone who asked not to be contacted or can't be
+  // reached. Score 0 drops them from the queue entirely.
+  if (sig.suppressed) {
+    return {
+      recordId: sig.recordId, title: sig.title, boardId: sig.boardId, boardSlug: sig.boardSlug,
+      groupName: sig.groupName, temperature: temperatureFor(sig), score: 0,
+      reasons: ['Do-not-contact / not interested'], bucket: 'fresh',
+      loanAmount: sig.loanAmount, daysSinceContact: sig.daysSinceContact,
+      nextActionDueAt: sig.nextActionDueAt, phone: sig.phone,
+    }
+  }
 
   // Overdue next action — top urgency.
   const dueIn = daysUntil(sig.nextActionDueAt)
@@ -93,6 +108,13 @@ export function scoreCandidate(sig: CandidateSignal, opts: { themeBoardSlug?: st
     score += 25
     reasons.push("Today's focus")
   }
+
+  // Phase A2 — outcome awareness: the last structured call outcome + inbound
+  // replies are strong intent signals the recency math alone can't see.
+  if (sig.lastOutcome === 'interested') { score += 40; reasons.unshift('Said interested'); bucket = 'hot' }
+  else if (sig.lastOutcome === 'call_back_later') { score += 30; reasons.unshift('Asked for a callback') }
+  else if (sig.lastOutcome === 'nurture') { score -= 10 }
+  if (sig.lastDirection === 'inbound' && d != null && d <= 7) { score += 35; reasons.unshift('They reached out'); bucket = 'hot' }
 
   const temperature = temperatureFor(sig)
   if (temperature === 'hot' && bucket === 'fresh') bucket = 'hot'
