@@ -16,6 +16,7 @@
 import { useState } from 'react'
 import { PhoneCall, UserPlus, FileSearch, BadgeCheck, Layers, Landmark } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ManualVsVerified } from './ManualVsVerified'
 import type { GreatnessData, GreatnessWindowKey, MetricScope } from './queries'
 
 const WINDOW_TABS: { key: GreatnessWindowKey; label: string }[] = [
@@ -143,7 +144,7 @@ function LeadSourceBreakdown({ data, win, phrase }: { data: GreatnessData; win: 
   )
 }
 
-export function GreatnessTracker({ data }: { data: GreatnessData }) {
+export function GreatnessTracker({ data, userId }: { data: GreatnessData; userId?: string }) {
   const [win, setWin] = useState<GreatnessWindowKey>('week')
   const phrase = WINDOW_PHRASE[win]
 
@@ -252,6 +253,11 @@ export function GreatnessTracker({ data }: { data: GreatnessData }) {
             note="No funded/closed/post-closing stage detected on the Closing board — stage mapping needed." chip={<ScopeChip scope="all_records" />} />
         )}
       </div>
+
+      {/* ── Rework Phase 2 — Manual vs Verified (visual link only: manual
+          totals from the weekly grid's localStorage, verified numbers from
+          this same GreatnessData — data is never merged). ── */}
+      <ManualVsVerified data={data} userId={userId} />
 
       {/* ── Phase 5 — Lead Source Breakdown (real attribution only) ── */}
       <LeadSourceBreakdown data={data} win={win} phrase={phrase} />
