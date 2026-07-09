@@ -11,11 +11,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { getTwilioConfig, getThreadForRecord } from '@/features/conversations/queries'
 import { loadThreadMessages } from '@/features/conversations/actions'
+import { getEmailConfig } from '@/features/communications/email/queries'
 import type { ConversationMessage } from '@/features/conversations/types'
 import type { NoteRow } from '@/features/workspace/types'
 
 export type CommunicateContext = {
   twilioConnected: boolean
+  emailConnected: boolean
   phone: string | null
   email: string | null
   threadId: string | null
@@ -40,8 +42,9 @@ export async function getCommunicateContext(recordId: string): Promise<Communica
   // of that type (the Add-Record fallback). ──
   const { data: keys } = await supabase
     .from('common_field_keys').select('id, key').eq('organization_id', orgId).in('key', ['phone', 'email'])
-  const phoneKeyId = (keys ?? []).find((k: any) => k.key === 'phone')?.id ?? null
-  const emailKeyId = (keys ?? []).find((k: any) => k.key === 'email')?.id ?? null
+  const keyList = (keys ?? []) as { id: string; key: string }[]
+  const phoneKeyId = keyList.find((k) => k.key === 'phone')?.id ?? null
+  const emailKeyId = keyList.find((k) => k.key === 'email')?.id ?? null
 
   let phone: string | null = null
   let email: string | null = null
@@ -67,6 +70,7 @@ export async function getCommunicateContext(recordId: string): Promise<Communica
 
   // ── SMS: connected state + the record's thread/messages (reuse Phase 26). ──
   const twilioConnected = !!(await getTwilioConfig(supabase as never, orgId))
+  const emailConnected = !!(await getEmailConfig(supabase as never, orgId))
   const thread = await getThreadForRecord(recordId)
   const threadId = thread?.id ?? null
   const messages = threadId ? await loadThreadMessages(threadId) : []
@@ -78,7 +82,8 @@ export async function getCommunicateContext(recordId: string): Promise<Communica
   const { data: mems } = await supabase
     .from('organization_members').select('user_id, status, profiles:user_id(first_name, last_name, email)')
     .eq('organization_id', orgId)
-  const members = ((mems ?? []) as any[])
+  type MemRow = { user_id: string | null; status: string | null; profiles: { first_name?: string | null; last_name?: string | null; email?: string | null } | null }
+  const members = ((mems ?? []) as MemRow[])
     .filter((m) => m.status !== 'disabled' && m.user_id)
     .map((m) => {
       const p = m.profiles ?? {}
@@ -86,5 +91,5 @@ export async function getCommunicateContext(recordId: string): Promise<Communica
       return { id: m.user_id as string, name }
     })
 
-  return { twilioConnected, phone, email, threadId, messages, notes: (notes ?? []) as NoteRow[], members, currentUserId: user.id }
+  return { twilioConnected, emailConnected, phone, email, threadId, messages, notes: (notes ?? []) as NoteRow[], members, currentUserId: user.id }
 }
