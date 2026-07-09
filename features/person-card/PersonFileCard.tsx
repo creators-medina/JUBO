@@ -76,6 +76,10 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
   // cut off; Expand restores the original full height).
   const conversationAnchorRef = useRef<HTMLDivElement>(null)
   const [convoExpanded, setConvoExpanded] = useState(false)
+  // The card must OPEN at the top (Quick Contact visible). Guards against any
+  // child stealing scroll on mount (e.g. an autofocused input being scrolled
+  // into view) — reset the tab body's scroll whenever content/tab mounts.
+  const tabBodyRef = useRef<HTMLDivElement>(null)
   const toast = useToast()
 
   // Phase C4 — ONE resolver per open. getFileCardData reads each table once and
@@ -97,6 +101,18 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [load])
+
+  // Open at the top — once when the card content first arrives, and on every
+  // tab switch. Later reloads (e.g. after sending an SMS) keep the user's
+  // scroll position.
+  const openedAtTop = useRef(false)
+  useEffect(() => {
+    if (card && !openedAtTop.current) {
+      openedAtTop.current = true
+      tabBodyRef.current?.scrollTo({ top: 0 })
+    }
+  }, [card])
+  useEffect(() => { tabBodyRef.current?.scrollTo({ top: 0 }) }, [tab])
 
   if (card === undefined) {
     return <div className="flex items-center gap-2 py-6 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading file…</div>
@@ -249,7 +265,7 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
           center); stacks above the content on narrow screens. On xl the
           wrapper stops scrolling so the Overview can pin its composer —
           columns scroll internally instead; below xl the whole tab scrolls. */}
-      <div className={cn(
+      <div ref={tabBodyRef} className={cn(
         'min-h-0 flex-1 overflow-y-auto',
         // Detail tabs keep the 236px snapshot rail; the Overview tab owns its
         // full 3-column layout (handoff), so the rail is not doubled there.
