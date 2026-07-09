@@ -18,7 +18,9 @@ interface MetricWidgetProps {
 
 export function MetricWidget({ config, data }: MetricWidgetProps) {
   const Icon = config.icon ? ICON_MAP[config.icon] : null
-  const colors = WIDGET_COLORS[(config.color as WidgetColor) ?? 'blue']
+  // Fall back to blue for any missing/unknown color (?? only guarded null, not
+  // a stored color outside the 6-color set — an unknown value crashed the card).
+  const colors = WIDGET_COLORS[config.color as WidgetColor] ?? WIDGET_COLORS.blue
 
   return (
     <div className="h-full flex flex-col justify-between gap-4">
