@@ -26,6 +26,11 @@ export type CandidateSignal = {
   preapprovalExpDays: number | null
   loanAmount: number | null
   phone: string | null
+  /** Phase A2 — most-recent structured communication outcome / direction. */
+  lastOutcome: string | null
+  lastDirection: string | null
+  /** Phase A2 — a recent do-not-contact / not-interested / wrong-number log. */
+  suppressed: boolean
 }
 
 export type ScoredLead = {

@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { createClient } from '@/lib/supabase/server'
-import { scoreCandidate } from '../scoring'
+import { scoreCandidate, SUPPRESS_OUTCOMES } from '../scoring'
 import { getThemeDay } from '../coaching/themeDay'
 import { getProspectingSchedule } from '../schedule/queries'
 import { dayScheduleFor, type DaySchedule } from '../schedule/types'
@@ -69,7 +69,7 @@ export async function buildCallQueue(
   const [boardsRes, groupsRes, commRes, fieldsRes] = await Promise.all([
     supabase.from('boards').select('id, slug, board_type').in('id', boardIds),
     supabase.from('board_groups').select('id, name').in('board_id', boardIds),
-    supabase.from('communication_logs').select('record_id, occurred_at, channel').in('record_id', recordIds).neq('channel', 'internal').order('occurred_at', { ascending: false }),
+    supabase.from('communication_logs').select('record_id, occurred_at, channel, outcome, direction').in('record_id', recordIds).neq('channel', 'internal').order('occurred_at', { ascending: false }),
     supabase.from('fields').select('id, slug, board_id, field_type').in('board_id', boardIds).or('slug.in.(preapproval_expiration,loan_amount),field_type.eq.phone'),
   ])
 
@@ -78,7 +78,23 @@ export async function buildCallQueue(
 
   // last contact per record (first seen wins, list is desc).
   const lastContact = new Map<string, string>()
-  for (const c of commRes.data ?? []) if (!lastContact.has(c.record_id)) lastContact.set(c.record_id, c.occurred_at)
+  // Phase A2 — most-recent outcome/direction per record + a suppression flag when
+  // any recent log says do-not-contact / not-interested / wrong-number.
+  const lastOutcome = new Map<string, string | null>()
+  const lastDirection = new Map<string, string | null>()
+  const suppressed = new Set<string>()
+  for (const c of (commRes.data ?? []) as { record_id: string; occurred_at: string; outcome: string | null; direction: string | null }[]) {
+    if (!lastContact.has(c.record_id)) {
+      lastContact.set(c.record_id, c.occurred_at)
+      lastDirection.set(c.record_id, c.direction)   // direction of the most recent contact
+    }
+    // Last MEANINGFUL disposition — skip 'sent'/'received' so a follow-up email
+    // doesn't mask the intent from a prior call ("interested", "call back", …).
+    if (!lastOutcome.has(c.record_id) && c.outcome && c.outcome !== 'sent' && c.outcome !== 'received') {
+      lastOutcome.set(c.record_id, c.outcome)
+    }
+    if (c.outcome && SUPPRESS_OUTCOMES.has(c.outcome)) suppressed.add(c.record_id)
+  }
 
   // field value lookups (preapproval_expiration date, loan_amount number).
   const preapprovalFieldIds = new Set((fieldsRes.data ?? []).filter((f) => f.slug === 'preapproval_expiration').map((f) => f.id))
@@ -116,6 +132,9 @@ export async function buildCallQueue(
       preapprovalExpDays: preExp ? Math.ceil((new Date(preExp).getTime() - Date.now()) / 86400000) : null,
       loanAmount: loanAmountByRecord.get(r.id) ?? r.value ?? null,
       phone: phoneByRecord.get(r.id) ?? null,
+      lastOutcome: lastOutcome.get(r.id) ?? null,
+      lastDirection: lastDirection.get(r.id) ?? null,
+      suppressed: suppressed.has(r.id),
     }
     return scoreCandidate(sig, { themeBoardSlug })
   })
