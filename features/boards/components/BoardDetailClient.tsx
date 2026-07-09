@@ -35,6 +35,7 @@ import { addNotesColumn } from '@/features/fields/actions'
 import { isNotesField } from '../notes'
 import { updateSavedViewAttention } from '@/features/daily-actions/attention/actions'
 import { useAuth } from '@/providers/AuthProvider'
+import { LOCAL_KEYS } from '@/lib/localKeys'
 import { cn } from '@/lib/utils'
 import type { RecordPriority, RecordStatus } from '@/types/database'
 
@@ -188,7 +189,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   // are strictly validated — anything unknown/stale falls back to the default.
   const { user: authUser } = useAuth()
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('kanban')
-  const viewModeStorageKey = `jubo-board-view-mode:v1:${authUser?.id ?? 'local'}:${board.id}`
+  const viewModeStorageKey = LOCAL_KEYS.boardViewMode(authUser?.id, board.id)
   useEffect(() => {
     try {
       const v = window.localStorage.getItem(viewModeStorageKey)
@@ -264,6 +265,15 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     setActiveData(event.active.data.current ?? null)
     const a = event.active.data.current
     if (a?.type === 'record') {
+      // One-time discoverability hint (operator audit): cross-board drag is
+      // invisible until tried. Shown once per browser; drag behavior itself
+      // is completely untouched.
+      try {
+        if (!window.localStorage.getItem(LOCAL_KEYS.hintCrossBoardDrag)) {
+          window.localStorage.setItem(LOCAL_KEYS.hintCrossBoardDrag, '1')
+          toast.info('Tip: drop a contact on a board in the sidebar to move it there.')
+        }
+      } catch { /* hint only */ }
       startRecordDrag(a.recordId as string, (a.boardId ?? board.id) as string, String(a.record?.title ?? ''))
       const onMove = (e: PointerEvent) => {
         const el = document.elementFromPoint(e.clientX, e.clientY)

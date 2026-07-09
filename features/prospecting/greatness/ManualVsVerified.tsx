@@ -22,6 +22,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { LOCAL_KEYS } from '@/lib/localKeys'
 import type { GreatnessData } from './queries'
 import { ACTIVITIES, useManualWeekTotals } from './manualTracker'
 
@@ -30,7 +31,9 @@ type RowStatus = 'matched' | 'ahead' | 'needs_review' | 'manual_only' | 'not_tra
 const STATUS_STYLE: Record<RowStatus, { label: string; cls: string }> = {
   matched: { label: 'Matched', cls: 'bg-jubo-green-soft text-jubo-green' },
   ahead: { label: 'Ahead', cls: 'bg-jubo-gold-soft text-jubo-gold' },
-  needs_review: { label: 'Needs review', cls: 'bg-[#B8492C]/10 text-[#96351F]' },
+  // Neutral on purpose (operator audit): this is a reconciliation state,
+  // not an error — red/rust made LOs read it as "something is broken".
+  needs_review: { label: 'Check CRM', cls: 'bg-jubo-navy/10 text-jubo-navy' },
   manual_only: { label: 'Manual only', cls: 'bg-surface-2 text-muted-foreground' },
   not_tracked: { label: 'Not tracked yet', cls: 'bg-surface-2 text-muted-foreground' },
 }
@@ -47,7 +50,7 @@ type CompareRow = {
   currentState?: boolean
 }
 
-const COLLAPSE_KEY = 'jubo-manual-vs-verified:v1:collapsed'
+const COLLAPSE_KEY = LOCAL_KEYS.manualVsVerifiedCollapsed
 
 export function ManualVsVerified({ data, userId }: { data: GreatnessData; userId?: string }) {
   const manual = useManualWeekTotals(userId)
@@ -153,8 +156,8 @@ export function ManualVsVerified({ data, userId }: { data: GreatnessData; userId
           </div>
           <p className="mt-2 text-2xs leading-snug text-muted-foreground">
             {firstReview
-              ? <>You logged {firstReview.manual} {firstReview.label}{firstReview.manual === 1 ? '' : firstReview.label.endsWith('s') ? '' : 's'} this week, but the CRM verified {firstReview.verified}. Review whether records need to be updated or whether the manual log was ahead of the CRM — “Needs review” isn’t an error. </>
-              : <>“Needs review” isn’t an error — it just means manual entries and CRM records don’t currently line up. </>}
+              ? <>You logged {firstReview.manual} {firstReview.label}{firstReview.manual === 1 ? '' : firstReview.label.endsWith('s') ? '' : 's'} this week, but the CRM verified {firstReview.verified}. Check whether records need to be updated or whether the manual log was simply ahead of the CRM — “Check CRM” means the manual log and CRM records don’t fully line up yet, not that something is wrong. </>
+              : <>“Check CRM” means the manual log and CRM records don’t fully line up yet — not that something is wrong. </>}
             Deals compares against the current Loan In Process roster (current state, not a weekly count). Manual-only rows have no CRM source yet and are never invented.
           </p>
         </>

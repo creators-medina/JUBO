@@ -60,7 +60,9 @@ const NAV_LINKS: Record<string, { label: string; icon: LucideIcon }> = {
   '/dashboard': { label: 'Dashboard', icon: LayoutDashboard },
   '/prospecting': { label: 'Daily Call Log', icon: PhoneCall },
   '/today': { label: 'Today', icon: Sunrise },
-  '/business-plan': { label: 'Business Plan', icon: Gauge },
+  // Operator audit: the coaching-engine page keeps its route but is labeled
+  // as coaching so it can't be mistaken for the (canonical) Production Plan.
+  '/business-plan': { label: 'Business Coaching', icon: Gauge },
   '/production-plan': { label: 'Production Plan', icon: Calculator },
   '/goals': { label: 'Goals', icon: Target },
   '/forecasts': { label: 'Forecasts', icon: TrendingUp },

@@ -322,6 +322,11 @@ export function ThemeDayCockpit({ data, streak, organizationId, goal: goalProp, 
         <div className="flex items-start justify-between gap-3">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/55">
             Daily Call Log · {isActualToday ? 'Today' : isToday ? 'Up next' : 'This week'} · {dateLabel}
+            {/* Weekend clarity (operator audit): the app intentionally shows
+                Monday's plan on Sat/Sun — say so instead of looking wrong. */}
+            {(rawDow === 0 || rawDow === 6) && isToday && (
+              <span className="text-white/40"> · Weekend — showing Monday’s plan</span>
+            )}
           </p>
           {isToday && (
             <button
