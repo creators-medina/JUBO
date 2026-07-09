@@ -37,6 +37,7 @@ import { saveOnboardingProgress } from '@/features/onboarding/actions'
 import { OUTCOME_LABEL, type CommunicationOutcome } from '@/features/communications/types'
 import { track } from '@/features/analytics/client'
 import { getWeekThemeDays } from '../coaching/themeDay'
+import { WeeklyActivityGrid } from '../greatness/WeeklyActivityGrid'
 import type { ProspectingStreak } from '../types'
 import type { ThemeDayData, ThemeCallItem, ThemeDayQueue } from './queues'
 
@@ -110,10 +111,13 @@ function useTweenedPercent(target: number): number {
   return val
 }
 
-export function ThemeDayCockpit({ data, streak, organizationId, goal: goalProp, goalSource }: {
+export function ThemeDayCockpit({ data, streak, organizationId, goal: goalProp, goalSource, userId }: {
   data: ThemeDayData
   streak: ProspectingStreak
   organizationId: string
+  /** Scopes the manual Greatness Tracker's per-browser storage (optional —
+   *  the grid falls back to a local scope when absent). */
+  userId?: string
   /** Resolved daily call goal (session > profile > goal engine > default 10). */
   goal: number
   /** Human label for where the goal came from (shown as a tooltip). */
@@ -478,6 +482,11 @@ export function ThemeDayCockpit({ data, streak, organizationId, goal: goalProp, 
             )}
           </div>
         </div>
+
+        {/* ── Greatness Tracker — MANUAL weekly activity grid (scoreboard
+            only: self-reported numbers, zero CRM writes; the automated
+            metrics live below as "Verified Results"). ── */}
+        <WeeklyActivityGrid userId={userId} />
       </div>
 
       {/* ── Mon–Fri week strip ── */}

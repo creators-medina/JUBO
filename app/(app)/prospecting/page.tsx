@@ -49,6 +49,7 @@ export default async function ProspectingPage() {
           organizationId={orgId}
           goal={dailyGoal.target}
           goalSource={dailyGoal.label}
+          userId={user.id}
         />
         {/* Greatness Tracker — the Phase 2 scoreboard, below the Daily Call
             Log and independent of the hero/week/list layout above. */}
