@@ -16,52 +16,16 @@
 
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-
-// Fixed activity rows + weekly goals (product spec). Goals sum to 30.
-const ACTIVITIES = [
-  { key: 'leads', label: 'Leads', goal: 6 },
-  { key: 'credit', label: 'Credit', goal: 3 },
-  { key: 'preapp', label: 'PreApp', goal: 2 },
-  { key: 'deals', label: 'Deals', goal: 2 },
-  { key: 'fundings', label: 'Fundings', goal: 2 },
-  { key: 'events', label: 'Events', goal: 0 },
-  { key: 'videos', label: 'Videos', goal: 3 },
-  { key: 'thank_yous', label: 'Thank Yous', goal: 10 },
-  { key: 'face_to_face', label: 'Face to Face', goal: 2 },
-] as const
-
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] as const
-const GOAL_TOTAL = ACTIVITIES.reduce((s, a) => s + a.goal, 0) // = 30
-
-/** Cell values are kept as strings so a cleared input stays visually empty
- *  ('' counts as 0 in every total — never NaN). */
-type Grid = Record<string, string[]>
-
-const emptyGrid = (): Grid => Object.fromEntries(ACTIVITIES.map((a) => [a.key, ['', '', '', '', '']]))
-
-/** This ISO week's Monday as YYYY-MM-DD (local) — the week identity. */
-function mondayKey(): string {
-  const d = new Date()
-  const dow = d.getDay()
-  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1))
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-const valuesKey = (userId: string) => `jubo-greatness-tracker:v1:${userId || 'local'}:${mondayKey()}`
-const collapseKey = (userId: string) => `jubo-greatness-tracker:v1:${userId || 'local'}:collapsed`
-
-/** Non-negative integers only: strip non-digits, no decimals/negatives,
- *  clamp to 0–999. Empty stays empty (counts as 0). */
-function sanitizeCell(raw: string): string {
-  const digits = raw.replace(/\D/g, '')
-  if (digits === '') return ''
-  return String(Math.min(999, parseInt(digits, 10)))
-}
-
-const cellNum = (v: string): number => (v === '' ? 0 : Number(v))
+// Shared model (rework Phase 2): rows/goals, sanitize/math, storage keys,
+// and the same-tab notify that keeps Manual vs Verified live.
+import {
+  ACTIVITIES, DAY_LABELS, GOAL_TOTAL, emptyGrid, valuesKey, collapseKey,
+  sanitizeCell, gridRowTotal, notifyManualTracker, type ManualGrid,
+} from './manualTracker'
 
 export function WeeklyActivityGrid({ userId }: { userId?: string }) {
   const uid = userId ?? ''
-  const [grid, setGrid] = useState<Grid>(emptyGrid)
+  const [grid, setGrid] = useState<ManualGrid>(emptyGrid)
   const [collapsed, setCollapsed] = useState(false)
 
   // SSR-safe hydrate from localStorage (established repo pattern) — the
@@ -70,7 +34,7 @@ export function WeeklyActivityGrid({ userId }: { userId?: string }) {
     try {
       const rawVals = window.localStorage.getItem(valuesKey(uid))
       if (rawVals) {
-        const saved = JSON.parse(rawVals) as Grid
+        const saved = JSON.parse(rawVals) as ManualGrid
         const next = emptyGrid()
         for (const a of ACTIVITIES) {
           const row = saved[a.key]
@@ -90,6 +54,8 @@ export function WeeklyActivityGrid({ userId }: { userId?: string }) {
       try { window.localStorage.setItem(valuesKey(uid), JSON.stringify(next)) } catch { /* view-only */ }
       return next
     })
+    // Same-tab readers (Manual vs Verified) re-read instantly.
+    notifyManualTracker()
   }
 
   const toggle = () => {
@@ -99,7 +65,7 @@ export function WeeklyActivityGrid({ userId }: { userId?: string }) {
     })
   }
 
-  const rowTotal = (key: string): number => (grid[key] ?? []).reduce((s, v) => s + cellNum(v), 0)
+  const rowTotal = (key: string): number => gridRowTotal(grid, key)
   const totalLogged = ACTIVITIES.reduce((s, a) => s + rowTotal(a.key), 0)
 
   return (

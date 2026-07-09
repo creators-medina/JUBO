@@ -54,7 +54,7 @@ export default async function ProspectingPage() {
         {/* Greatness Tracker — the Phase 2 scoreboard, below the Daily Call
             Log and independent of the hero/week/list layout above. */}
         <div className="mt-8">
-          <GreatnessTracker data={greatness} />
+          <GreatnessTracker data={greatness} userId={user.id} />
         </div>
       </div>
     </div>
