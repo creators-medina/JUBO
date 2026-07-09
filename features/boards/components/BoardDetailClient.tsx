@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark, Zap, MoreVertical, Copy, Archive, Pencil, Loader2, Rows3, LayoutGrid, StickyNote } from 'lucide-react'
+import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark, Zap, MoreVertical, Copy, Archive, Pencil, Loader2, Rows3, LayoutGrid, CalendarDays, StickyNote } from 'lucide-react'
 import Link from 'next/link'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, defaultDropAnimationSideEffects, useDndContext } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent, DropAnimation } from '@dnd-kit/core'
@@ -14,6 +14,7 @@ import { CreateRecordModal } from '@/features/records/components/CreateRecordMod
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { BoardGroupTable } from './BoardGroupTable'
 import { BoardKanbanView, type Stage } from './BoardKanbanView'
+import { BoardCalendarView } from './BoardCalendarView'
 import { KanbanCardFace, formatCellValue } from './KanbanCardFace'
 import { BoardPhaseSummaryGraph } from './BoardPhaseSummaryGraph'
 import { BoardSettingsModal } from './BoardSettingsModal'
@@ -175,7 +176,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   // Phase 37B-1 — Kanban stages (columns). Modeled as Stage{boardId,groupId} even
   // though V1 is single-board, so 37B-2's board-aware drag dispatcher drops in.
   // Kanban is the default/primary board view (client-only state, no persistence).
-  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('kanban')
+  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'calendar'>('kanban')
   const stages = useMemo<Stage[]>(
     () => groups.map((g: any) => ({ id: g.id, boardId: board.id, groupId: g.id, label: g.name, color: g.color ?? null, roleLabel: g.role_label ?? null, guidanceNote: g.guidance_note ?? null })),
     [groups, board.id],
@@ -603,6 +604,13 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
             >
               <LayoutGrid className="w-3 h-3" /> Kanban
             </button>
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs transition-colors', viewMode === 'calendar' ? 'bg-jubo-navy text-white' : 'text-jubo-text-soft hover:text-jubo-text')}
+              title="Calendar view"
+            >
+              <CalendarDays className="w-3 h-3" /> Calendar
+            </button>
           </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
@@ -731,6 +739,14 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                 pendingMoveIds={pendingMoveIds}
                 onSelectRecord={(id, title) => openWorkspace({ recordId: id, title })}
                 onAddRecord={(groupId) => setShowCreateRecord(groupId)}
+              />
+            ) : viewMode === 'calendar' ? (
+              <BoardCalendarView
+                records={filteredRecords}
+                stages={stages}
+                fields={localFields}
+                fieldValuesIndex={fieldValuesIndex}
+                onSelectRecord={(id, title) => openWorkspace({ recordId: id, title })}
               />
             ) : (
               <div className="min-w-max">
