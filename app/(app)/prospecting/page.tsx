@@ -24,7 +24,7 @@ export default async function ProspectingPage() {
   const orgId = membership.organization_id
 
   const [queue, session, metrics, followUpsDue, sessions, streak, contactedToday] = await Promise.all([
-    buildCallQueue(orgId),
+    buildCallQueue(orgId, { userId: user.id }),
     getActiveSession(orgId, user.id),
     getProspectingMetrics(orgId, user.id),
     getFollowUpsDueCount(orgId),

@@ -5,8 +5,10 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { createClient } from '@/lib/supabase/server'
-import { scoreCandidate } from '../scoring'
+import { scoreCandidate, SUPPRESS_OUTCOMES } from '../scoring'
 import { getThemeDay } from '../coaching/themeDay'
+import { getProspectingSchedule } from '../schedule/queries'
+import { dayScheduleFor, type DaySchedule } from '../schedule/types'
 import type { CandidateSignal, ScoredLead } from '../types'
 
 const MAX_CANDIDATES = 300
@@ -19,8 +21,35 @@ function days(fromIso: string | null): number | null {
   return Math.floor((Date.now() - t) / 86400000)
 }
 
-export async function buildCallQueue(organizationId: string): Promise<ScoredLead[]> {
+/**
+ * Build the prioritized call queue for an org.
+ *
+ * When a userId is supplied and that user has an enabled Phase 39A schedule,
+ * today's plan decides which board(s) the queue pulls from:
+ *   • 'off'    → empty queue
+ *   • 'any'    → legacy behavior (score across all boards + theme-day boost)
+ *   • 'boards' → filter to the chosen boards; smart scoring still ranks within.
+ *               Unless `strict`, the queue backfills from the next-best leads on
+ *               other boards up to the day's target so the caller is never idle.
+ */
+export async function buildCallQueue(
+  organizationId: string,
+  opts: { userId?: string } = {},
+): Promise<ScoredLead[]> {
   const supabase = await createClient()
+
+  // Resolve today's schedule (if we know the caller). No schedule / disabled →
+  // daySched stays null and the queue behaves exactly as before.
+  let daySched: DaySchedule | null = null
+  let strict = false
+  if (opts.userId) {
+    const { schedule } = await getProspectingSchedule(organizationId, opts.userId)
+    if (schedule.enabled) {
+      daySched = dayScheduleFor(schedule, new Date())
+      strict = schedule.strict
+    }
+  }
+  if (daySched?.mode === 'off') return []
 
   // 1. Candidate records (active, not archived) — newest activity first.
   const { data: records } = await supabase
@@ -40,7 +69,7 @@ export async function buildCallQueue(organizationId: string): Promise<ScoredLead
   const [boardsRes, groupsRes, commRes, fieldsRes] = await Promise.all([
     supabase.from('boards').select('id, slug, board_type').in('id', boardIds),
     supabase.from('board_groups').select('id, name').in('board_id', boardIds),
-    supabase.from('communication_logs').select('record_id, occurred_at, channel').in('record_id', recordIds).neq('channel', 'internal').order('occurred_at', { ascending: false }),
+    supabase.from('communication_logs').select('record_id, occurred_at, channel, outcome, direction').in('record_id', recordIds).neq('channel', 'internal').order('occurred_at', { ascending: false }),
     supabase.from('fields').select('id, slug, board_id, field_type').in('board_id', boardIds).or('slug.in.(preapproval_expiration,loan_amount),field_type.eq.phone'),
   ])
 
@@ -49,7 +78,23 @@ export async function buildCallQueue(organizationId: string): Promise<ScoredLead
 
   // last contact per record (first seen wins, list is desc).
   const lastContact = new Map<string, string>()
-  for (const c of commRes.data ?? []) if (!lastContact.has(c.record_id)) lastContact.set(c.record_id, c.occurred_at)
+  // Phase A2 — most-recent outcome/direction per record + a suppression flag when
+  // any recent log says do-not-contact / not-interested / wrong-number.
+  const lastOutcome = new Map<string, string | null>()
+  const lastDirection = new Map<string, string | null>()
+  const suppressed = new Set<string>()
+  for (const c of (commRes.data ?? []) as { record_id: string; occurred_at: string; outcome: string | null; direction: string | null }[]) {
+    if (!lastContact.has(c.record_id)) {
+      lastContact.set(c.record_id, c.occurred_at)
+      lastDirection.set(c.record_id, c.direction)   // direction of the most recent contact
+    }
+    // Last MEANINGFUL disposition — skip 'sent'/'received' so a follow-up email
+    // doesn't mask the intent from a prior call ("interested", "call back", …).
+    if (!lastOutcome.has(c.record_id) && c.outcome && c.outcome !== 'sent' && c.outcome !== 'received') {
+      lastOutcome.set(c.record_id, c.outcome)
+    }
+    if (c.outcome && SUPPRESS_OUTCOMES.has(c.outcome)) suppressed.add(c.record_id)
+  }
 
   // field value lookups (preapproval_expiration date, loan_amount number).
   const preapprovalFieldIds = new Set((fieldsRes.data ?? []).filter((f) => f.slug === 'preapproval_expiration').map((f) => f.id))
@@ -69,7 +114,9 @@ export async function buildCallQueue(organizationId: string): Promise<ScoredLead
     }
   }
 
-  const themeBoardSlug = getThemeDay().boardSlug
+  // The old theme-day boost only applies when the day isn't pinned to specific
+  // boards — an explicit board schedule replaces (not stacks with) that nudge.
+  const themeBoardSlug = daySched?.mode === 'boards' ? null : getThemeDay().boardSlug
 
   // 3. Assemble signals + score.
   const scored: ScoredLead[] = records.map((r) => {
@@ -85,10 +132,33 @@ export async function buildCallQueue(organizationId: string): Promise<ScoredLead
       preapprovalExpDays: preExp ? Math.ceil((new Date(preExp).getTime() - Date.now()) / 86400000) : null,
       loanAmount: loanAmountByRecord.get(r.id) ?? r.value ?? null,
       phone: phoneByRecord.get(r.id) ?? null,
+      lastOutcome: lastOutcome.get(r.id) ?? null,
+      lastDirection: lastDirection.get(r.id) ?? null,
+      suppressed: suppressed.has(r.id),
     }
     return scoreCandidate(sig, { themeBoardSlug })
   })
 
-  // 4. Only surface records that actually warrant a call (score > 0), top N.
-  return scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score).slice(0, QUEUE_SIZE)
+  // 4. Only surface records that actually warrant a call (score > 0), ranked.
+  const ranked = scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score)
+
+  // No board pinning today → legacy top-N across everything.
+  if (!daySched || daySched.mode !== 'boards' || daySched.boardIds.length === 0) {
+    return ranked.slice(0, QUEUE_SIZE)
+  }
+
+  // Board-pinned day: scheduled boards first (still ranked by score within).
+  const scheduled = new Set(daySched.boardIds)
+  const primary = ranked.filter((s) => s.boardId && scheduled.has(s.boardId))
+  if (strict) return primary.slice(0, QUEUE_SIZE)
+
+  // Backfill: if the scheduled pool is thinner than the day's target, top it up
+  // with the next-best leads from other boards so the caller always has a queue.
+  const floor = daySched.target && daySched.target > 0 ? daySched.target : 0
+  if (primary.length >= floor) return primary.slice(0, QUEUE_SIZE)
+  const backfill = ranked
+    .filter((s) => !(s.boardId && scheduled.has(s.boardId)))
+    .slice(0, floor - primary.length)
+    .map((s) => ({ ...s, backfill: true }))
+  return [...primary, ...backfill].slice(0, QUEUE_SIZE)
 }

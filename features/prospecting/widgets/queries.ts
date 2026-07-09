@@ -67,7 +67,7 @@ export async function getConnectionRateData(orgId: string): Promise<ConnectionRa
 export async function getHotLeadsData(config: HotLeadsWidgetConfig, orgId: string): Promise<HotLeadsData | null> {
   const userId = await currentUser(orgId)
   if (!userId) return null
-  const queue = await buildCallQueue(orgId)
+  const queue = await buildCallQueue(orgId, { userId })
   const max = config.max_items ?? 5
   const leads = queue
     .filter((l) => l.temperature === 'hot' || l.temperature === 'warm')

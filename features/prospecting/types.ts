@@ -26,6 +26,11 @@ export type CandidateSignal = {
   preapprovalExpDays: number | null
   loanAmount: number | null
   phone: string | null
+  /** Phase A2 — most-recent structured communication outcome / direction. */
+  lastOutcome: string | null
+  lastDirection: string | null
+  /** Phase A2 — a recent do-not-contact / not-interested / wrong-number log. */
+  suppressed: boolean
 }
 
 export type ScoredLead = {
@@ -42,6 +47,8 @@ export type ScoredLead = {
   daysSinceContact: number | null
   nextActionDueAt: string | null
   phone: string | null
+  /** True when surfaced only to backfill a thin scheduled-board queue (Phase 39A). */
+  backfill?: boolean
 }
 
 export type ProspectingMetrics = {
