@@ -193,17 +193,11 @@ function WorkspaceContent({
     })
   }, [data])
 
-  return (
-    // Phase C-LAYOUT — the record file is a CENTERED floating modal over a dimmed,
-    // blurred board (was a right-side drawer). Click-outside still closes.
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6">
-      <div className="absolute inset-0 bg-jubo-navy/40 backdrop-blur-sm" onClick={onClose} />
-      {/* Fixed workspace height (reference: min(884px, viewport − 52px)) — the
-          modal never stretches the page; the file card scrolls internally. */}
-      <div className="relative flex h-[min(884px,calc(100vh-52px))] w-full max-w-[80rem] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
-        {/* Window chrome — borrower identity (left) + panel controls (right). The
-            record's four-tab File Card (Overview / Loan & Property / Borrower /
-            Financial) is the entire body below. */}
+  // Layout 4a — the command header + stage stepper render INSIDE the hub
+  // card (PersonFileCard's middle column) via this slot. Same JSX, same
+  // data and handlers as before; only where it mounts moved.
+  const headerSlot = (
+    <>
         <header className="flex items-center justify-between gap-3 px-5 py-2 border-b border-jubo-navy2 bg-jubo-navy flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             {loading ? (
@@ -311,7 +305,18 @@ function WorkspaceContent({
             <StageTracker groups={data.groups} currentGroupId={data.record.group_id ?? null} />
           </div>
         )}
+    </>
+  )
 
+  return (
+    // Phase C-LAYOUT — the record file is a CENTERED floating modal over a dimmed,
+    // blurred board (was a right-side drawer). Click-outside still closes.
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6">
+      <div className="absolute inset-0 bg-jubo-navy/40 backdrop-blur-sm" onClick={onClose} />
+      {/* Layout 4a — the fixed-height workspace surface is now the neutral
+          DESK the trifold's floating cards sit on (min(884px, viewport −
+          52px) height unchanged); the cards inside scroll internally. */}
+      <div className="jubo-los-page relative flex h-[min(884px,calc(100vh-52px))] w-full max-w-[100rem] flex-col overflow-hidden rounded-2xl p-3.5 shadow-2xl">
         {showMove && data?.record?.board_id && (
           <MoveToBoardDialog
             recordIds={[recordId]}
@@ -321,19 +326,18 @@ function WorkspaceContent({
           />
         )}
 
-        {/* Body — the four-tab File Card owns its own strip/tabs and scrolls
-            internally (strip + tabs stay pinned inside the fixed-height shell). */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-5 pt-4">
-          {loading && !data ? (
-            <div className="space-y-3">
+        {loading && !data ? (
+          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-lg">
+            {headerSlot}
+            <div className="space-y-3 p-5">
               {[0, 1, 2, 3].map(i => (
                 <div key={i} className="h-8 bg-surface-1 rounded animate-pulse" style={{ opacity: 1 - i * 0.15 }} />
               ))}
             </div>
-          ) : (
-            <PersonFileCard recordId={recordId} onRequestClose={onClose} />
-          )}
-        </div>
+          </div>
+        ) : (
+          <PersonFileCard recordId={recordId} onRequestClose={onClose} headerSlot={headerSlot} />
+        )}
       </div>
     </div>
   )

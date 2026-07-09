@@ -29,17 +29,13 @@ const LOG_OUTCOMES: CommunicationOutcome[] = [
 
 const btnBase = 'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors'
 
-export function QuickContact({ phone, email, recordId, onText, onNote, onLogged }: {
-  phone: string | null
-  email: string | null
+/** The Log Call dropdown on its own (Layout 4a extraction) — the SAME
+ *  quickCallOutcome write path and outcome list, reusable outside the bar
+ *  (the trifold Conversations header). Purely presentational split. */
+export function LogCallButton({ recordId, onLogged, className }: {
   recordId: string
-  /** Scrolls/focuses the existing SMS composer (send flow unchanged). */
-  onText: () => void
-  /** Jumps to the existing note composer (createNote path unchanged);
-   *  omitted on card shapes without a note composer mode. */
-  onNote?: () => void
-  /** Reload the card after a call is logged so the feed reflects it. */
   onLogged: () => void
+  className?: string
 }) {
   const toast = useToast()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -71,6 +67,42 @@ export function QuickContact({ phone, email, recordId, onText, onNote, onLogged 
     }
   }
 
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        onClick={() => setMenuOpen((o) => !o)}
+        disabled={logging}
+        className={className ?? cn(btnBase, 'border border-jubo-border bg-jubo-card text-jubo-text hover:bg-white/60 disabled:opacity-60')}>
+        {logging ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <ClipboardList className="h-3.5 w-3.5" aria-hidden />}
+        Log Call
+        <ChevronDown className="h-3 w-3" aria-hidden />
+      </button>
+      {menuOpen && (
+        <div className="absolute right-0 top-full z-30 mt-1 w-40 rounded-lg border border-border bg-card py-1 shadow-lg">
+          {LOG_OUTCOMES.map((o) => (
+            <button key={o} onClick={() => void logCall(o)}
+              className="block w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
+              {OUTCOME_LABEL[o] ?? o}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function QuickContact({ phone, email, recordId, onText, onNote, onLogged }: {
+  phone: string | null
+  email: string | null
+  recordId: string
+  /** Scrolls/focuses the existing SMS composer (send flow unchanged). */
+  onText: () => void
+  /** Jumps to the existing note composer (createNote path unchanged);
+   *  omitted on card shapes without a note composer mode. */
+  onNote?: () => void
+  /** Reload the card after a call is logged so the feed reflects it. */
+  onLogged: () => void
+}) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-jubo-border-strong/60 bg-jubo-card-soft px-3 py-2">
       <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-jubo-muted">Quick Contact</span>
@@ -113,26 +145,7 @@ export function QuickContact({ phone, email, recordId, onText, onNote, onLogged 
           </button>
         )}
 
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => setMenuOpen((o) => !o)}
-            disabled={logging}
-            className={cn(btnBase, 'border border-jubo-border bg-jubo-card text-jubo-text hover:bg-white/60 disabled:opacity-60')}>
-            {logging ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <ClipboardList className="h-3.5 w-3.5" aria-hidden />}
-            Log Call
-            <ChevronDown className="h-3 w-3" aria-hidden />
-          </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-full z-30 mt-1 w-40 rounded-lg border border-border bg-card py-1 shadow-lg">
-              {LOG_OUTCOMES.map((o) => (
-                <button key={o} onClick={() => void logCall(o)}
-                  className="block w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
-                  {OUTCOME_LABEL[o] ?? o}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <LogCallButton recordId={recordId} onLogged={onLogged} />
       </div>
     </div>
   )

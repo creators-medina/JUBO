@@ -39,7 +39,7 @@ function feedTag(activityType: string): string {
 }
 
 export function Feed({
-  card, comms, filter, borrowerName, ownerName, tall,
+  card, comms, filter, borrowerName, ownerName, tall, flow,
 }: {
   card: PersonCardData
   comms: CommunicateContext | undefined
@@ -49,6 +49,10 @@ export function Feed({
   ownerName?: string | null
   /** Taller scroll area for the Overview conversation workspace. */
   tall?: boolean
+  /** Layout 4a Conversations card — natural height up to ~30rem (internal
+   *  scroll past that) so the composer sits directly under the latest
+   *  message. Presentation only; items/order/data untouched. */
+  flow?: boolean
 }) {
   type Item = { id: string; kind: 'sms' | 'activity'; ts: string; direction?: string; body?: string | null; label?: string; tag: string; cat: Filter | 'other' }
   const items: Item[] = []
@@ -84,7 +88,7 @@ export function Feed({
     }
   }
   return (
-    <div className={cn('space-y-2 overflow-y-auto p-3', tall ? 'min-h-[16rem] flex-1' : 'max-h-72')}>
+    <div className={cn('space-y-2 overflow-y-auto p-3', flow ? 'max-h-[30rem]' : tall ? 'min-h-[16rem] flex-1' : 'max-h-72')}>
       {rows.map(({ item: i, sep }) => {
         const d = day(i.ts)
         return (

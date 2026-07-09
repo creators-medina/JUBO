@@ -31,4 +31,13 @@ export const LOCAL_KEYS = {
     `jubo-board-view-mode:v1:${scope(userId)}:${boardId}`,
   /** One-time UI hints (seen flags). */
   hintCrossBoardDrag: 'jubo-hint-crossboard-drag:v1',
+  /** Contact Card trifold (Layout 4a) — per user + record layout preferences. */
+  contactCardLeftCollapsed: (userId: string | null | undefined, recordId: string) =>
+    `jubo-contact-card:v1:${scope(userId)}:${recordId}:left-collapsed`,
+  contactCardRightCollapsed: (userId: string | null | undefined, recordId: string) =>
+    `jubo-contact-card:v1:${scope(userId)}:${recordId}:right-collapsed`,
+  contactCardHubSection: (userId: string | null | undefined, recordId: string) =>
+    `jubo-contact-card:v1:${scope(userId)}:${recordId}:hub-section`,
+  contactCardSideTab: (userId: string | null | undefined, recordId: string) =>
+    `jubo-contact-card:v1:${scope(userId)}:${recordId}:side-tab`,
 } as const
