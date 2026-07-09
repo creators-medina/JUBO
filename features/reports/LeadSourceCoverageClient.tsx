@@ -2,15 +2,23 @@
 
 // ─────────────────────────────────────────────────────────────────────────
 // Lead Source & Ownership Coverage — report UI (Phase A, Roadmap Step 8).
-// Purely presentational over the read-only aggregation; deliberately has
-// NO provisioning/setup/edit actions. CSV export is client-side only
-// (Blob download of already-loaded data — nothing is written anywhere).
+// The report sections stay purely presentational over the read-only
+// aggregation (CSV export is a client-side Blob of already-loaded data).
+//
+// 10D addition: ONE explicit admin tool — the per-board lead-source
+// option-list refresh (approved batch item C). Refresh rewrites a single
+// field's config.options to canonical-15 ∪ existing ∪ stored values, with
+// a snapshot kept for the per-field Restore. Record values are never
+// touched by either action.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { Download } from 'lucide-react'
+import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { Download, Loader2, RefreshCw, Undo2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { OWNER_LABEL, type SourceClass } from './coverageShared'
 import type { CoverageReport } from './leadSourceCoverage'
+import { refreshLeadSourceOptions, restoreLeadSourceOptions } from './leadSourceOptionActions'
 
 const CLASS_STYLE: Record<SourceClass, { label: string; cls: string }> = {
   canonical: { label: 'Canonical', cls: 'bg-jubo-green-soft text-jubo-green' },
@@ -78,7 +86,8 @@ export function LeadSourceCoverageClient({ report }: { report: CoverageReport })
         <h1 className="text-2xl font-bold text-foreground">Lead Source &amp; Ownership Coverage</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Read-only Phase A report (see JUBO_LEAD_SOURCE_BACKFILL_PLAN) — measures attribution and ownership coverage so
-          provisioning, alias cleanup, and backfill decisions use real numbers. Nothing on this page writes or changes data.
+          provisioning, alias cleanup, and backfill decisions use real numbers. The report itself never writes; the one
+          admin tool on this page is the per-board option-list refresh below, which never touches record values.
         </p>
         {s.truncated && (
           <p className="mt-1 text-2xs font-medium text-jubo-gold">
@@ -122,6 +131,9 @@ export function LeadSourceCoverageClient({ report }: { report: CoverageReport })
           </table>
         </div>
       </section>
+
+      {/* ── 2b. Option lists (10D admin tool — the page's one write action) ── */}
+      <OptionListsSection rows={report.optionLists} />
 
       {/* ── 3. Lead source value quality ── */}
       <section>
@@ -238,5 +250,101 @@ export function LeadSourceCoverageClient({ report }: { report: CoverageReport })
         </div>
       </section>
     </div>
+  )
+}
+
+// ── 10D — per-board option-list refresh (the page's one admin tool) ──────
+function OptionListsSection({ rows }: { rows: CoverageReport['optionLists'] }) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [busyField, setBusyField] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+
+  if (rows.length === 0) return null
+
+  const run = (fieldId: string, boardName: string, mode: 'refresh' | 'restore') => {
+    if (pending) return
+    const ok = window.confirm(
+      mode === 'refresh'
+        ? `Refresh the lead-source options on "${boardName}" to the canonical list?\n\nExisting options and stored record values are kept selectable; record values are never changed. The previous list is saved for Restore.`
+        : `Restore the previous lead-source option list on "${boardName}"?`,
+    )
+    if (!ok) return
+    setBusyField(fieldId)
+    setMessage(null)
+    startTransition(async () => {
+      try {
+        if (mode === 'refresh') {
+          const r = await refreshLeadSourceOptions(fieldId)
+          setMessage(`${boardName}: refreshed — ${r.totalOptions} options (${r.canonicalAdded} canonical added, ${r.legacyKept} legacy kept, ${r.storedValuesRescued} stored values kept selectable).`)
+        } else {
+          const r = await restoreLeadSourceOptions(fieldId)
+          setMessage(`${boardName}: previous option list restored (${r.totalOptions} options).`)
+        }
+        router.refresh()
+      } catch (e) {
+        setMessage(`${boardName}: ${mode} failed — ${e instanceof Error ? e.message : 'please try again'}`)
+      } finally {
+        setBusyField(null)
+      }
+    })
+  }
+
+  return (
+    <section>
+      <SectionTitle>Lead-Source Option Lists</SectionTitle>
+      <div className="overflow-x-auto rounded-xl border border-border bg-card p-3">
+        <table className="w-full min-w-[640px]">
+          <thead><tr>
+            <th className={th}>Board</th><th className={th}>Options</th><th className={th}>Missing canonical</th>
+            <th className={th}>Legacy kept</th><th className={th}>Last refreshed</th><th className={th}>Actions</th>
+          </tr></thead>
+          <tbody className="divide-y divide-border/60">
+            {rows.map((r) => (
+              <tr key={r.fieldId}>
+                <td className={cn(td, 'font-medium text-foreground')}>{r.boardName}</td>
+                <td className={cn(td, 'tabular-nums')}>{r.optionCount}</td>
+                <td className={cn(td, 'tabular-nums')}>
+                  {r.missingCanonical > 0
+                    ? <span className="font-semibold text-jubo-gold">{r.missingCanonical}</span>
+                    : <span className="text-jubo-green">0</span>}
+                </td>
+                <td className={cn(td, 'tabular-nums')}>{r.legacyOptions}</td>
+                <td className={cn(td, 'text-2xs text-muted-foreground')}>
+                  {r.refreshedAt ? new Date(r.refreshedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                </td>
+                <td className={td}>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => run(r.fieldId, r.boardName, 'refresh')}
+                      disabled={pending}
+                      className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-2xs font-medium text-foreground transition-colors hover:bg-surface-1 disabled:opacity-50"
+                    >
+                      {busyField === r.fieldId ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <RefreshCw className="h-3 w-3" aria-hidden />}
+                      Refresh to canonical
+                    </button>
+                    {r.hasSnapshot && (
+                      <button
+                        onClick={() => run(r.fieldId, r.boardName, 'restore')}
+                        disabled={pending}
+                        className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-2xs font-medium text-muted-foreground transition-colors hover:bg-surface-1 hover:text-foreground disabled:opacity-50"
+                      >
+                        <Undo2 className="h-3 w-3" aria-hidden /> Restore previous
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {message && <p className="mt-2 text-2xs font-medium text-foreground">{message}</p>}
+        <p className="mt-2 text-2xs text-muted-foreground">
+          Refresh rewrites this board&apos;s picker choices to the canonical 15 — existing options and any values already
+          stored on records stay selectable (union), and the previous list is saved for Restore. Record values are never
+          changed by either action.
+        </p>
+      </div>
+    </section>
   )
 }
