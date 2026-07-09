@@ -46,6 +46,15 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'financial', label: 'Financial Info' },
 ]
 
+/** Record-summary ordering (operator audit): contact info first. */
+function summaryRank(f: { name: string; fieldType: string }): number {
+  if (f.fieldType === 'phone') return 0
+  if (f.fieldType === 'email') return 1
+  const n = f.name.toLowerCase()
+  if (n.includes('lead source') || n === 'source') return 2
+  return 3
+}
+
 function activityCategory(t: string): Filter | 'other' {
   if (['call', 'email', 'sms', 'comment', 'note', 'meeting'].includes(t)) return 'comms'
   if (['status_change', 'field_change', 'creation', 'integration_event'].includes(t)) return 'pipeline'
@@ -149,6 +158,12 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
     // Let a tab switch render before scrolling to the composer area.
     setTimeout(() => conversationAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60)
   }
+  // Quick Contact → Note: same jump, existing composer note mode (the same
+  // createNote path the composer already uses — no new write behavior).
+  const jumpToNote = () => {
+    setTab('overview'); setComposerMode('note')
+    setTimeout(() => conversationAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60)
+  }
 
   const toggleChecklist = (fieldId: string, complete: boolean) => {
     if (!boardId) return
@@ -238,6 +253,7 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
           email={email}
           recordId={recordId}
           onText={jumpToText}
+          onNote={isLoanLike ? jumpToNote : undefined}
           onLogged={load}
         />
       </div>
@@ -509,7 +525,13 @@ export function PersonFileCard({ recordId, onRequestClose }: { recordId: string;
             <LeadSourceCard recordId={recordId} boardId={boardId ?? null} organizationId={card.record.organizationId} />
             <Section title="Record summary">
               {card.thisBoard.length > 0 ? (
-                card.thisBoard.slice(0, 12).map((f) => <Field key={f.fieldId} label={f.name} value={f.value || null} />)
+                // Contact info first (operator audit): phone → email → lead
+                // source lead the list so they're never buried mid-summary;
+                // everything else keeps its original order (stable sort).
+                [...card.thisBoard]
+                  .sort((a, b) => summaryRank(a) - summaryRank(b))
+                  .slice(0, 12)
+                  .map((f) => <Field key={f.fieldId} label={f.name} value={f.value || null} />)
               ) : (
                 <p className="text-2xs text-muted-foreground">No fields on this record yet.</p>
               )}
