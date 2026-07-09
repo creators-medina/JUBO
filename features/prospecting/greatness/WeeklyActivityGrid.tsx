@@ -26,7 +26,9 @@ import {
 export function WeeklyActivityGrid({ userId }: { userId?: string }) {
   const uid = userId ?? ''
   const [grid, setGrid] = useState<ManualGrid>(emptyGrid)
-  const [collapsed, setCollapsed] = useState(false)
+  // Condensed by default — first-time users see just the header + total.
+  // A saved preference (either direction) always wins over this default.
+  const [collapsed, setCollapsed] = useState(true)
 
   // SSR-safe hydrate from localStorage (established repo pattern) — the
   // server renders zeros, the browser restores this week's entries.
@@ -43,7 +45,10 @@ export function WeeklyActivityGrid({ userId }: { userId?: string }) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setGrid(next)
       }
-      if (window.localStorage.getItem(collapseKey(uid)) === '1') setCollapsed(true)
+      // Saved preference wins in BOTH directions ('1' = collapsed, '0' =
+      // expanded — written by every toggle); no saved value → stay collapsed.
+      const savedCollapse = window.localStorage.getItem(collapseKey(uid))
+      if (savedCollapse === '0') setCollapsed(false)
     } catch { /* defaults stand */ }
   }, [uid])
 
