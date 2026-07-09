@@ -34,6 +34,7 @@ import { InlineRenameText } from '@/components/primitives/InlineRenameText'
 import { addNotesColumn } from '@/features/fields/actions'
 import { isNotesField } from '../notes'
 import { updateSavedViewAttention } from '@/features/daily-actions/attention/actions'
+import { useAuth } from '@/providers/AuthProvider'
 import { cn } from '@/lib/utils'
 import type { RecordPriority, RecordStatus } from '@/types/database'
 
@@ -182,8 +183,23 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
 
   // Phase 37B-1 — Kanban stages (columns). Modeled as Stage{boardId,groupId} even
   // though V1 is single-board, so 37B-2's board-aware drag dispatcher drops in.
-  // Kanban is the default/primary board view (client-only state, no persistence).
+  // Kanban is the default board view; the user's LAST-USED view per board is
+  // remembered per-browser (localStorage, keyed by user + board). Stored values
+  // are strictly validated — anything unknown/stale falls back to the default.
+  const { user: authUser } = useAuth()
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('kanban')
+  const viewModeStorageKey = `jubo-board-view-mode:v1:${authUser?.id ?? 'local'}:${board.id}`
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem(viewModeStorageKey)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (v === 'table' || v === 'kanban') setViewMode(v)
+    } catch { /* default stands */ }
+  }, [viewModeStorageKey])
+  const changeViewMode = (m: 'table' | 'kanban') => {
+    setViewMode(m)
+    try { window.localStorage.setItem(viewModeStorageKey, m) } catch { /* view-only */ }
+  }
   const stages = useMemo<Stage[]>(
     () => groups.map((g: any) => ({ id: g.id, boardId: board.id, groupId: g.id, label: g.name, color: g.color ?? null, roleLabel: g.role_label ?? null, guidanceNote: g.guidance_note ?? null })),
     [groups, board.id],
@@ -733,17 +749,18 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
           </div>
           <div className="ml-auto flex flex-wrap items-center gap-1.5">
 
-          {/* Kanban | Table toggle — left-aligned (Phase 37B-1, client-only, no persistence). */}
+          {/* Kanban | Table toggle — the chosen view is remembered per board
+              (per-browser preference; no board data is touched). */}
           <div className="inline-flex items-center rounded-md border border-border bg-jubo-card-soft p-0.5">
             <button
-              onClick={() => setViewMode('kanban')}
+              onClick={() => changeViewMode('kanban')}
               className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs transition-colors', viewMode === 'kanban' ? 'bg-jubo-navy text-white' : 'text-jubo-text-soft hover:text-jubo-text')}
               title="Kanban view"
             >
               <LayoutGrid className="w-3 h-3" /> Kanban
             </button>
             <button
-              onClick={() => setViewMode('table')}
+              onClick={() => changeViewMode('table')}
               className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs transition-colors', viewMode === 'table' ? 'bg-jubo-navy text-white' : 'text-jubo-text-soft hover:text-jubo-text')}
               title="Table view"
             >
