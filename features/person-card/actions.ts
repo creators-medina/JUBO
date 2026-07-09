@@ -290,7 +290,7 @@ export async function getLoanCommandData(recordId: string): Promise<LoanCommandD
     supabase.from('board_groups').select('*').eq('board_id', record.board_id).eq('is_archived', false).order('position'),
     supabase.from('notes').select('*').eq('record_id', recordId).order('created_at', { ascending: false }),
     supabase.from('boards').select('id, name, slug, board_type').eq('id', record.board_id).maybeSingle(),
-    supabase.from('communication_logs').select('*').eq('record_id', recordId).order('occurred_at', { ascending: false }),
+    supabase.from('communication_logs').select('*').eq('record_id', recordId).order('occurred_at', { ascending: false }).limit(100),
   ])
 
   // Resolve actor names (used by ParticipantRibbon's Loan-Officer fallback).
@@ -392,7 +392,7 @@ export async function getFileCardData(recordId: string): Promise<FileCardData | 
     safe(supabase.from('activities').select('id, activity_type, content, metadata, created_at, user_id').eq('record_id', recordId).order('created_at', { ascending: false }).limit(100), EMPTY),
     safe(supabase.from('record_movements').select('id, created_at').eq('record_id', recordId).order('created_at', { ascending: false }).limit(20), EMPTY),
     safe(supabase.from('notes').select('*').eq('record_id', recordId).order('created_at', { ascending: false }), EMPTY),
-    safe(supabase.from('communication_logs').select('*').eq('record_id', recordId).order('occurred_at', { ascending: false }), EMPTY),
+    safe(supabase.from('communication_logs').select('*').eq('record_id', recordId).order('occurred_at', { ascending: false }).limit(100), EMPTY),
     safe(supabase.from('organization_members').select('user_id, status, profiles:user_id(first_name, last_name, email)').eq('organization_id', orgId), EMPTY),
     safe(boardId ? getGroupChecklistFields(boardId, (rec.group_id as string | null)) : Promise.resolve({ fields: [] as { id: string; name: string }[] }), { fields: [] as { id: string; name: string }[] }),
     safe(getTwilioConfig(supabase as never, orgId), null),
