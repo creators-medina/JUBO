@@ -51,9 +51,10 @@ export default async function ProspectingPage() {
           goalSource={dailyGoal.label}
           userId={user.id}
         />
-        {/* Greatness Tracker — the Phase 2 scoreboard, below the Daily Call
-            Log and independent of the hero/week/list layout above. */}
-        <div className="mt-8">
+        {/* Verified Results reporting — below the Daily Call Log's action
+            area, collapsed by default (Roadmap Step 3) so today's call list
+            stays the page's focus. */}
+        <div className="mt-6">
           <GreatnessTracker data={greatness} userId={user.id} />
         </div>
       </div>
