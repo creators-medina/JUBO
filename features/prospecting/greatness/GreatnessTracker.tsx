@@ -13,9 +13,10 @@
 // stage mappings are reported inline rather than silently dropped.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { useState } from 'react'
-import { PhoneCall, UserPlus, FileSearch, BadgeCheck, Layers, Landmark } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { PhoneCall, UserPlus, FileSearch, BadgeCheck, Layers, Landmark, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { LOCAL_KEYS } from '@/lib/localKeys'
 import { ManualVsVerified } from './ManualVsVerified'
 import type { GreatnessData, GreatnessWindowKey, MetricScope } from './queries'
 
@@ -148,6 +149,23 @@ export function GreatnessTracker({ data, userId }: { data: GreatnessData; userId
   const [win, setWin] = useState<GreatnessWindowKey>('week')
   const phrase = WINDOW_PHRASE[win]
 
+  // Roadmap Step 3 — the whole reporting section starts COLLAPSED so today's
+  // call list above stays one glance away; a saved preference (either
+  // direction) always wins. Presentation only — no metric math is touched.
+  const [collapsed, setCollapsed] = useState(true)
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (window.localStorage.getItem(LOCAL_KEYS.verifiedResultsCollapsed) === '0') setCollapsed(false)
+    } catch { /* default collapsed */ }
+  }, [])
+  const toggle = () => {
+    setCollapsed((c) => {
+      try { window.localStorage.setItem(LOCAL_KEYS.verifiedResultsCollapsed, c ? '0' : '1') } catch { /* view-only */ }
+      return !c
+    })
+  }
+
   const scopeChip = (scope: MetricScope) => <ScopeChip scope={scope} />
   const scopeNote = (scope: MetricScope) =>
     scope === 'per_lo' ? 'Scoped to records you own.' : 'Ownership data is incomplete, so this counts all records.'
@@ -155,32 +173,43 @@ export function GreatnessTracker({ data, userId }: { data: GreatnessData; userId
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+        <button onClick={toggle} aria-expanded={!collapsed} className="min-w-0 text-left">
           {/* Renamed from "Greatness Tracker" (rework Phase 1): that name now
               belongs to the MANUAL weekly grid in the hero. This section is
               the automated, CRM-verified metrics — definitions unchanged. */}
-          <h2 className="text-lg font-bold text-foreground">Verified Results</h2>
-          <p className="text-sm text-muted-foreground">
-            What the CRM verifies from real activity — leads, pre-approvals, pipeline, and funded loans.
+          <h2 className="flex items-center gap-1.5 text-lg font-bold text-foreground">
+            {collapsed
+              ? <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden />
+              : <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden />}
+            Verified Results
+          </h2>
+          <p className="pl-[22px] text-sm text-muted-foreground">
+            {collapsed
+              ? 'CRM-confirmed progress and source reporting — expand to review.'
+              : 'What the CRM verifies from real activity — leads, pre-approvals, pipeline, and funded loans.'}
           </p>
-        </div>
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm" role="tablist" aria-label="Reporting window">
-          {WINDOW_TABS.map((t) => (
-            <button
-              key={t.key}
-              role="tab"
-              aria-selected={win === t.key}
-              onClick={() => setWin(t.key)}
-              className={cn(
-                'rounded-md px-2.5 py-1 text-xs font-semibold transition-colors',
-                win === t.key ? 'bg-[#B8492C] text-white' : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground',
-              )}>
-              {t.label}
-            </button>
-          ))}
-        </div>
+        </button>
+        {!collapsed && (
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm" role="tablist" aria-label="Reporting window">
+            {WINDOW_TABS.map((t) => (
+              <button
+                key={t.key}
+                role="tab"
+                aria-selected={win === t.key}
+                onClick={() => setWin(t.key)}
+                className={cn(
+                  'rounded-md px-2.5 py-1 text-xs font-semibold transition-colors',
+                  win === t.key ? 'bg-[#B8492C] text-white' : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground',
+                )}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
+      {collapsed ? null : (
+      <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         <MetricCard
           icon={PhoneCall}
@@ -271,6 +300,8 @@ export function GreatnessTracker({ data, userId }: { data: GreatnessData; userId
       <p className="text-2xs text-muted-foreground">
         Lead, pre-approval, pipeline, and funded counts are based on in-app movement history (plus records created directly in a board where noted) — activity from before movement tracking began may not appear.
       </p>
+      </>
+      )}
     </section>
   )
 }

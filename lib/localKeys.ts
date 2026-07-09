@@ -24,6 +24,8 @@ export const LOCAL_KEYS = {
     `jubo-greatness-tracker:v1:${scope(userId)}:collapsed`,
   /** Manual vs Verified card collapsed/expanded preference. */
   manualVsVerifiedCollapsed: 'jubo-manual-vs-verified:v1:collapsed',
+  /** Verified Results reporting section collapsed/expanded preference. */
+  verifiedResultsCollapsed: 'jubo-verified-results:v1:collapsed',
   /** Last-used board view mode (per user + board). */
   boardViewMode: (userId: string | null | undefined, boardId: string) =>
     `jubo-board-view-mode:v1:${scope(userId)}:${boardId}`,
