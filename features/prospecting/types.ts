@@ -42,6 +42,8 @@ export type ScoredLead = {
   daysSinceContact: number | null
   nextActionDueAt: string | null
   phone: string | null
+  /** True when surfaced only to backfill a thin scheduled-board queue (Phase 39A). */
+  backfill?: boolean
 }
 
 export type ProspectingMetrics = {

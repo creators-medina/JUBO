@@ -235,6 +235,12 @@ export function ProspectingCockpit({
                   <h2 className="text-lg font-bold tracking-tight text-foreground">{themeDay.label}</h2>
                   <p className="text-sm text-muted-foreground">{themeDay.coaching}</p>
                 </div>
+                <Link
+                  href="/prospecting/settings"
+                  className="ml-auto flex-shrink-0 self-start inline-flex items-center gap-1 rounded-lg border border-border bg-card/60 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  <Icons.SlidersHorizontal className="h-3.5 w-3.5" /> Edit schedule
+                </Link>
               </div>
             </PremiumSurface>
 
