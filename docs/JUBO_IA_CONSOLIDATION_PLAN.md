@@ -1,4 +1,11 @@
-# Jubo IA / Navigation Consolidation Plan (Steps 6–7 discovery — audit only)
+# Jubo IA / Navigation Consolidation Plan (Steps 6–7)
+
+> **Status — step 1 IMPLEMENTED (label/order/copy only):** `/today` is relabeled
+> **Action Center** (route + behavior untouched); the default utility order is
+> **Daily Call Log · Action Center · Dashboard** (saved layouts still win);
+> `/business-plan` keeps its route as **Business Coaching** (page heading aligned) with a
+> banner pointing to the canonical **Production Plan**; no routes were removed, hidden, or
+> redirected. Remaining items below (§8) stay gated.
 
 Discovery for the operator audit's IA items (#2.1 two plan pages, #2.2 three "today"
 surfaces). **Nothing is implemented here** — no routes, behavior, schema, or data changed.

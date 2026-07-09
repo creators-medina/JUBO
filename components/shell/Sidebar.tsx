@@ -59,7 +59,9 @@ import { useSidebarSectionCollapsed } from '@/hooks/useSidebarSectionCollapsed'
 const NAV_LINKS: Record<string, { label: string; icon: LucideIcon }> = {
   '/dashboard': { label: 'Dashboard', icon: LayoutDashboard },
   '/prospecting': { label: 'Daily Call Log', icon: PhoneCall },
-  '/today': { label: 'Today', icon: Sunrise },
+  // IA consolidation: /today keeps its route + behavior; the label stops it
+  // competing with the Daily Call Log for the "today" word.
+  '/today': { label: 'Action Center', icon: Sunrise },
   // Operator audit: the coaching-engine page keeps its route but is labeled
   // as coaching so it can't be mistaken for the (canonical) Production Plan.
   '/business-plan': { label: 'Business Coaching', icon: Gauge },
@@ -77,7 +79,9 @@ type NavGroupKey = 'utility' | 'insights' | 'setup'
 // its ITEMS are still movable like everything else).
 const DEFAULT_GROUP_ORDER = ['boards', 'insights', 'setup'] as const
 const DEFAULT_GROUP_ITEMS: Record<NavGroupKey, readonly string[]> = {
-  utility: ['/dashboard', '/prospecting', '/today'],
+  // Daily Call Log first — the daily front door (IA consolidation). Saved
+  // per-browser layouts always win; this default applies to fresh browsers.
+  utility: ['/prospecting', '/today', '/dashboard'],
   insights: ['/business-plan', '/production-plan', '/goals', '/forecasts'],
   setup: ['/settings/workflows', '/imports', '/blueprints', '/settings/integrations', '/settings'],
 }
