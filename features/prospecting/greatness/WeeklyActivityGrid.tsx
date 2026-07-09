@@ -8,59 +8,138 @@
 // goal. This is self-reported activity — it is NOT the automated CRM
 // metrics (those live below as "Verified Results") and it writes to
 // NOTHING in the CRM: no communication_logs, no records, no movements, no
-// lead_source, no boards. Persistence is per-browser localStorage, keyed
-// by user + ISO week (the week's Monday date), with the collapse state
-// stored separately so it sticks across weeks. Backend persistence is
-// deliberately deferred — it would need a new table (gated).
+// lead_source, no boards.
+//
+// Persistence (gated batch PR 10C): entries save to the approved
+// weekly_activity_entries table so the scoreboard survives device
+// switches; localStorage keeps the EXACT same keys/format as before as
+// the optimistic cache and offline fallback (Manual vs Verified still
+// reads it). On load, backend rows win; a week that exists only in this
+// browser auto-uploads (current week) or imports via the explicit button
+// (past weeks). The collapse preference stays local-only.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 // Shared model (rework Phase 2): rows/goals, sanitize/math, storage keys,
 // and the same-tab notify that keeps Manual vs Verified live.
 import {
-  ACTIVITIES, DAY_LABELS, GOAL_TOTAL, emptyGrid, valuesKey, collapseKey,
+  ACTIVITIES, DAY_LABELS, GOAL_TOTAL, emptyGrid, mondayKey, valuesKey, collapseKey,
   sanitizeCell, gridRowTotal, notifyManualTracker, type ManualGrid,
 } from './manualTracker'
+import { importPastWeeks, reconcileCurrentWeek, upsertActivityRow } from './trackerSync'
 
-export function WeeklyActivityGrid({ userId }: { userId?: string }) {
+/** Debounce for the per-activity backend upsert — long enough to batch a
+ *  multi-digit entry, short enough to survive a quick tab close. */
+const SAVE_DEBOUNCE_MS = 500
+
+export function WeeklyActivityGrid({ userId, organizationId }: { userId?: string; organizationId?: string }) {
   const uid = userId ?? ''
+  const orgId = organizationId ?? ''
+  const canSync = Boolean(uid && orgId)
   const [grid, setGrid] = useState<ManualGrid>(emptyGrid)
   // Condensed by default — first-time users see just the header + total.
   // A saved preference (either direction) always wins over this default.
   const [collapsed, setCollapsed] = useState(true)
+  const [importStatus, setImportStatus] = useState<string | null>(null)
 
-  // SSR-safe hydrate from localStorage (established repo pattern) — the
-  // server renders zeros, the browser restores this week's entries.
+  // Backend-save plumbing: pending cells + debounce timer per activity row,
+  // flushed on unmount/pagehide so trailing keystrokes aren't lost.
+  const pendingRef = useRef<Map<string, string[]>>(new Map())
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const editedRef = useRef(false)
+
+  const flushRow = (key: string) => {
+    const cells = pendingRef.current.get(key)
+    pendingRef.current.delete(key)
+    const t = timersRef.current.get(key)
+    if (t) { clearTimeout(t); timersRef.current.delete(key) }
+    if (!cells || !canSync) return
+    // Fire-and-forget: localStorage already holds the value, so a failed
+    // save just means this browser is the only copy until the next edit.
+    upsertActivityRow(orgId, uid, mondayKey(), key, cells).catch(() => { /* offline fallback */ })
+  }
+
+  const flushAll = () => { for (const key of Array.from(pendingRef.current.keys())) flushRow(key) }
+
+  // SSR-safe hydrate (established repo pattern): localStorage renders
+  // instantly, then the backend reconcile settles the source of truth.
   useEffect(() => {
+    const localGrid = emptyGrid()
     try {
       const rawVals = window.localStorage.getItem(valuesKey(uid))
       if (rawVals) {
         const saved = JSON.parse(rawVals) as ManualGrid
-        const next = emptyGrid()
         for (const a of ACTIVITIES) {
           const row = saved[a.key]
-          if (Array.isArray(row)) next[a.key] = DAY_LABELS.map((_, i) => sanitizeCell(String(row[i] ?? '')))
+          if (Array.isArray(row)) localGrid[a.key] = DAY_LABELS.map((_, i) => sanitizeCell(String(row[i] ?? '')))
         }
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setGrid(next)
+        setGrid(localGrid)
       }
       // Saved preference wins in BOTH directions ('1' = collapsed, '0' =
       // expanded — written by every toggle); no saved value → stay collapsed.
       const savedCollapse = window.localStorage.getItem(collapseKey(uid))
       if (savedCollapse === '0') setCollapsed(false)
     } catch { /* defaults stand */ }
-  }, [uid])
+
+    if (!canSync) return
+    let cancelled = false
+    reconcileCurrentWeek(orgId, uid, localGrid)
+      .then(({ grid: settled, source }) => {
+        // Keystrokes made while the fetch was in flight always win.
+        if (cancelled || editedRef.current || source !== 'backend') return
+        setGrid(settled)
+        try { window.localStorage.setItem(valuesKey(uid), JSON.stringify(settled)) } catch { /* view-only */ }
+        notifyManualTracker()
+      })
+      .catch(() => { /* offline — local values stand */ })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, orgId])
+
+  // Trailing-save safety net: pagehide covers tab close/navigation; the
+  // cleanup covers unmount. localStorage always has the value regardless.
+  useEffect(() => {
+    const onPageHide = () => flushAll()
+    window.addEventListener('pagehide', onPageHide)
+    return () => {
+      window.removeEventListener('pagehide', onPageHide)
+      flushAll()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const setCell = (key: string, dayIdx: number, raw: string) => {
     const v = sanitizeCell(raw)
+    editedRef.current = true
     setGrid((prev) => {
       const next = { ...prev, [key]: prev[key].map((c, i) => (i === dayIdx ? v : c)) }
       try { window.localStorage.setItem(valuesKey(uid), JSON.stringify(next)) } catch { /* view-only */ }
+      if (canSync) {
+        pendingRef.current.set(key, next[key])
+        const t = timersRef.current.get(key)
+        if (t) clearTimeout(t)
+        timersRef.current.set(key, setTimeout(() => flushRow(key), SAVE_DEBOUNCE_MS))
+      }
       return next
     })
     // Same-tab readers (Manual vs Verified) re-read instantly.
     notifyManualTracker()
+  }
+
+  const runImport = async () => {
+    setImportStatus('Importing…')
+    try {
+      const { imported, skipped } = await importPastWeeks(orgId, uid)
+      setImportStatus(
+        imported > 0
+          ? `Imported ${imported} past week${imported === 1 ? '' : 's'}${skipped > 0 ? ` (${skipped} already saved)` : ''}.`
+          : skipped > 0 ? 'All past weeks in this browser are already saved.' : 'No past weeks found in this browser.',
+      )
+    } catch {
+      setImportStatus('Import failed — check your connection and try again.')
+    }
   }
 
   const toggle = () => {
@@ -128,6 +207,20 @@ export function WeeklyActivityGrid({ userId }: { userId?: string }) {
               ))}
             </tbody>
           </table>
+          {/* One-time device migration (approved Q3): past weeks saved only
+              in this browser upload on demand; weeks already in the account
+              are never overwritten. */}
+          {canSync && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                onClick={runImport}
+                className="text-[11px] font-medium text-white/50 underline decoration-white/25 underline-offset-2 hover:text-white/80"
+              >
+                Import past weeks from this browser
+              </button>
+              {importStatus && <span className="text-[11px] text-white/60">{importStatus}</span>}
+            </div>
+          )}
         </div>
       )}
     </div>
