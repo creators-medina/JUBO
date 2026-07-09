@@ -26,8 +26,8 @@ import { getFollowUpsDue, type FollowUpDueItem } from '@/features/communications
 import { getProductionGoals } from '@/features/goals/queries'
 import { buildThemeDayData } from '@/features/prospecting/themeday/queues'
 import { getThemeDayFor } from '@/features/prospecting/coaching/themeDay'
+import { isClosedGroupName, mondayOf, startOfMonthOf, startOfQuarterOf } from '@/features/metrics/shared'
 
-const CLOSED_GROUP_WORDS = ['funded', 'closed', 'post closing', 'post-closing']
 const MAX_RECORDS = 2000
 
 export type PeriodKey = 'week' | 'month' | 'quarter'
@@ -54,31 +54,21 @@ export type DashboardOverviewData = {
   followUps: FollowUpDueItem[]
 }
 
-function startOfWeek(d: Date): Date {
-  const x = new Date(d); const dow = x.getDay()
-  x.setDate(x.getDate() - (dow === 0 ? 6 : dow - 1)); x.setHours(0, 0, 0, 0); return x
-}
-function startOfMonth(d: Date): Date { const x = new Date(d); x.setDate(1); x.setHours(0, 0, 0, 0); return x }
-function startOfQuarter(d: Date): Date {
-  const x = new Date(d); x.setMonth(Math.floor(x.getMonth() / 3) * 3, 1); x.setHours(0, 0, 0, 0); return x
-}
+// Period boundaries + funded/closed classification come from the shared
+// metrics module (features/metrics/shared) — one definition app-wide.
 
 /** [curStart, prevStart] — prev window ends where cur begins. */
 function windows(period: PeriodKey, now: Date): [Date, Date] {
   if (period === 'week') {
-    const cur = startOfWeek(now); const prev = new Date(cur); prev.setDate(prev.getDate() - 7); return [cur, prev]
+    const cur = mondayOf(now); const prev = new Date(cur); prev.setDate(prev.getDate() - 7); return [cur, prev]
   }
   if (period === 'month') {
-    const cur = startOfMonth(now); const prev = new Date(cur); prev.setMonth(prev.getMonth() - 1); return [cur, prev]
+    const cur = startOfMonthOf(now); const prev = new Date(cur); prev.setMonth(prev.getMonth() - 1); return [cur, prev]
   }
-  const cur = startOfQuarter(now); const prev = new Date(cur); prev.setMonth(prev.getMonth() - 3); return [cur, prev]
+  const cur = startOfQuarterOf(now); const prev = new Date(cur); prev.setMonth(prev.getMonth() - 3); return [cur, prev]
 }
 
-const isClosedGroup = (name: string | null | undefined): boolean => {
-  if (!name) return false
-  const n = name.toLowerCase()
-  return CLOSED_GROUP_WORDS.some((w) => n.includes(w))
-}
+const isClosedGroup = isClosedGroupName
 
 export async function buildDashboardOverview(organizationId: string, userId: string): Promise<DashboardOverviewData> {
   const supabase = await createClient()

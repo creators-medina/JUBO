@@ -17,6 +17,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { createClient } from '@/lib/supabase/server'
+import { mondayOf } from '@/features/metrics/shared'
 
 /** Tuesday distinguishes active files from inactive ones for the "play" text. */
 export type ThemeBoardKind = 'default' | 'active' | 'inactive'
@@ -78,11 +79,7 @@ const DAY_BOARD_SPECS: Record<number, BoardSpec[]> = {
 const MAX_RECORDS = 500
 
 function startOfWeekISO(): string {
-  const d = new Date()
-  const dow = d.getDay()
-  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1)) // back to Monday
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString()
+  return mondayOf(new Date()).toISOString() // shared Monday-week helper
 }
 
 export async function buildThemeDayData(organizationId: string, userId: string): Promise<ThemeDayData> {
@@ -186,6 +183,12 @@ export async function buildThemeDayData(organizationId: string, userId: string):
       .in('record_id', recordIds)
       .neq('channel', 'internal')
       .order('occurred_at', { ascending: false })
+      // Hard bound (operator-audit quick win) — this scan was unbounded. It
+      // reads most-recent-first and keeps the FIRST row per record, so with
+      // ≤500 roster records a 4000-row window still yields the same
+      // last-contact values in practice; only contacts whose latest touch
+      // predates 4000 newer logs would show "—" instead of a stale date.
+      .limit(4000)
     for (const c of lcRows ?? []) {
       if (!lastContact.has(c.record_id as string)) lastContact.set(c.record_id as string, c.occurred_at as string)
     }

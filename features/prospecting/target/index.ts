@@ -21,11 +21,14 @@ export type DailyCallTarget = {
   label: string
 }
 
+// Plain-language source labels (operator audit): shown in the goal editor's
+// tooltip and on the Production Plan — they must answer "where did this
+// number come from?" without jargon.
 const SOURCE_LABEL: Record<CallTargetSource, string> = {
-  session: 'Session target',
-  profile: 'Focus target',
-  goal: 'Goal target',
-  default: 'Default target',
+  session: 'From your active call session',
+  profile: 'From your profile',
+  goal: 'From your production goal',
+  default: 'App default',
 }
 
 function pickNumber(obj: Record<string, unknown>, keys: string[]): number | null {

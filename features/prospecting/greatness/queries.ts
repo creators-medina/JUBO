@@ -30,6 +30,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { displaySourceLabel } from '@/features/production-plan/calc'
+import { isClosedGroupName, startOfDay, mondayOf, startOfMonthOf, startOfYearOf } from '@/features/metrics/shared'
 
 export type GreatnessWindowKey = 'today' | 'week' | 'month' | 'year'
 export const GREATNESS_WINDOWS: GreatnessWindowKey[] = ['today', 'week', 'month', 'year']
@@ -78,29 +79,14 @@ export type GreatnessData = {
   movementsTruncated: boolean
 }
 
-// Same funded/closed stage-name convention as the Dashboard home
-// (features/dashboards/overview/queries.ts) — the app's single definition
-// of "this stage means the loan is done".
-const CLOSED_GROUP_WORDS = ['funded', 'closed', 'post closing', 'post-closing']
-const isClosedGroupName = (name: string | null | undefined): boolean => {
-  if (!name) return false
-  const n = name.toLowerCase()
-  return CLOSED_GROUP_WORDS.some((w) => n.includes(w))
-}
+// Funded/closed classification + week boundaries come from the shared
+// metrics module (features/metrics/shared) — one definition app-wide.
 
 // Board matching follows the theme-day convention: real names, squashed.
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
 
 const MAX_RECORDS = 2000
 const MAX_MOVEMENTS = 5000
-
-function startOfToday(now: Date): Date { const x = new Date(now); x.setHours(0, 0, 0, 0); return x }
-function startOfWeek(now: Date): Date {
-  const x = startOfToday(now); const dow = x.getDay()
-  x.setDate(x.getDate() - (dow === 0 ? 6 : dow - 1)); return x
-}
-function startOfMonth(now: Date): Date { const x = startOfToday(now); x.setDate(1); return x }
-function startOfYear(now: Date): Date { const x = startOfToday(now); x.setMonth(0, 1); return x }
 
 type EntryEvent = { recordId: string; at: string }
 
@@ -120,7 +106,7 @@ export async function buildGreatnessData(organizationId: string, userId: string)
   const supabase = await createClient()
   const now = new Date()
   const starts: Record<GreatnessWindowKey, Date> = {
-    today: startOfToday(now), week: startOfWeek(now), month: startOfMonth(now), year: startOfYear(now),
+    today: startOfDay(now), week: mondayOf(now), month: startOfMonthOf(now), year: startOfYearOf(now),
   }
 
   // ── Calls Made: bounded head-count queries per window — no row transfer.

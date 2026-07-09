@@ -15,6 +15,8 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { useMemo, useSyncExternalStore } from 'react'
+import { mondayKeyOf } from '@/features/metrics/shared'
+import { LOCAL_KEYS } from '@/lib/localKeys'
 
 // Fixed activity rows + weekly goals (product spec). Goals sum to 30.
 export const ACTIVITIES = [
@@ -40,15 +42,13 @@ export type ManualGrid = Record<string, string[]>
 
 export const emptyGrid = (): ManualGrid => Object.fromEntries(ACTIVITIES.map((a) => [a.key, ['', '', '', '', '']]))
 
-/** This ISO week's Monday as YYYY-MM-DD (local) — the week identity. */
+/** This ISO week's Monday as YYYY-MM-DD (local) — the week identity.
+ *  (Shared Monday-week helper + key registry; formats unchanged.) */
 export function mondayKey(): string {
-  const d = new Date()
-  const dow = d.getDay()
-  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1))
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return mondayKeyOf(new Date())
 }
-export const valuesKey = (userId: string) => `jubo-greatness-tracker:v1:${userId || 'local'}:${mondayKey()}`
-export const collapseKey = (userId: string) => `jubo-greatness-tracker:v1:${userId || 'local'}:collapsed`
+export const valuesKey = (userId: string) => LOCAL_KEYS.greatnessValues(userId, mondayKey())
+export const collapseKey = (userId: string) => LOCAL_KEYS.greatnessCollapsed(userId)
 
 /** Non-negative integers only: strip non-digits, no decimals/negatives,
  *  clamp to 0–999. Empty stays empty (counts as 0). */
