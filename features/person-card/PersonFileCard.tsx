@@ -62,10 +62,10 @@ const TABS: { key: Tab; label: string; Icon: React.ElementType }[] = [
 // JIT sees them). Side cards ~320px expanded / 84px spine; the hub takes
 // the freed space, with the grid-template transition animating the shift.
 const TRIFOLD_GRID: Record<string, string> = {
-  'open-open': 'xl:grid-cols-[320px_minmax(0,1fr)_320px]',
-  'closed-open': 'xl:grid-cols-[84px_minmax(0,1fr)_320px]',
-  'open-closed': 'xl:grid-cols-[320px_minmax(0,1fr)_84px]',
-  'closed-closed': 'xl:grid-cols-[84px_minmax(0,1fr)_84px]',
+  'open-open': 'xl:grid-cols-[340px_minmax(0,1fr)_340px]',
+  'closed-open': 'xl:grid-cols-[92px_minmax(0,1fr)_340px]',
+  'open-closed': 'xl:grid-cols-[340px_minmax(0,1fr)_92px]',
+  'closed-closed': 'xl:grid-cols-[92px_minmax(0,1fr)_92px]',
 }
 
 /** Record-summary ordering (operator audit): contact info first. */
@@ -306,7 +306,7 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
   // keeps its real Send inside the composer, and an email draft keeps its
   // honest "Open in mail" action alongside. Identical on both card shapes.
   const footer = (
-    <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-jubo-border-strong/60 px-4 py-2.5">
+    <div className="flex flex-shrink-0 items-center justify-between gap-3 border-t border-jubo-border-strong/60 px-3.5 py-2">
       <span className="text-2xs text-jubo-muted">Changes save automatically</span>
       <div className="flex min-w-0 items-center gap-2">
         {composerError && <span className="truncate text-2xs font-medium text-jubo-red">{composerError}</span>}
@@ -346,12 +346,15 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
     const gridClass = TRIFOLD_GRID[`${leftCollapsed ? 'closed' : 'open'}-${rightCollapsed ? 'closed' : 'open'}`]
     return (
       <div className={cn(
-        'grid h-full min-h-0 grid-cols-1 content-start gap-3.5 overflow-y-auto',
-        'xl:content-stretch xl:items-start xl:overflow-visible xl:transition-[grid-template-columns] xl:duration-300',
+        // Mobile/tablet: a simple scrolling column (auto heights, hub first
+        // via order classes). xl+: the 3-column trifold grid with a definite
+        // height, animated column transitions, and stretch alignment.
+        'flex h-full min-h-0 flex-col gap-4 overflow-y-auto',
+        'xl:grid xl:grid-cols-1 xl:content-stretch xl:items-stretch xl:overflow-visible xl:transition-[grid-template-columns] xl:duration-300',
         gridClass,
       )}>
         {/* LEFT — Conversations (or its folded spine). */}
-        <div className="order-2 flex min-h-0 flex-col xl:order-none xl:max-h-full">
+        <div className="order-2 flex shrink-0 flex-col xl:order-none xl:min-h-0 xl:h-full xl:max-h-full">
           <ConversationsCard
             collapsed={leftCollapsed}
             onToggle={toggleLeft}
@@ -376,13 +379,15 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
 
         {/* MIDDLE — the Hub: header · stepper · metric strip · section rail
             + section content · footer. */}
-        <div className="order-1 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-lg xl:order-none xl:h-full xl:self-stretch">
+        <div className="order-1 flex shrink-0 flex-col overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-2xl xl:order-none xl:min-h-0 xl:h-full xl:self-stretch">
           {headerSlot}
           {/* Metric strip — Loan Amount · LTV · FICO · Rate · DSCR · LTC ·
               Est. Closing · Type. Real values or an honest "—". */}
-          {m && <div className="flex-shrink-0 px-4 pt-3"><LoanSummaryStrip m={m} /></div>}
+          {m && <div className="flex-shrink-0 px-3.5 pt-2.5"><LoanSummaryStrip m={m} compact /></div>}
 
-          <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 p-4 sm:grid-cols-[172px_minmax(0,1fr)] sm:content-stretch">
+          {/* flex-1 only once the workspace has a definite height (xl) —
+              in the stacked mobile flow it would collapse to zero. */}
+          <div className="grid min-h-0 grid-cols-1 content-start gap-3.5 p-3.5 sm:grid-cols-[160px_minmax(0,1fr)] xl:flex-1 xl:content-stretch">
             {/* Rail — section menu (client-side switching only) + the
                 existing Next Step block and opportunity signals. */}
             <div className="flex min-h-0 flex-col gap-3 sm:overflow-y-auto">
@@ -436,7 +441,7 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
             {/* Section content — existing groupings and bindings only. */}
             <div ref={tabBodyRef} className="min-h-0 sm:overflow-y-auto">
               {activeTab === 'overview' && (
-                <div className="space-y-3.5">
+                <div className="space-y-3">
                   {/* Loan Snapshot — the same resolved metrics as the strip,
                       loan amount dominant (values/formats unchanged). */}
                   <div className="jubo-los-card p-3.5">
@@ -483,24 +488,30 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
                     </div>
                   </div>
 
+                  {/* 2.0 — collapsed by default: progress stays visible at
+                      a glance, the item list expands on demand. */}
                   <PhaseChecklistCard
                     checklist={card.checklist}
                     stageName={m?.stage ?? null}
                     busy={busy}
                     onToggle={toggleChecklist}
+                    collapsible
                   />
 
-                  {/* Existing stage control preserved (same moveRecord path). */}
+                  {/* Existing stage control preserved (same moveRecord path);
+                      slimmed to one label + select row. */}
                   {loan && (
-                    <div className="jubo-los-card p-3.5">
-                      <p className="jubo-los-section-label mb-2">Move to Stage</p>
-                      <MoveToStage
-                        recordId={recordId}
-                        boardId={loan.record.board_id}
-                        groups={loan.groups as MoveGroup[]}
-                        currentGroupId={loan.record.group_id ?? null}
-                        onMoved={load}
-                      />
+                    <div className="jubo-los-card flex items-center gap-3 px-3.5 py-2">
+                      <p className="jubo-los-section-label flex-shrink-0">Move to Stage</p>
+                      <div className="min-w-0 flex-1 sm:max-w-64 sm:ml-auto">
+                        <MoveToStage
+                          recordId={recordId}
+                          boardId={loan.record.board_id}
+                          groups={loan.groups as MoveGroup[]}
+                          currentGroupId={loan.record.group_id ?? null}
+                          onMoved={load}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -556,7 +567,7 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
         </div>
 
         {/* RIGHT — Notes & Tasks (or its folded spine). */}
-        <div className="order-3 flex min-h-0 flex-col xl:order-none xl:max-h-full">
+        <div className="order-3 flex shrink-0 flex-col xl:order-none xl:min-h-0 xl:h-full xl:max-h-full">
           <NotesTasksCard
             collapsed={rightCollapsed}
             onToggle={toggleRight}
@@ -693,26 +704,42 @@ function Field({ label, value }: { label: string; value: string | null }) {
 }
 
 function PhaseChecklistCard({
-  checklist, stageName, busy, onToggle,
+  checklist, stageName, busy, onToggle, collapsible,
 }: {
   checklist: PersonCardData['checklist']
   stageName?: string | null
   busy: string | null
   onToggle: (fieldId: string, complete: boolean) => void
+  /** 2.0 — progress header always visible; the item list starts collapsed
+   *  and expands on demand so the checklist stops driving Overview height. */
+  collapsible?: boolean
 }) {
-  // Handoff layout — the right column's topmost card: header (title · X/Y),
-  // progress bar with the current stage name, then each item as a checkbox
-  // row. Same data + the same existing toggle action.
+  const [expanded, setExpanded] = useState(!collapsible)
+  const showItems = !collapsible || expanded
+  // Handoff layout — header (title · X/Y), progress bar with the current
+  // stage name, then each item as a checkbox row. Same data + the same
+  // existing toggle action.
   return (
     <div className="jubo-los-card overflow-hidden border-jubo-border-strong/60 shadow-sm">
-      <div className="px-4 pb-3 pt-3.5">
-        <div className="mb-2.5 flex items-center justify-between gap-2">
+      <div className="px-4 pb-3 pt-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
           <p className="text-sm font-bold tracking-tight text-jubo-navy">Phase Checklist</p>
-          {checklist.hasChecklist && (
-            <span className="rounded-full bg-jubo-gold-soft px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-jubo-gold">
-              {checklist.completedCount} / {checklist.totalCount}
-            </span>
-          )}
+          <span className="flex items-center gap-1.5">
+            {checklist.hasChecklist && (
+              <span className="rounded-full bg-jubo-gold-soft px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-jubo-gold">
+                {checklist.completedCount} / {checklist.totalCount}
+              </span>
+            )}
+            {collapsible && checklist.hasChecklist && (
+              <button
+                onClick={() => setExpanded((e) => !e)}
+                aria-expanded={showItems}
+                className="rounded-md px-2 py-0.5 text-2xs font-medium text-jubo-muted transition-colors hover:bg-jubo-card-soft hover:text-jubo-text"
+              >
+                {showItems ? 'Hide items' : 'Show items'}
+              </button>
+            )}
+          </span>
         </div>
         <div className="flex items-center gap-2.5">
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-jubo-border/60">
@@ -721,7 +748,7 @@ function PhaseChecklistCard({
           {stageName && <span className="max-w-[9rem] truncate text-xs font-semibold text-jubo-muted">{stageName}</span>}
         </div>
       </div>
-      {checklist.hasChecklist ? (
+      {!showItems ? null : checklist.hasChecklist ? (
         checklist.items.map((i) => (
           <button
             key={i.fieldId}

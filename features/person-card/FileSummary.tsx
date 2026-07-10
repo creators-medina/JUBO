@@ -125,15 +125,16 @@ export function nameInitials(name: string | null | undefined): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-/** One strip metric: tiny gold uppercase label over a bold navy value. */
-export function SummaryMetric({ label, value, strong }: { label: string; value: string | null; strong?: boolean }) {
+/** One strip metric: tiny gold uppercase label over a bold navy value.
+ *  `compact` (Contact Card 2.0) tightens padding/type — same fields. */
+export function SummaryMetric({ label, value, strong, compact }: { label: string; value: string | null; strong?: boolean; compact?: boolean }) {
   const has = value != null && value !== ''
   return (
-    <div className="min-w-0 px-4 first:pl-1 last:pr-1">
-      <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-jubo-gold">{label}</p>
+    <div className={cn('min-w-0 first:pl-1 last:pr-1', compact ? 'px-2.5' : 'px-4')}>
+      <p className={cn('font-semibold uppercase text-jubo-gold', compact ? 'text-[8px] tracking-[0.1em]' : 'text-[9px] tracking-[0.12em]')}>{label}</p>
       <p className={cn(
         'truncate tabular-nums',
-        strong ? 'text-base font-bold' : 'text-sm font-semibold',
+        strong ? (compact ? 'text-sm font-bold' : 'text-base font-bold') : (compact ? 'text-xs font-semibold' : 'text-sm font-semibold'),
         has ? 'text-jubo-navy' : 'text-jubo-muted/50',
       )}>
         {has ? value : '—'}
@@ -143,18 +144,22 @@ export function SummaryMetric({ label, value, strong }: { label: string; value: 
 }
 
 /** The warm cream 8-metric band under the navy header (reference: full-width
- *  row, thin dividers, Loan Amount first and dominant). Real values or "—". */
-export function LoanSummaryStrip({ m }: { m: LoanMetrics }) {
+ *  row, thin dividers, Loan Amount first and dominant). Real values or "—".
+ *  `compact` is the 2.0 density variant — identical fields and fallbacks. */
+export function LoanSummaryStrip({ m, compact }: { m: LoanMetrics; compact?: boolean }) {
   return (
-    <div className="flex items-center divide-x divide-jubo-border overflow-x-auto rounded-lg border border-jubo-border-strong/60 bg-jubo-card-soft/70 px-2 py-2 shadow-sm">
-      <SummaryMetric label="Loan Amount" value={m.loanAmount} strong />
-      <SummaryMetric label="LTV" value={m.ltv} />
-      <SummaryMetric label="FICO" value={m.fico} />
-      <SummaryMetric label="Rate" value={m.rate} />
-      <SummaryMetric label="DSCR" value={m.dscr} />
-      <SummaryMetric label="LTC" value={m.ltc} />
-      <SummaryMetric label="Est. Closing" value={m.closing} />
-      <SummaryMetric label="Loan Type" value={m.loanType ?? m.purpose} />
+    <div className={cn(
+      'flex items-center divide-x divide-jubo-border overflow-x-auto rounded-lg border border-jubo-border-strong/60 bg-jubo-card-soft/70 shadow-sm',
+      compact ? 'px-1.5 py-1' : 'px-2 py-2',
+    )}>
+      <SummaryMetric label="Loan Amount" value={m.loanAmount} strong compact={compact} />
+      <SummaryMetric label="LTV" value={m.ltv} compact={compact} />
+      <SummaryMetric label="FICO" value={m.fico} compact={compact} />
+      <SummaryMetric label="Rate" value={m.rate} compact={compact} />
+      <SummaryMetric label="DSCR" value={m.dscr} compact={compact} />
+      <SummaryMetric label="LTC" value={m.ltc} compact={compact} />
+      <SummaryMetric label="Est. Closing" value={m.closing} compact={compact} />
+      <SummaryMetric label="Loan Type" value={m.loanType ?? m.purpose} compact={compact} />
     </div>
   )
 }
