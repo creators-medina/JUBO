@@ -27,7 +27,7 @@ import {
   ACTIVITIES, DAY_LABELS, GOAL_TOTAL, emptyGrid, mondayKey, valuesKey, collapseKey,
   sanitizeCell, gridRowTotal, notifyManualTracker, type ManualGrid,
 } from './manualTracker'
-import { importPastWeeks, reconcileCurrentWeek, upsertActivityRow } from './trackerSync'
+import { fetchWeekGrid, importPastWeeks, listBackendWeeks, listLocalPastWeeks, reconcileCurrentWeek, upsertActivityRow } from './trackerSync'
 
 /** Debounce for the per-activity backend upsert — long enough to batch a
  *  multi-digit entry, short enough to survive a quick tab close. */
@@ -221,7 +221,104 @@ export function WeeklyActivityGrid({ userId, organizationId }: { userId?: string
               {importStatus && <span className="text-[11px] text-white/60">{importStatus}</span>}
             </div>
           )}
+          {/* Read-only history — previous weeks from the backend (durable
+              since 10B/10C) plus any weeks still only in this browser. */}
+          {canSync && <PastWeeksPanel uid={uid} />}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ── Previous weeks — READ-ONLY history viewer (tester feedback) ──────────
+// Weeks come from the weekly_activity_entries backend (durable since batch
+// 10B/10C) merged with any weeks still only in this browser's localStorage.
+// Nothing here writes anywhere; the current week's grid is untouched.
+function PastWeeksPanel({ uid }: { uid: string }) {
+  const [open, setOpen] = useState(false)
+  const [weeks, setWeeks] = useState<string[] | null>(null)
+  const [selected, setSelected] = useState<string>('')
+  const [grid, setGrid] = useState<ManualGrid | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const localWeeks = () => listLocalPastWeeks(uid)
+
+  const openPanel = () => {
+    setOpen((o) => !o)
+    if (weeks !== null) return
+    listBackendWeeks(uid)
+      .catch(() => [] as string[])
+      .then((backend) => {
+        const current = mondayKey()
+        const merged = [...new Set([...backend, ...localWeeks().map((w) => w.weekKey)])]
+          .filter((w) => w !== current)
+          .sort()
+          .reverse()
+        setWeeks(merged)
+        if (merged.length > 0) selectWeek(merged[0])
+      })
+  }
+
+  const selectWeek = (weekKey: string) => {
+    setSelected(weekKey)
+    setGrid(null)
+    setLoading(true)
+    fetchWeekGrid(weekKey)
+      .catch(() => null)
+      .then((backendGrid) => {
+        const local = localWeeks().find((w) => w.weekKey === weekKey)?.grid ?? null
+        // Backend wins when it has the week (the approved merge policy).
+        setGrid(backendGrid ?? local)
+        setLoading(false)
+      })
+  }
+
+  const weekLabel = (w: string) => {
+    const d = new Date(`${w}T00:00:00`)
+    return isNaN(d.getTime()) ? w : `Week of ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+  }
+  const total = grid ? ACTIVITIES.reduce((s, a) => s + gridRowTotal(grid, a.key), 0) : 0
+
+  return (
+    <div className="mt-3 border-t border-white/10 pt-2">
+      <button onClick={openPanel} aria-expanded={open}
+        className="flex items-center gap-1.5 text-[11px] font-medium text-white/50 transition-colors hover:text-white/80">
+        {open ? <ChevronDown className="h-3 w-3" aria-hidden /> : <ChevronRight className="h-3 w-3" aria-hidden />}
+        Previous weeks
+      </button>
+      {open && (
+        weeks === null ? (
+          <p className="mt-2 text-[11px] text-white/40">Loading weeks…</p>
+        ) : weeks.length === 0 ? (
+          <p className="mt-2 text-[11px] text-white/40">No previous weeks saved yet — history builds up as you log each week.</p>
+        ) : (
+          <div className="mt-2 space-y-2">
+            <select
+              value={selected}
+              onChange={(e) => selectWeek(e.target.value)}
+              aria-label="Pick a previous week"
+              className="rounded-md border border-white/20 bg-white/10 px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-white/40 [&>option]:text-jubo-text"
+            >
+              {weeks.map((w) => <option key={w} value={w}>{weekLabel(w)}</option>)}
+            </select>
+            {loading ? (
+              <p className="text-[11px] text-white/40">Loading…</p>
+            ) : grid ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                {ACTIVITIES.map((a) => (
+                  <span key={a.key} className="text-xs text-white/70">
+                    {a.label} <span className="font-bold tabular-nums text-white">{gridRowTotal(grid, a.key)}</span>
+                    <span className="text-white/40">/{a.goal}</span>
+                  </span>
+                ))}
+                <span className="text-xs font-semibold text-jubo-gold">Total {total}/{GOAL_TOTAL}</span>
+              </div>
+            ) : (
+              <p className="text-[11px] text-white/40">No saved values found for that week.</p>
+            )}
+            <p className="text-[10px] text-white/35">Read-only — past weeks can&apos;t be edited here.</p>
+          </div>
+        )
       )}
     </div>
   )

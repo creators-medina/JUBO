@@ -148,6 +148,19 @@ export function listLocalPastWeeks(userId: string): { weekKey: string; grid: Man
   return out.sort((a, b) => a.weekKey.localeCompare(b.weekKey))
 }
 
+/** Distinct weeks this user has saved in the backend (read-only — powers
+ *  the "Previous weeks" history viewer; newest first, current excluded by
+ *  the caller as needed). */
+export async function listBackendWeeks(userId: string): Promise<string[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('weekly_activity_entries')
+    .select('week_start_date')
+    .eq('user_id', userId)
+  if (error || !data) return []
+  return [...new Set((data as { week_start_date: string }[]).map((r) => r.week_start_date))].sort().reverse()
+}
+
 /** One-time "Import past weeks from this browser": uploads local past weeks
  *  the backend doesn't have yet. Weeks that already exist in the backend are
  *  skipped (backend wins — approved policy). Returns what happened. */

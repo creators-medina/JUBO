@@ -27,7 +27,7 @@ import Link from 'next/link'
 import {
   PhoneCall, PhoneOff, Voicemail, CalendarClock, CalendarCheck, ThumbsUp,
   Phone, Mail, Clock, Flame, ChevronDown, ChevronUp, RotateCcw, ArrowUpRight,
-  CheckCircle2, Columns3,
+  CheckCircle2, Columns3, BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/features/feedback/ToastProvider'
@@ -53,6 +53,16 @@ const LOG_OUTCOMES: { outcome: CommunicationOutcome; label: string; icon: React.
 ]
 const OUTCOME_TONE: Partial<Record<string, OutcomeTone>> = Object.fromEntries(LOG_OUTCOMES.map((o) => [o.outcome, o.tone]))
 const OUTCOME_SHORT: Partial<Record<string, string>> = Object.fromEntries(LOG_OUTCOMES.map((o) => [o.outcome, o.label]))
+
+// Suggested openers per theme day — GENERIC coaching copy (clearly labeled
+// in the UI); no client data is interpolated automatically.
+const SCRIPT_OPENER: Record<number, string> = {
+  1: "Hi — it's [your name] at Medina. Checking in on your buyers this week: anything I can pre-approve or help you win? I'd love to earn your next deal.",
+  2: "Hi — quick status update on your file: here's where we are and what happens next. Any questions I can clear up while I have you?",
+  3: "Hi — checking in on your home search. Your pre-approval is ready to go; seen anything you like? Happy to update numbers on any address.",
+  4: "Hi — just calling to check in, no agenda. How's the house treating you? If plans or rates ever change, I'm always your first call.",
+  5: "Hi — you're one of my favorite people to work with, so this is just a thank-you call. What's new with you? Anyone I can take care of for you?",
+}
 
 const EMPTY_MSG: Record<number, string> = {
   1: 'No Realtor/Agent contacts found for Monday.',
@@ -156,6 +166,9 @@ export function ThemeDayCockpit({ data, streak, organizationId, goal: goalProp, 
   const todayDow = rawDow >= 1 && rawDow <= 5 ? rawDow : 1
   const [selectedDow, setSelectedDow] = useState(todayDow)
   const [collapsed, setCollapsed] = useState(false)
+  // Theme playbook / call-script block (collapsed by default so the page
+  // doesn't get taller; pure presentation).
+  const [scriptOpen, setScriptOpen] = useState(false)
 
   // Optimistic local logs (merged with the server's real logs until refresh).
   const [localLogs, setLocalLogs] = useState<Map<string, { outcome: string; occurredAt: string }>>(new Map())
@@ -450,7 +463,18 @@ export function ThemeDayCockpit({ data, streak, organizationId, goal: goalProp, 
                   The play: <span className="font-semibold text-white">{playFor(selectedDow, nextUp)}</span>
                 </p>
                 {isToday && (
-                  <div className="mt-3">
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {nextUp.phone ? (
+                      <a href={`tel:${nextUp.phone}`} title={`Call ${nextUp.phone}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/25 bg-white/10 px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20">
+                        <Phone className="h-4 w-4" aria-hidden /> Call
+                      </a>
+                    ) : (
+                      <span title="No phone on file"
+                        className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-white/15 px-3.5 py-2 text-sm font-semibold text-white/40">
+                        <Phone className="h-4 w-4" aria-hidden /> Call
+                      </span>
+                    )}
                     <LogCallDropdown disabled={pending} onSelect={(o) => logCall(nextUp.recordId, o)} />
                   </div>
                 )}
@@ -510,6 +534,9 @@ export function ThemeDayCockpit({ data, streak, organizationId, goal: goalProp, 
                 className={cn(
                   'flex flex-col items-center gap-1 rounded-xl border bg-card px-3 pb-3 pt-2 shadow-sm transition-colors',
                   active ? 'border-jubo-navy ring-1 ring-jubo-navy' : 'border-border hover:border-jubo-border-strong',
+                  // The TRUE calendar day is unmistakable regardless of which
+                  // day is selected (tester feedback): red ring + tint.
+                  today && 'border-jubo-red bg-jubo-red/[0.05] ring-2 ring-jubo-red/50',
                 )}>
                 {/* Today badge sits INSIDE the card (never clipped); the fixed
                     slot keeps all five cards the same height. */}
@@ -540,8 +567,46 @@ export function ThemeDayCockpit({ data, streak, organizationId, goal: goalProp, 
           </span>
           <span className="text-xs tabular-nums text-muted-foreground">{done}/{goal} called</span>
         </button>
+        {/* Where this list comes from — the same real matched boards the
+            hero chips show, repeated on the list itself (tester feedback). */}
+        {queue.boards.length > 0 && (
+          <p className="-mt-1.5 px-4 pb-2 text-2xs text-muted-foreground sm:px-5">
+            Pulled from the {queue.boards.map((b) => b.name).join(' + ')} board{queue.boards.length > 1 ? 's' : ''}
+            {queue.missingBoards.length > 0 && <> · {queue.missingBoards.join(', ')} not found</>}
+          </p>
+        )}
         <div className="h-1 w-full bg-surface-2">
           <div className="h-full bg-[#B8492C] transition-all duration-500 ease-out" style={{ width: `${pct}%` }} />
+        </div>
+
+        {/* Theme playbook / call script — collapsed by default. Who/why use
+            the existing theme-day copy; the opener is clearly generic. */}
+        <div className="border-b border-border/70">
+          <button onClick={() => setScriptOpen((o) => !o)} aria-expanded={scriptOpen}
+            className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-foreground transition-colors hover:bg-surface-1 sm:px-5">
+            <BookOpen className="h-3.5 w-3.5 text-jubo-gold" aria-hidden />
+            Theme playbook &amp; call script
+            {scriptOpen ? <ChevronUp className="ml-auto h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="ml-auto h-3.5 w-3.5 text-muted-foreground" />}
+          </button>
+          {scriptOpen && (
+            <div className="space-y-1.5 px-4 pb-3 text-xs text-foreground/85 sm:px-5">
+              <p>
+                <span className="font-bold uppercase tracking-wider text-muted-foreground">Who&nbsp;</span>
+                {theme.bucketLabel ?? theme.shortLabel}
+                {queue.boards.length > 0 && <> — from {queue.boards.map((b) => b.name).join(' + ')}</>}
+              </p>
+              <p>
+                <span className="font-bold uppercase tracking-wider text-muted-foreground">Why&nbsp;</span>
+                {theme.coaching}
+              </p>
+              {SCRIPT_OPENER[selectedDow] && (
+                <p className="rounded-md bg-surface-2/70 px-2.5 py-1.5 italic text-foreground/80">
+                  <span className="mr-1 font-bold not-italic uppercase tracking-wider text-muted-foreground">Opener (generic)</span>
+                  &ldquo;{SCRIPT_OPENER[selectedDow]}&rdquo;
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {!collapsed && (
@@ -720,9 +785,20 @@ function CallRow({ item, weekday, log, actionable, pending, onLog, onUndo, onOpe
             <span className="font-bold uppercase tracking-wider text-muted-foreground">Play</span>
             <span className="truncate">{playFor(weekday, item)}</span>
           </p>
-          {actionable && !logged && (
-            <div className="mt-2">
-              <LogCallDropdown compact disabled={pending} onSelect={onLog} />
+          {!logged && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {item.phone ? (
+                <a href={`tel:${item.phone}`} title={`Call ${item.phone}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-jubo-border bg-jubo-card px-2.5 py-1.5 text-xs font-semibold text-jubo-text transition-colors hover:bg-white/60">
+                  <Phone className="h-3.5 w-3.5" aria-hidden /> Call
+                </a>
+              ) : (
+                <span title="No phone on file"
+                  className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-jubo-border px-2.5 py-1.5 text-xs font-semibold text-jubo-muted/60">
+                  <Phone className="h-3.5 w-3.5" aria-hidden /> Call
+                </span>
+              )}
+              {actionable && <LogCallDropdown compact disabled={pending} onSelect={onLog} />}
             </div>
           )}
         </div>
