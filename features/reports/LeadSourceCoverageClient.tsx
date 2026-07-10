@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { OWNER_LABEL, type SourceClass } from './coverageShared'
 import type { CoverageReport } from './leadSourceCoverage'
 import { refreshLeadSourceOptions, restoreLeadSourceOptions } from './leadSourceOptionActions'
+import { updateRecord } from '@/features/records/actions'
 
 const CLASS_STYLE: Record<SourceClass, { label: string; cls: string }> = {
   canonical: { label: 'Canonical', cls: 'bg-jubo-green-soft text-jubo-green' },
@@ -137,6 +138,9 @@ export function LeadSourceCoverageClient({ report }: { report: CoverageReport })
 
       {/* ── 2c. Ownership by metric population (10E — read-only) ── */}
       <MetricOwnershipSection data={report.metricOwnership} />
+
+      {/* ── 2d. Needs Owner — manual review queue (10F) ── */}
+      <NeedsOwnerQueueSection data={report.metricOwnership} />
 
       {/* ── 3. Lead source value quality ── */}
       <section>
@@ -402,6 +406,114 @@ function MetricOwnershipSection({ data }: { data: CoverageReport['metricOwnershi
           per-LO numbers (they currently flip Verified Results to &ldquo;All records&rdquo; scope or attribute to whoever
           imported them). Read-only measurement; assigning owners stays a per-record human action.
           {data.affectedLimited && ' The CSV is capped at 500 rows — fix the top and re-run.'}
+        </p>
+      </div>
+    </section>
+  )
+}
+
+// ── 10F — "Needs owner" manual review queue ──────────────────────────────
+// Per-record, human-confirmed assignment through the EXISTING updateRecord
+// action's assigned_user_id column (the app has no owner_user_id write path
+// anywhere, by design — "Assigned" is the resolver's second tier and counts
+// as resolved ownership everywhere). Nothing is inferred and nothing bulk:
+// one record, one picked member, one click.
+const QUEUE_SHOWN = 50
+
+function NeedsOwnerQueueSection({ data }: { data: CoverageReport['metricOwnership'] }) {
+  const router = useRouter()
+  const [pending, startTransition] = useTransition()
+  const [busyRecord, setBusyRecord] = useState<string | null>(null)
+  const [picked, setPicked] = useState<Record<string, string>>({})
+  const [message, setMessage] = useState<string | null>(null)
+
+  // A record can sit in several populations — one queue row per record,
+  // keeping the first (highest-priority: funded → pipeline → recent) hit.
+  const rows: typeof data.affected = []
+  {
+    const seen = new Set<string>()
+    for (const a of data.affected) {
+      if (seen.has(a.recordId)) continue
+      seen.add(a.recordId)
+      rows.push(a)
+    }
+  }
+  const shown = rows.slice(0, QUEUE_SHOWN)
+
+  if (rows.length === 0 || data.members.length === 0) return null
+
+  const assign = (row: (typeof rows)[number]) => {
+    const memberId = picked[row.recordId]
+    if (!memberId || pending || !row.boardId) return
+    const memberName = data.members.find((m) => m.id === memberId)?.name ?? 'member'
+    setBusyRecord(row.recordId)
+    setMessage(null)
+    startTransition(async () => {
+      try {
+        await updateRecord(row.recordId, row.boardId!, { assigned_user_id: memberId })
+        setMessage(`${row.title}: assigned to ${memberName}.`)
+        router.refresh()
+      } catch (e) {
+        setMessage(`${row.title}: assign failed — ${e instanceof Error ? e.message : 'please try again'}`)
+      } finally {
+        setBusyRecord(null)
+      }
+    })
+  }
+
+  return (
+    <section>
+      <SectionTitle>Needs Owner — Manual Review Queue</SectionTitle>
+      <div className="overflow-x-auto rounded-xl border border-border bg-card p-3">
+        <table className="w-full min-w-[720px]">
+          <thead><tr>
+            <th className={th}>Record</th><th className={th}>Board</th><th className={th}>Stage</th>
+            <th className={th}>Population</th><th className={th}>Current resolution</th><th className={th}>Assign to</th>
+          </tr></thead>
+          <tbody className="divide-y divide-border/60">
+            {shown.map((r) => (
+              <tr key={r.recordId}>
+                <td className={cn(td, 'font-medium text-foreground')}>{r.title}</td>
+                <td className={td}>{r.boardName}</td>
+                <td className={cn(td, 'text-2xs text-muted-foreground')}>{r.stage ?? '—'}</td>
+                <td className={cn(td, 'text-2xs text-muted-foreground')}>{r.population}</td>
+                <td className={td}>
+                  <span className={cn('rounded px-1.5 py-0.5 text-2xs font-semibold',
+                    r.resolution === 'unresolved' ? 'bg-jubo-gold-soft text-jubo-gold' : 'bg-surface-2 text-muted-foreground')}>
+                    {OWNER_LABEL[r.resolution]}
+                  </span>
+                </td>
+                <td className={td}>
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={picked[r.recordId] ?? ''}
+                      onChange={(e) => setPicked((p) => ({ ...p, [r.recordId]: e.target.value }))}
+                      disabled={pending}
+                      aria-label={`Assign owner for ${r.title}`}
+                      className="rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-jubo-navy disabled:opacity-60"
+                    >
+                      <option value="">Pick member…</option>
+                      {data.members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                    <button
+                      onClick={() => assign(r)}
+                      disabled={pending || !picked[r.recordId] || !r.boardId}
+                      className="inline-flex items-center gap-1 rounded-md bg-jubo-red px-2 py-1 text-2xs font-semibold text-white transition-colors hover:bg-jubo-red-dark disabled:opacity-50"
+                    >
+                      {busyRecord === r.recordId ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : null}
+                      Assign
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {message && <p className="mt-2 text-2xs font-medium text-foreground">{message}</p>}
+        <p className="mt-2 text-2xs text-muted-foreground">
+          One record at a time, through the record&rsquo;s existing assignment field (&ldquo;Assigned&rdquo; counts as resolved
+          ownership everywhere in reporting) — nothing is inferred, nothing bulk. Priority order: funded → pipeline → recent.
+          {rows.length > QUEUE_SHOWN && ` Showing the top ${QUEUE_SHOWN} of ${rows.length} — assign these and reload for the next batch.`}
         </p>
       </div>
     </section>

@@ -74,13 +74,16 @@ export type MetricOwnershipRow = {
 
 export type AffectedRecordRow = {
   population: string; recordId: string; title: string
-  boardName: string; stage: string | null; resolution: OwnerResolution
+  boardId: string | null; boardName: string; stage: string | null; resolution: OwnerResolution
 }
 
 export type MetricOwnership = {
   rows: MetricOwnershipRow[]
   affected: AffectedRecordRow[]
   affectedLimited: boolean
+  /** 10F — org members for the manual assign picker (read here; the
+   *  assignment itself goes through the existing updateRecord action). */
+  members: { id: string; name: string }[]
 }
 
 export type CoverageReport = {
@@ -336,6 +339,7 @@ export async function buildLeadSourceCoverage(organizationId: string): Promise<C
       if ((res === 'created_by' || res === 'unresolved') && affected.length < AFFECTED_CAP) {
         affected.push({
           population: label, recordId: r.id, title: r.title,
+          boardId: r.board_id,
           boardName: r.board_id ? (boardName.get(r.board_id) ?? '—') : '—',
           stage: groupNameOf(r.group_id), resolution: res,
         })
@@ -350,6 +354,25 @@ export async function buildLeadSourceCoverage(organizationId: string): Promise<C
     }
   }
 
+  // Org members for the 10F manual assign picker (small, org-scoped read —
+  // the same members+profiles join the contact card uses).
+  const { data: memberRows } = await supabase
+    .from('organization_members')
+    .select('user_id, profiles:user_id(first_name, last_name, email)')
+    .eq('organization_id', organizationId)
+    .limit(50)
+  type ProfileBits = { first_name: string | null; last_name: string | null; email: string | null }
+  const members = ((memberRows ?? []) as unknown as { user_id: string; profiles: ProfileBits | ProfileBits[] | null }[])
+    .map((m) => {
+      // The to-one join is typed as an array by supabase-js — normalize.
+      const p = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles
+      return {
+        id: m.user_id,
+        name: [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.email || m.user_id.slice(0, 8),
+      }
+    })
+    .sort((a, b) => a.name.localeCompare(b.name))
+
   const metricOwnership: MetricOwnership = {
     rows: [
       measure('funded_ytd', 'Funded YTD', 'Movement-dated entries into Closing-board funded stages this year', fundedRecords),
@@ -358,6 +381,7 @@ export async function buildLeadSourceCoverage(organizationId: string): Promise<C
     ],
     affected,
     affectedLimited: affected.length >= AFFECTED_CAP,
+    members,
   }
 
   // ── 7. Option-list status per lead_source field (10D — read-only view;
