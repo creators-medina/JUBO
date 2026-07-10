@@ -43,6 +43,9 @@ interface Props {
   /** Enables the explicit per-note "Create task" action (existing createTask
    *  write path); omit where no board context exists. */
   taskContext?: { boardId: string }
+  /** Contact Card 2.0 — slimmer always-open composer (3 rows, tighter
+   *  chrome) for the narrow Notes & Tasks wing. Behavior identical. */
+  composerCompact?: boolean
 }
 
 const AUTOSAVE_DELAY_MS = 800
@@ -62,7 +65,7 @@ const NOTE_TEMPLATES = [
 ]
 
 export function NoteList({
-  organizationId, recordId, notes, currentUserId, defaultDrafting = false, members, onChanged, prominent = false, taskContext,
+  organizationId, recordId, notes, currentUserId, defaultDrafting = false, members, onChanged, prominent = false, taskContext, composerCompact = false,
 }: Props) {
   const router = useRouter()
   const toast = useToast()
@@ -142,6 +145,7 @@ export function NoteList({
           members={members}
           autoFocus={!prominent}
           large={prominent}
+          compact={composerCompact}
           saving={saving}
         />
       ) : (
@@ -225,7 +229,7 @@ function noteStamp(iso: string): string {
 }
 
 function NoteDraft({
-  value, onChange, onSubmit, onCancel, autoFocus, members, large, saving,
+  value, onChange, onSubmit, onCancel, autoFocus, members, large, compact, saving,
 }: {
   value: string
   onChange: (v: string) => void
@@ -234,6 +238,8 @@ function NoteDraft({
   autoFocus?: boolean
   members?: { id: string; name: string }[]
   large?: boolean
+  /** 2.0 — shrink the large composer's height/chrome (3 rows). */
+  compact?: boolean
   saving?: boolean
 }) {
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -276,7 +282,7 @@ function NoteDraft({
         }}
         placeholder="Operational notes — what happened, what's next… @mention a teammate"
         autoFocus={autoFocus}
-        rows={large ? 5 : 3}
+        rows={large && !compact ? 5 : 3}
         disabled={saving}
         className={cn(
           'w-full px-2 py-1.5 rounded-md bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none resize-none whitespace-pre-wrap disabled:opacity-60',

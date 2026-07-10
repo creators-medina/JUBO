@@ -56,7 +56,7 @@ function CollapsedSpine({
         onClick={onExpand}
         title={`Expand ${title}`}
         className={cn(
-          'flex h-64 w-[84px] flex-col items-center gap-3 rounded-xl border border-jubo-border-strong/60 bg-jubo-card py-3.5 shadow-md transition-all hover:shadow-lg',
+          'flex h-64 w-[84px] flex-col items-center gap-3 rounded-xl border border-jubo-border-strong/60 bg-jubo-card py-3.5 shadow-xl transition-all hover:shadow-2xl',
           side === 'left' ? '[transform:rotateY(16deg)]' : '[transform:rotateY(-16deg)]',
         )}
       >
@@ -121,7 +121,7 @@ export function ConversationsCard(props: {
   }
 
   return (
-    <div ref={anchorRef} className="flex min-h-0 flex-col self-start overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-lg">
+    <div ref={anchorRef} className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-2xl">
       <div className="flex flex-shrink-0 flex-wrap items-center gap-1.5 border-b border-jubo-border/60 px-3 py-2">
         <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 text-jubo-red" aria-hidden />
         <p className="min-w-0 flex-1 truncate text-sm font-bold tracking-tight text-jubo-navy">Conversations</p>
@@ -149,25 +149,24 @@ export function ConversationsCard(props: {
           />
         </div>
       </div>
-      {/* Thread — oldest → newest with day separators (existing Feed);
-          scrolls internally so the composer sits right under the latest
-          message rather than being pushed to the card's bottom. */}
-      <div className="min-h-0 overflow-y-auto">
-        <Feed card={card} comms={comms} filter={filter} borrowerName={borrowerName} ownerName={ownerName} flow />
-        <div className="border-t border-jubo-border/60 p-2.5">
-          <Composer
-            recordId={recordId}
-            comms={comms}
-            email={email}
-            onChanged={onChanged}
-            mode={composerMode}
-            onModeChange={onComposerModeChange}
-            text={composerText}
-            onTextChange={onComposerTextChange}
-            onSubmit={onComposerSubmit}
-            onSmsDraftChange={onSmsDraftChange}
-          />
-        </div>
+      {/* Thread — oldest → newest with day separators (existing Feed).
+          2.0: the thread fills the wing's full height and scrolls
+          internally; the composer is pinned at the bottom like a real
+          chat panel, with the channel toggle right above the input. */}
+      <Feed card={card} comms={comms} filter={filter} borrowerName={borrowerName} ownerName={ownerName} tall />
+      <div className="flex-shrink-0 border-t border-jubo-border/60 bg-jubo-card-soft/60 p-2.5">
+        <Composer
+          recordId={recordId}
+          comms={comms}
+          email={email}
+          onChanged={onChanged}
+          mode={composerMode}
+          onModeChange={onComposerModeChange}
+          text={composerText}
+          onTextChange={onComposerTextChange}
+          onSubmit={onComposerSubmit}
+          onSmsDraftChange={onSmsDraftChange}
+        />
       </div>
     </div>
   )
@@ -201,7 +200,7 @@ export function NotesTasksCard(props: {
   }
 
   return (
-    <div className="flex min-h-0 flex-col self-start overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-lg">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-jubo-border/70 bg-jubo-card shadow-2xl">
       {/* Tab row — collapse control at the LEFT of the tabs (brief). */}
       <div className="flex flex-shrink-0 items-center gap-1 border-b border-jubo-border/60 px-2 py-1.5">
         <button
@@ -235,7 +234,7 @@ export function NotesTasksCard(props: {
         </div>
       </div>
 
-      <div className="min-h-0 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {activeTab === 'notes' ? (
           comms ? (
             <NoteList
@@ -245,6 +244,7 @@ export function NotesTasksCard(props: {
               currentUserId={comms.currentUserId}
               members={comms.members}
               prominent
+              composerCompact
               taskContext={boardId ? { boardId } : undefined}
               onChanged={onChanged}
             />

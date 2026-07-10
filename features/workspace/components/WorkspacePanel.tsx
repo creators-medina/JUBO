@@ -194,24 +194,25 @@ function WorkspaceContent({
   }, [data])
 
   // Layout 4a — the command header + stage stepper render INSIDE the hub
-  // card (PersonFileCard's middle column) via this slot. Same JSX, same
-  // data and handlers as before; only where it mounts moved.
+  // card (PersonFileCard's middle column) via this slot. Same JSX/data/
+  // handlers; the 2.0 pass slims it into a compact navy identity strip
+  // (smaller avatar, tighter rows) so the hub stops feeling top-heavy.
   const headerSlot = (
     <>
-        <header className="flex items-center justify-between gap-3 px-5 py-2 border-b border-jubo-navy2 bg-jubo-navy flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
+        <header className="flex items-center justify-between gap-3 px-4 py-1.5 border-b border-jubo-navy2 bg-jubo-navy flex-shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             {loading ? (
-              <div className="h-10 w-10 rounded-lg bg-white/10 animate-pulse flex-shrink-0" />
+              <div className="h-8 w-8 rounded-md bg-white/10 animate-pulse flex-shrink-0" />
             ) : (
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-jubo-red text-sm font-semibold text-white shadow-sm">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-jubo-red text-xs font-semibold text-white shadow-sm">
                 {initials(data?.record?.title)}
               </div>
             )}
             <div className="min-w-0">
               {loading ? (
-                <div className="h-6 w-56 bg-white/10 rounded animate-pulse" />
+                <div className="h-5 w-56 bg-white/10 rounded animate-pulse" />
               ) : (
-                <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-white">
+                <h2 className="flex items-center gap-2 text-base font-bold tracking-tight text-white">
                   {data && (
                     <span
                       className="h-2 w-2 flex-shrink-0 rounded-full"
@@ -229,7 +230,7 @@ function WorkspaceContent({
                       value={data.record.title ?? 'Record'}
                       pencil
                       className="min-w-0 truncate"
-                      inputClassName="text-xl font-bold tracking-tight bg-white/10 border-white/30 text-white focus:ring-white/50"
+                      inputClassName="text-base font-bold tracking-tight bg-white/10 border-white/30 text-white focus:ring-white/50"
                       onSave={async (next) => {
                         await updateRecord(recordId, data.record.board_id ?? '', { title: next })
                         openWorkspace({ recordId, title: next }) // keep the tab label in sync
@@ -243,19 +244,16 @@ function WorkspaceContent({
                 </h2>
               )}
               {data && (
-                <p className="mt-0.5 truncate text-2xs text-jubo-gold-soft/70">
+                <p className="truncate text-2xs leading-tight text-jubo-gold-soft/70">
                   {subline}
                   {phone ? <>{subline ? ' · ' : ''}<span className="tabular-nums text-white/80">{phone}</span></> : null}
-                </p>
-              )}
-              {contactTags.length > 0 && (
-                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  {/* Tags inline on the compact strip — same derived chips. */}
                   {contactTags.map((t) => (
-                    <span key={t.key} className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white/85">
+                    <span key={t.key} className="ml-1.5 rounded-full bg-white/10 px-1.5 py-px text-[9px] font-semibold text-white/85">
                       {t.label}
                     </span>
                   ))}
-                </div>
+                </p>
               )}
             </div>
           </div>
@@ -265,43 +263,43 @@ function WorkspaceContent({
               <a
                 href={`tel:${phone}`}
                 title="Call"
-                className="rounded-lg bg-jubo-red p-2 text-white shadow-sm transition-colors hover:bg-jubo-red-dark"
+                className="rounded-md bg-jubo-red p-1.5 text-white shadow-sm transition-colors hover:bg-jubo-red-dark"
               >
-                <Phone className="h-4 w-4" />
+                <Phone className="h-3.5 w-3.5" />
               </a>
             )}
             {email && (
               <a
                 href={`mailto:${email}`}
                 title="Email"
-                className="rounded-lg border border-white/10 bg-jubo-navy2 p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                className="rounded-md border border-white/10 bg-jubo-navy2 p-1.5 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
               >
-                <Mail className="h-4 w-4" />
+                <Mail className="h-3.5 w-3.5" />
               </a>
             )}
 
             {data?.record?.board_id && (
               <button onClick={() => setShowMove(true)} title="Move to another board"
-                className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
-                <ArrowRightLeft className="h-4 w-4" />
+                className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+                <ArrowRightLeft className="h-3.5 w-3.5" />
               </button>
             )}
             {data?.record?.board_id && (
               <Link href={`/boards/${data.record.board_id}`} title="Open in board"
-                className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
-                <Maximize2 className="h-4 w-4" />
+                className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+                <Maximize2 className="h-3.5 w-3.5" />
               </Link>
             )}
             <button onClick={onClose} title="Close (esc)"
-              className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
-              <X className="h-4 w-4" />
+              className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
         </header>
 
-        {/* Pipeline stage indicator (NOT tabs) — continues the navy header. */}
+        {/* Pipeline stage indicator (NOT tabs) — a slim navy strip. */}
         {data && (
-          <div className="flex flex-shrink-0 justify-start border-b border-jubo-navy2 bg-jubo-navy px-5 pb-2 pt-0.5 sm:justify-center">
+          <div className="flex flex-shrink-0 justify-start border-b border-jubo-navy2 bg-jubo-navy px-4 pb-1.5 pt-0.5 sm:justify-center">
             <StageTracker groups={data.groups} currentGroupId={data.record.group_id ?? null} />
           </div>
         )}
@@ -309,14 +307,14 @@ function WorkspaceContent({
   )
 
   return (
-    // Phase C-LAYOUT — the record file is a CENTERED floating modal over a dimmed,
-    // blurred board (was a right-side drawer). Click-outside still closes.
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6">
-      <div className="absolute inset-0 bg-jubo-navy/40 backdrop-blur-sm" onClick={onClose} />
-      {/* Layout 4a — the fixed-height workspace surface is now the neutral
-          DESK the trifold's floating cards sit on (min(884px, viewport −
-          52px) height unchanged); the cards inside scroll internally. */}
-      <div className="jubo-los-page relative flex h-[min(884px,calc(100vh-52px))] w-full max-w-[100rem] flex-col overflow-hidden rounded-2xl p-3.5 shadow-2xl">
+    // Phase C-LAYOUT — the record file is a CENTERED floating workspace over
+    // a dimmed, blurred board. Click-outside still closes. Contact Card 2.0:
+    // there is NO enclosing shell anymore — the three panels float directly
+    // over the blurred app, which stays visible through the gaps between
+    // them (the negative space is the real backdrop, not a desk surface).
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-2 sm:p-4">
+      <div className="absolute inset-0 bg-jubo-navy/40 backdrop-blur-md" onClick={onClose} />
+      <div className="relative h-[min(940px,calc(100vh-32px))] w-full max-w-[104rem]">
         {showMove && data?.record?.board_id && (
           <MoveToBoardDialog
             recordIds={[recordId]}
@@ -327,7 +325,7 @@ function WorkspaceContent({
         )}
 
         {loading && !data ? (
-          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-lg">
+          <div className="mx-auto flex h-full min-h-0 max-w-4xl flex-col overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-2xl">
             {headerSlot}
             <div className="space-y-3 p-5">
               {[0, 1, 2, 3].map(i => (
