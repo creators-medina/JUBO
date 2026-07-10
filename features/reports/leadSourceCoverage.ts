@@ -16,6 +16,7 @@ import { createClient } from '@/lib/supabase/server'
 import { displaySourceLabel } from '@/features/production-plan/calc'
 import { isClosedGroupName } from '@/features/metrics/shared'
 import { pickLoanAmountFieldId, resolveLoanAmount } from '@/features/fields/loanAmount'
+import { LEAD_SOURCE_LABELS } from '@/features/production-plan/calc'
 import { classifySource, resolveOwnership, type SourceClass, type OwnerResolution } from './coverageShared'
 
 const MAX_RECORDS = 2000
@@ -49,6 +50,14 @@ export type ReviewRow = {
   ownerStatus: OwnerResolution; amount: number | null; reason: string
 }
 
+/** 10D — per-board lead_source option-list status (read-only here; the
+ *  refresh/restore themselves are explicit admin actions). */
+export type OptionListRow = {
+  fieldId: string; boardId: string; boardName: string
+  optionCount: number; missingCanonical: number; legacyOptions: number
+  hasSnapshot: boolean; refreshedAt: string | null
+}
+
 export type CoverageReport = {
   summary: {
     totalRecords: number; truncated: boolean
@@ -61,6 +70,7 @@ export type CoverageReport = {
   ownership: OwnershipSummary
   queue: ReviewRow[]
   queueLimited: boolean
+  optionLists: OptionListRow[]
 }
 
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -72,7 +82,7 @@ export async function buildLeadSourceCoverage(organizationId: string): Promise<C
   const [boardsRes, groupsRes, lsFieldsRes, recordsRes, currencyFieldsRes] = await Promise.all([
     supabase.from('boards').select('id, name').eq('organization_id', organizationId).eq('is_archived', false),
     supabase.from('board_groups').select('id, board_id, name').eq('organization_id', organizationId),
-    supabase.from('fields').select('id, board_id').eq('organization_id', organizationId).eq('slug', 'lead_source'),
+    supabase.from('fields').select('id, board_id, config').eq('organization_id', organizationId).eq('slug', 'lead_source'),
     supabase
       .from('records')
       .select('id, title, board_id, group_id, created_at, value, owner_user_id, assigned_user_id, created_by')
@@ -93,7 +103,7 @@ export async function buildLeadSourceCoverage(organizationId: string): Promise<C
   const boardName = new Map(boards.map((b) => [b.id, b.name]))
   const groups = (groupsRes.data ?? []) as { id: string; board_id: string; name: string }[]
   const groupById = new Map(groups.map((g) => [g.id, g]))
-  const lsFields = (lsFieldsRes.data ?? []) as { id: string; board_id: string }[]
+  const lsFields = (lsFieldsRes.data ?? []) as { id: string; board_id: string; config: Record<string, unknown> | null }[]
   const lsFieldIds = lsFields.map((f) => f.id)
   const boardsWithField = new Set(lsFields.map((f) => f.board_id))
   const records = (recordsRes.data ?? []) as RecordRow[]
@@ -248,6 +258,29 @@ export async function buildLeadSourceCoverage(organizationId: string): Promise<C
     }
   })
 
+  // ── 6. Option-list status per lead_source field (10D — read-only view;
+  //       refresh/restore are explicit admin actions elsewhere). ──
+  const canonicalNorms = new Set(LEAD_SOURCE_LABELS.map((l) => squash(l)))
+  const optionLists: OptionListRow[] = lsFields.map((f) => {
+    const cfg = f.config ?? {}
+    const opts = Array.isArray(cfg.options)
+      ? (cfg.options as { label?: unknown }[]).filter((o) => typeof o?.label === 'string').map((o) => String(o.label))
+      : []
+    const optNorms = new Set(opts.map(squash))
+    const missingCanonical = LEAD_SOURCE_LABELS.filter((l) => !optNorms.has(squash(l))).length
+    const legacyOptions = opts.filter((l) => !canonicalNorms.has(squash(l))).length
+    return {
+      fieldId: f.id,
+      boardId: f.board_id,
+      boardName: boardName.get(f.board_id) ?? '—',
+      optionCount: opts.length,
+      missingCanonical,
+      legacyOptions,
+      hasSnapshot: Array.isArray(cfg.previous_options),
+      refreshedAt: typeof cfg.options_refreshed_at === 'string' ? cfg.options_refreshed_at : null,
+    }
+  }).sort((a, b) => b.missingCanonical - a.missingCanonical || a.boardName.localeCompare(b.boardName))
+
   return {
     summary: {
       totalRecords: records.length, truncated,
@@ -261,5 +294,6 @@ export async function buildLeadSourceCoverage(organizationId: string): Promise<C
     ownership: { ...{ owner: ownCounts.owner, assigned: ownCounts.assigned, createdBy: ownCounts.createdBy, unresolved: ownCounts.unresolved }, byOwner, unresolvedByBoard: [...unresolvedByBoardMap.entries()].map(([boardName, count]) => ({ boardName, count })).sort((a, b) => b.count - a.count) },
     queue,
     queueLimited,
+    optionLists,
   }
 }
