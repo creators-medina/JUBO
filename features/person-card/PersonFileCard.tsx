@@ -36,7 +36,6 @@ import { BorrowerTab } from './BorrowerTab'
 import { FinancialTab } from './FinancialTab'
 import { upsertFieldValue, moveRecord } from '@/features/records/actions'
 // Phase C3 — harvested LOS Command-Center pieces (reused, not rebuilt).
-import { NextActionCard } from '@/features/workspace/components/NextActionCard'
 import { ParticipantRibbon } from '@/features/workspace/command/ParticipantRibbon'
 import { computeOpportunitySignals } from '@/features/mortgage/scoring/opportunities'
 // Layout 4a — side cards (Conversations · Notes & Tasks) + spine collapse.
@@ -221,6 +220,7 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
   const m = isLoanLike && loan ? deriveLoanMetrics(loan) : null
   const rec = (loan?.record ?? {}) as { title?: string; next_action?: string | null; next_action_completed_at?: string | null }
   const borrowerName = rec.title ?? 'Borrower'
+  const nextStep = rec.next_action && !rec.next_action_completed_at ? rec.next_action : null
   const openTaskCount = (card.tasks as { completed_at: string | null }[]).filter((t) => !t.completed_at).length
 
   // Quick Contact → Text: jump to the EXISTING SMS composer (loan shape:
@@ -349,7 +349,7 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
         // Mobile/tablet: a simple scrolling column (auto heights, hub first
         // via order classes). xl+: the 3-column trifold grid with a definite
         // height, animated column transitions, and stretch alignment.
-        'flex h-full min-h-0 flex-col gap-4 overflow-y-auto',
+        'flex h-full min-h-0 flex-col gap-4 overflow-y-auto xl:gap-6',
         'xl:grid xl:grid-cols-1 xl:content-stretch xl:items-stretch xl:overflow-visible xl:transition-[grid-template-columns] xl:duration-300',
         gridClass,
       )}>
@@ -362,6 +362,7 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
             comms={comms}
             recordId={recordId}
             email={email}
+            phone={comms?.phone ?? null}
             borrowerName={borrowerName}
             ownerName={m?.ownerName ?? null}
             filter={filter}
@@ -412,13 +413,15 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
                 </div>
               </div>
               <div className="mt-auto space-y-2 pt-2">
-                {loan && (
-                  <NextActionCard
-                    recordId={recordId}
-                    nextAction={rec.next_action ?? null}
-                    nextActionDueAt={(loan.record as { next_action_due_at?: string | null }).next_action_due_at ?? null}
-                    nextActionCompletedAt={rec.next_action_completed_at ?? null}
-                  />
+                {/* 2.1 — the bulky navy Next Step card is gone from this
+                    view; a one-line read-only indicator keeps the existing
+                    next_action visible (editing/completing still lives in
+                    its own surfaces — no behavior removed app-wide). */}
+                {nextStep && (
+                  <p className="flex items-start gap-1.5 text-2xs text-jubo-muted">
+                    <span className="mt-px flex-shrink-0 font-semibold uppercase tracking-wider text-jubo-gold">Next</span>
+                    <span className="min-w-0 flex-1 text-jubo-text">{nextStep}</span>
+                  </p>
                 )}
                 {signals.length > 0 && (
                   <div className="jubo-los-card space-y-1 px-3 py-2.5">
@@ -441,16 +444,16 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
             {/* Section content — existing groupings and bindings only. */}
             <div ref={tabBodyRef} className="min-h-0 sm:overflow-y-auto">
               {activeTab === 'overview' && (
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   {/* Loan Snapshot — the same resolved metrics as the strip,
                       loan amount dominant (values/formats unchanged). */}
-                  <div className="jubo-los-card p-3.5">
+                  <div className="jubo-los-card p-3">
                     <p className="jubo-los-section-label">Loan Snapshot</p>
-                    <p className={cn('mt-1 text-[26px] font-bold leading-tight tracking-tight tabular-nums', m?.loanAmount ? 'text-jubo-navy' : 'text-jubo-muted/40')}>
+                    <p className={cn('mt-0.5 text-[22px] font-bold leading-tight tracking-tight tabular-nums', m?.loanAmount ? 'text-jubo-navy' : 'text-jubo-muted/40')}>
                       {m?.loanAmount ?? '—'}
                     </p>
                     {m && (
-                      <div className="mt-2 flex flex-wrap items-center divide-x divide-jubo-border/70">
+                      <div className="mt-1.5 flex flex-wrap items-center divide-x divide-jubo-border/70">
                         <SummaryMetric label="LTV" value={m.ltv} />
                         <SummaryMetric label="Rate" value={m.rate} />
                         <SummaryMetric label="FICO" value={m.fico} />
@@ -460,9 +463,9 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
-                    <div className="jubo-los-card p-3.5">
-                      <p className="jubo-los-section-label mb-1.5">Property</p>
+                  <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
+                    <div className="jubo-los-card p-3">
+                      <p className="jubo-los-section-label mb-1">Property</p>
                       <div className="space-y-0.5">
                         <SnapRow label="Address" value={m?.address ?? null} />
                         <SnapRow label="City / State" value={m?.cityState ?? null} />
@@ -475,8 +478,8 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
                       </div>
                     </div>
 
-                    <div className="jubo-los-card p-3.5">
-                      <p className="jubo-los-section-label mb-1.5">Financial Summary</p>
+                    <div className="jubo-los-card p-3">
+                      <p className="jubo-los-section-label mb-1">Financial Summary</p>
                       <div className="space-y-0.5">
                         <SnapRow label="Income" value={m?.income ?? null} />
                         <SnapRow label="Assets" value={m?.assets ?? null} />
@@ -488,14 +491,13 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
                     </div>
                   </div>
 
-                  {/* 2.0 — collapsed by default: progress stays visible at
-                      a glance, the item list expands on demand. */}
+                  {/* 2.1 — item names visible by default (compact rows,
+                      capped with a show-all control); progress always on. */}
                   <PhaseChecklistCard
                     checklist={card.checklist}
                     stageName={m?.stage ?? null}
                     busy={busy}
                     onToggle={toggleChecklist}
-                    collapsible
                   />
 
                   {/* Existing stage control preserved (same moveRecord path);
@@ -704,42 +706,32 @@ function Field({ label, value }: { label: string; value: string | null }) {
 }
 
 function PhaseChecklistCard({
-  checklist, stageName, busy, onToggle, collapsible,
+  checklist, stageName, busy, onToggle,
 }: {
   checklist: PersonCardData['checklist']
   stageName?: string | null
   busy: string | null
   onToggle: (fieldId: string, complete: boolean) => void
-  /** 2.0 — progress header always visible; the item list starts collapsed
-   *  and expands on demand so the checklist stops driving Overview height. */
-  collapsible?: boolean
 }) {
-  const [expanded, setExpanded] = useState(!collapsible)
-  const showItems = !collapsible || expanded
-  // Handoff layout — header (title · X/Y), progress bar with the current
-  // stage name, then each item as a checkbox row. Same data + the same
-  // existing toggle action.
+  // 2.1 — item names are visible by DEFAULT (the LO sees what's on the
+  // checklist without clicking). Long lists stay compact: the first
+  // PREVIEW_ITEMS show, the rest sit behind a small show-all toggle.
+  // Same data + the same existing toggle action throughout.
+  const PREVIEW_ITEMS = 6
+  const [showAll, setShowAll] = useState(false)
+  const items = checklist.items
+  const shown = showAll ? items : items.slice(0, PREVIEW_ITEMS)
+  const hidden = items.length - shown.length
   return (
     <div className="jubo-los-card overflow-hidden border-jubo-border-strong/60 shadow-sm">
-      <div className="px-4 pb-3 pt-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="px-3.5 pb-2 pt-2.5">
+        <div className="mb-1.5 flex items-center justify-between gap-2">
           <p className="text-sm font-bold tracking-tight text-jubo-navy">Phase Checklist</p>
-          <span className="flex items-center gap-1.5">
-            {checklist.hasChecklist && (
-              <span className="rounded-full bg-jubo-gold-soft px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-jubo-gold">
-                {checklist.completedCount} / {checklist.totalCount}
-              </span>
-            )}
-            {collapsible && checklist.hasChecklist && (
-              <button
-                onClick={() => setExpanded((e) => !e)}
-                aria-expanded={showItems}
-                className="rounded-md px-2 py-0.5 text-2xs font-medium text-jubo-muted transition-colors hover:bg-jubo-card-soft hover:text-jubo-text"
-              >
-                {showItems ? 'Hide items' : 'Show items'}
-              </button>
-            )}
-          </span>
+          {checklist.hasChecklist && (
+            <span className="rounded-full bg-jubo-gold-soft px-2.5 py-0.5 text-[11px] font-bold tabular-nums text-jubo-gold">
+              {checklist.completedCount} / {checklist.totalCount}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2.5">
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-jubo-border/60">
@@ -748,32 +740,41 @@ function PhaseChecklistCard({
           {stageName && <span className="max-w-[9rem] truncate text-xs font-semibold text-jubo-muted">{stageName}</span>}
         </div>
       </div>
-      {!showItems ? null : checklist.hasChecklist ? (
-        checklist.items.map((i) => (
-          <button
-            key={i.fieldId}
-            onClick={() => onToggle(i.fieldId, i.complete)}
-            disabled={busy === i.fieldId}
-            title={i.complete ? `Done: ${i.name} (click to un-check)` : `${i.name} (click to complete)`}
-            className="flex w-full items-center gap-3 border-t border-jubo-border/60 px-4 py-2.5 text-left transition-colors hover:bg-jubo-card-soft disabled:opacity-60"
-          >
-            {busy === i.fieldId ? (
-              <Loader2 className="h-[18px] w-[18px] flex-shrink-0 animate-spin text-jubo-muted" />
-            ) : i.complete ? (
-              <CheckSquare className="h-[18px] w-[18px] flex-shrink-0 text-jubo-green" />
-            ) : (
-              <Square className="h-[18px] w-[18px] flex-shrink-0 text-jubo-muted/70" />
-            )}
-            <span className={cn('text-[13px] font-medium text-jubo-text', i.complete && 'text-jubo-muted line-through')}>{i.name}</span>
-          </button>
-        ))
+      {checklist.hasChecklist ? (
+        <>
+          {shown.map((i) => (
+            <button
+              key={i.fieldId}
+              onClick={() => onToggle(i.fieldId, i.complete)}
+              disabled={busy === i.fieldId}
+              title={i.complete ? `Done: ${i.name} (click to un-check)` : `${i.name} (click to complete)`}
+              className="flex w-full items-center gap-2.5 border-t border-jubo-border/60 px-3.5 py-1.5 text-left transition-colors hover:bg-jubo-card-soft disabled:opacity-60"
+            >
+              {busy === i.fieldId ? (
+                <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-jubo-muted" />
+              ) : i.complete ? (
+                <CheckSquare className="h-4 w-4 flex-shrink-0 text-jubo-green" />
+              ) : (
+                <Square className="h-4 w-4 flex-shrink-0 text-jubo-muted/70" />
+              )}
+              <span className={cn('text-xs font-medium text-jubo-text', i.complete && 'text-jubo-muted line-through')}>{i.name}</span>
+            </button>
+          ))}
+          {items.length > PREVIEW_ITEMS && (
+            <button
+              onClick={() => setShowAll((s) => !s)}
+              className="w-full border-t border-jubo-border/60 px-3.5 py-1.5 text-left text-2xs font-medium text-jubo-muted transition-colors hover:bg-jubo-card-soft hover:text-jubo-text"
+            >
+              {showAll ? 'Show fewer' : `Show all ${items.length} items (${hidden} more)`}
+            </button>
+          )}
+        </>
       ) : (
-        <p className="border-t border-jubo-border/60 px-3.5 py-2.5 text-2xs text-jubo-muted">No checklist for this phase.</p>
+        <p className="border-t border-jubo-border/60 px-3.5 py-2 text-2xs text-jubo-muted">No checklist for this phase.</p>
       )}
     </div>
   )
 }
-
 
 // 4-mode composer — SMS (real Twilio), Note (real), Task (real), Email (mailto:
 // opens the user's mail client; Jubo has no in-app email send, so this is an

@@ -21,7 +21,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { useState, useTransition } from 'react'
-import { MessageSquare, StickyNote, ListChecks, ChevronLeft, ChevronRight, Loader2, Plus, PanelLeftClose, PanelRightClose } from 'lucide-react'
+import { MessageSquare, StickyNote, ListChecks, ChevronLeft, ChevronRight, Loader2, Phone, Plus, PanelLeftClose, PanelRightClose } from 'lucide-react'
 import type { PersonCardData } from './actions'
 import type { CommunicateContext } from '@/features/communications/communicate'
 import { Feed, Composer, type Filter } from './cardMessaging'
@@ -96,6 +96,9 @@ export function ConversationsCard(props: {
   comms: CommunicateContext | undefined
   recordId: string
   email: string | null
+  /** Same phone resolution as the header/QuickContact (comms context) —
+   *  drives the 2.1 Call button (plain tel:, no logging side effects). */
+  phone: string | null
   borrowerName: string
   ownerName: string | null
   filter: Filter
@@ -110,7 +113,7 @@ export function ConversationsCard(props: {
   anchorRef?: React.Ref<HTMLDivElement>
 }) {
   const {
-    collapsed, onToggle, card, comms, recordId, email, borrowerName, ownerName,
+    collapsed, onToggle, card, comms, recordId, email, phone, borrowerName, ownerName,
     filter, onFilterChange, onChanged,
     composerMode, onComposerModeChange, composerText, onComposerTextChange, onComposerSubmit, onSmsDraftChange,
     anchorRef,
@@ -141,7 +144,25 @@ export function ConversationsCard(props: {
                 filter === f ? 'bg-jubo-navy text-white' : 'text-muted-foreground hover:text-foreground')}>{f}</button>
           ))}
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1">
+          {/* 2.1 — obvious Call action: the existing tel: behavior only
+              (nothing is logged automatically; Log Call stays separate). */}
+          {phone ? (
+            <a
+              href={`tel:${phone}`}
+              title={`Call ${phone}`}
+              className="inline-flex items-center gap-1 rounded-md bg-jubo-red px-2 py-1 text-2xs font-semibold text-white shadow-sm transition-colors hover:bg-jubo-red-dark"
+            >
+              <Phone className="h-3 w-3" aria-hidden /> Call
+            </a>
+          ) : (
+            <span
+              title="No phone on file"
+              className="inline-flex cursor-not-allowed items-center gap-1 rounded-md border border-jubo-border px-2 py-1 text-2xs font-semibold text-jubo-muted/60"
+            >
+              <Phone className="h-3 w-3" aria-hidden /> Call
+            </span>
+          )}
           <LogCallButton
             recordId={recordId}
             onLogged={onChanged}
