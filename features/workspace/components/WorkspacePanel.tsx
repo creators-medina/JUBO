@@ -297,12 +297,16 @@ function WorkspaceContent({
           </div>
         </header>
 
-        {/* Pipeline stage indicator (NOT tabs) — a slim navy strip. */}
-        {data && (
-          <div className="flex flex-shrink-0 justify-start border-b border-jubo-navy2 bg-jubo-navy px-4 pb-1.5 pt-0.5 sm:justify-center">
+        {/* Pipeline stage indicator (NOT tabs) — a slim navy strip. The strip
+            renders during load too (pulse placeholder) so the header never
+            grows a row mid-open. */}
+        <div className="flex flex-shrink-0 justify-start border-b border-jubo-navy2 bg-jubo-navy px-4 pb-1.5 pt-0.5 sm:justify-center">
+          {data ? (
             <StageTracker groups={data.groups} currentGroupId={data.record.group_id ?? null} />
-          </div>
-        )}
+          ) : (
+            <div className="h-5 w-64 max-w-full animate-pulse rounded bg-white/10" aria-hidden />
+          )}
+        </div>
     </>
   )
 
@@ -324,18 +328,12 @@ function WorkspaceContent({
           />
         )}
 
-        {loading && !data ? (
-          <div className="mx-auto flex h-full min-h-0 max-w-4xl flex-col overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-2xl">
-            {headerSlot}
-            <div className="space-y-3 p-5">
-              {[0, 1, 2, 3].map(i => (
-                <div key={i} className="h-8 bg-surface-1 rounded animate-pulse" style={{ opacity: 1 - i * 0.15 }} />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <PersonFileCard recordId={recordId} onRequestClose={onClose} headerSlot={headerSlot} />
-        )}
+        {/* Direct-open (tester triage): PersonFileCard mounts IMMEDIATELY —
+            its data load runs in parallel with this panel's header bundle
+            (they were sequential before, which stacked two loading states),
+            and its own loading state is trifold-shaped, so the workspace
+            opens straight into the final composition and fills in. */}
+        <PersonFileCard recordId={recordId} onRequestClose={onClose} headerSlot={headerSlot} />
       </div>
     </div>
   )

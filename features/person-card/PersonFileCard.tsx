@@ -189,10 +189,24 @@ export function PersonFileCard({ recordId, onRequestClose, headerSlot }: {
   }
 
   if (card === undefined) {
+    // Direct-open: the loading state IS the trifold composition (three
+    // panels in the exact final columns/gaps), so a loan card opens with
+    // zero layout morph — panels simply fill in. Generic records (the
+    // minority) settle from this into their single card once the shape
+    // resolves; that is the one remaining transition.
     return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-lg">
-        {headerSlot}
-        <div className="flex items-center gap-2 px-5 py-6 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading file…</div>
+      <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto xl:grid xl:grid-cols-[340px_minmax(0,1fr)_340px] xl:items-stretch xl:gap-6 xl:overflow-visible">
+        <div className="hidden animate-pulse rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-2xl xl:block" aria-hidden />
+        <div className="flex shrink-0 flex-col overflow-hidden rounded-2xl border border-jubo-border-strong/60 bg-jubo-card shadow-2xl xl:h-full xl:min-h-0">
+          {headerSlot}
+          <div className="space-y-3 p-5">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-8 animate-pulse rounded bg-surface-1" style={{ opacity: 1 - i * 0.15 }} />
+            ))}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading file…</div>
+          </div>
+        </div>
+        <div className="hidden animate-pulse rounded-2xl border border-jubo-border/70 bg-jubo-card shadow-2xl xl:block" aria-hidden />
       </div>
     )
   }
