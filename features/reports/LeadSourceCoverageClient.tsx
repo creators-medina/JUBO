@@ -135,6 +135,9 @@ export function LeadSourceCoverageClient({ report }: { report: CoverageReport })
       {/* ── 2b. Option lists (10D admin tool — the page's one write action) ── */}
       <OptionListsSection rows={report.optionLists} />
 
+      {/* ── 2c. Ownership by metric population (10E — read-only) ── */}
+      <MetricOwnershipSection data={report.metricOwnership} />
+
       {/* ── 3. Lead source value quality ── */}
       <section>
         <SectionTitle action={
@@ -343,6 +346,62 @@ function OptionListsSection({ rows }: { rows: CoverageReport['optionLists'] }) {
           Refresh rewrites this board&apos;s picker choices to the canonical 15 — existing options and any values already
           stored on records stay selectable (union), and the previous list is saved for Restore. Record values are never
           changed by either action.
+        </p>
+      </div>
+    </section>
+  )
+}
+
+// ── 10E — ownership resolution inside each reported metric population ────
+function MetricOwnershipSection({ data }: { data: CoverageReport['metricOwnership'] }) {
+  const exportAffected = () => downloadCsv(
+    'ownership-affected-records.csv',
+    ['Population', 'Record', 'Board', 'Stage', 'Ownership resolution'],
+    data.affected.map((a) => [a.population, a.title, a.boardName, a.stage, OWNER_LABEL[a.resolution]]),
+  )
+
+  return (
+    <section>
+      <SectionTitle action={
+        data.affected.length > 0 && (
+          <button onClick={exportAffected} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-surface-1">
+            <Download className="h-3.5 w-3.5" aria-hidden /> Export affected CSV
+          </button>
+        )
+      }>Ownership by Metric Population</SectionTitle>
+      <div className="overflow-x-auto rounded-xl border border-border bg-card p-3">
+        <table className="w-full min-w-[640px]">
+          <thead><tr>
+            <th className={th}>Population</th><th className={th}>Records</th><th className={th}>Owner</th>
+            <th className={th}>Assigned</th><th className={th}>Created-by fallback</th><th className={th}>Unresolved</th>
+            <th className={th}>Affected</th>
+          </tr></thead>
+          <tbody className="divide-y divide-border/60">
+            {data.rows.map((r) => (
+              <tr key={r.key}>
+                <td className={cn(td, 'font-medium text-foreground')}>
+                  {r.label}
+                  <span className="block text-2xs font-normal text-muted-foreground">{r.note}</span>
+                </td>
+                <td className={cn(td, 'tabular-nums')}>{r.total}</td>
+                <td className={cn(td, 'tabular-nums')}>{r.owner}</td>
+                <td className={cn(td, 'tabular-nums')}>{r.assigned}</td>
+                <td className={cn(td, 'tabular-nums')}>{r.createdBy}</td>
+                <td className={cn(td, 'tabular-nums')}>{r.unresolved}</td>
+                <td className={cn(td, 'tabular-nums')}>
+                  {r.affected > 0
+                    ? <span className="font-semibold text-jubo-gold">{r.affected} ({r.affectedPct}%)</span>
+                    : <span className="text-jubo-green">0</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="mt-2 text-2xs text-muted-foreground">
+          &ldquo;Affected&rdquo; = created-by fallback + unresolved — the records whose ownership actually changes reported
+          per-LO numbers (they currently flip Verified Results to &ldquo;All records&rdquo; scope or attribute to whoever
+          imported them). Read-only measurement; assigning owners stays a per-record human action.
+          {data.affectedLimited && ' The CSV is capped at 500 rows — fix the top and re-run.'}
         </p>
       </div>
     </section>

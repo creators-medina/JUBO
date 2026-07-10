@@ -13,10 +13,10 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { createClient } from '@/lib/supabase/server'
-import { displaySourceLabel } from '@/features/production-plan/calc'
-import { isClosedGroupName } from '@/features/metrics/shared'
+import { displaySourceLabel, LEAD_SOURCE_LABELS } from '@/features/production-plan/calc'
+import { isClosedGroupName, isOpenPipelineRecord, startOfDay, startOfYearOf } from '@/features/metrics/shared'
+import { detectClosingFundedGroups, entriesIntoSet, distinctEntryIdsInWindow, type MovementRow } from '@/features/metrics/funded'
 import { pickLoanAmountFieldId, resolveLoanAmount } from '@/features/fields/loanAmount'
-import { LEAD_SOURCE_LABELS } from '@/features/production-plan/calc'
 import { classifySource, resolveOwnership, type SourceClass, type OwnerResolution } from './coverageShared'
 
 const MAX_RECORDS = 2000
@@ -58,6 +58,31 @@ export type OptionListRow = {
   hasSnapshot: boolean; refreshedAt: string | null
 }
 
+/** 10E — ownership resolution mix inside each REPORTED metric population
+ *  (the records whose ownership actually changes reported numbers).
+ *  "Affected" = created-by fallback + unresolved: fixing those is what
+ *  turns "All records" scoping into honest per-LO numbers. Read-only. */
+export type MetricOwnershipRow = {
+  key: 'funded_ytd' | 'open_pipeline' | 'recent_leads'
+  label: string
+  note: string
+  total: number
+  owner: number; assigned: number; createdBy: number; unresolved: number
+  affected: number
+  affectedPct: number
+}
+
+export type AffectedRecordRow = {
+  population: string; recordId: string; title: string
+  boardName: string; stage: string | null; resolution: OwnerResolution
+}
+
+export type MetricOwnership = {
+  rows: MetricOwnershipRow[]
+  affected: AffectedRecordRow[]
+  affectedLimited: boolean
+}
+
 export type CoverageReport = {
   summary: {
     totalRecords: number; truncated: boolean
@@ -71,6 +96,7 @@ export type CoverageReport = {
   queue: ReviewRow[]
   queueLimited: boolean
   optionLists: OptionListRow[]
+  metricOwnership: MetricOwnership
 }
 
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -258,7 +284,83 @@ export async function buildLeadSourceCoverage(organizationId: string): Promise<C
     }
   })
 
-  // ── 6. Option-list status per lead_source field (10D — read-only view;
+  // ── 6. Ownership by metric population (10E — read-only measurement).
+  //       Populations use the app's ONE shared definitions: movement-dated
+  //       funded entries into Closing-board funded stages (features/metrics/
+  //       funded) and active-status + open-stage pipeline (metrics/shared).
+  const now = new Date()
+  const MOVEMENTS_CAP = 2000
+  const AFFECTED_CAP = 500
+
+  type OwnRecord = {
+    id: string; title: string; board_id: string | null; group_id: string | null
+    owner_user_id: string | null; assigned_user_id: string | null; created_by: string | null
+  }
+
+  // Funded YTD — the funded ids may fall outside the sampled records, so
+  // their ownership columns are fetched by id (chunked, bounded).
+  const { fundedGroupIds } = detectClosingFundedGroups(boards, groups)
+  const fundedRecords: OwnRecord[] = []
+  if (fundedGroupIds.size > 0) {
+    const { data: mvs } = await supabase
+      .from('record_movements')
+      .select('record_id, from_group_id, to_group_id, created_at')
+      .in('to_group_id', [...fundedGroupIds])
+      .gte('created_at', startOfYearOf(now).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(MOVEMENTS_CAP)
+    const entries = entriesIntoSet((mvs ?? []) as MovementRow[], fundedGroupIds)
+    const fundedIds = [...distinctEntryIdsInWindow(entries, startOfYearOf(now), new Date(now.getTime() + 86400000))]
+    for (let i = 0; i < fundedIds.length; i += 200) {
+      const chunk = fundedIds.slice(i, i + 200)
+      const { data: recs } = await supabase
+        .from('records')
+        .select('id, title, board_id, group_id, owner_user_id, assigned_user_id, created_by')
+        .in('id', chunk)
+      fundedRecords.push(...(((recs ?? []) as OwnRecord[])))
+    }
+  }
+
+  // Open pipeline + recent leads come from the (possibly sampled) records.
+  const groupNameOf = (gid: string | null) => (gid ? (groupById.get(gid)?.name ?? null) : null)
+  const pipelineRecords: OwnRecord[] = records.filter((r) => isOpenPipelineRecord('active', groupNameOf(r.group_id)))
+  const thirtyDaysAgo = startOfDay(new Date(now.getTime() - 30 * 86400000))
+  const recentRecords: OwnRecord[] = records.filter((r) => new Date(r.created_at) >= thirtyDaysAgo)
+
+  const affected: AffectedRecordRow[] = []
+  const measure = (key: MetricOwnershipRow['key'], label: string, note: string, rs: OwnRecord[]): MetricOwnershipRow => {
+    const counts = { owner: 0, assigned: 0, created_by: 0, unresolved: 0 }
+    for (const r of rs) {
+      const res = resolveOwnership(r).resolution
+      counts[res] += 1
+      if ((res === 'created_by' || res === 'unresolved') && affected.length < AFFECTED_CAP) {
+        affected.push({
+          population: label, recordId: r.id, title: r.title,
+          boardName: r.board_id ? (boardName.get(r.board_id) ?? '—') : '—',
+          stage: groupNameOf(r.group_id), resolution: res,
+        })
+      }
+    }
+    const affectedCount = counts.created_by + counts.unresolved
+    return {
+      key, label, note,
+      total: rs.length,
+      owner: counts.owner, assigned: counts.assigned, createdBy: counts.created_by, unresolved: counts.unresolved,
+      affected: affectedCount, affectedPct: pct(affectedCount, rs.length),
+    }
+  }
+
+  const metricOwnership: MetricOwnership = {
+    rows: [
+      measure('funded_ytd', 'Funded YTD', 'Movement-dated entries into Closing-board funded stages this year', fundedRecords),
+      measure('open_pipeline', 'Open pipeline', `Active records in open stages${truncated ? ' (sampled)' : ''}`, pipelineRecords),
+      measure('recent_leads', 'Created last 30 days', `Records created in the last 30 days${truncated ? ' (sampled)' : ''}`, recentRecords),
+    ],
+    affected,
+    affectedLimited: affected.length >= AFFECTED_CAP,
+  }
+
+  // ── 7. Option-list status per lead_source field (10D — read-only view;
   //       refresh/restore are explicit admin actions elsewhere). ──
   const canonicalNorms = new Set(LEAD_SOURCE_LABELS.map((l) => squash(l)))
   const optionLists: OptionListRow[] = lsFields.map((f) => {
@@ -295,5 +397,6 @@ export async function buildLeadSourceCoverage(organizationId: string): Promise<C
     queue,
     queueLimited,
     optionLists,
+    metricOwnership,
   }
 }
