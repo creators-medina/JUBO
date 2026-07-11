@@ -113,8 +113,14 @@ None (build clean; unauthenticated probes clean; no static analysis errors).
 
 - **PR A — Action Center speed + purpose (after repro):** move the four best-effort pre-render steps out of the blocking path where safe (anything trigger-moving is gated and needs approval), batch goal pacing queries, and add a one-line purpose header distinguishing it from the Daily Call Log.
 - **PR B — Dashboard correctness (after repro):** fix the specific thing Jason saw; likely responsive layout for the fit-to-screen grid + honesty footnotes; **no metric definition changes**.
-- **PR C — Conversations foundation:** unified timeline (render calls/notes/emails from `communication_logs` alongside SMS in the thread pane — read-only additions), search/filter over threads, archived toggle, click-to-mark-read (replacing auto-mark-read), and a light polling refresh. All on existing data/actions.
-- **PR D — GHL-style upgrade (after C is verified + Twilio live):** contact-context side panel (reuse contact-card pieces), realtime updates, saved replies/templates, multi-channel composer — its own design pass and approval.
+- **PR C — Conversations foundation:** ✅ shipped — layout polish (avatars, selected accent, unread emphasis), client-side search over loaded threads, contact-context header actions (Open contact + Board from already-loaded data), labeled SMS composer bar, and the honest explain-where-threads-come-from empty state with Daily Call Log / Twilio CTAs. **No write behavior touched.**
+- **PR D — GHL-style upgrade (phased; each phase its own PR):**
+  - *Phase 1 — foundation polish + empty state:* ✅ shipped in PR C.
+  - *Phase 2 — search/filters/contact context:* search shipped in PR C (client-side); remaining: unread-only/archived filters and a richer context panel (reuse contact-card pieces) — safe UI over existing data.
+  - *Phase 3 — manual read/unread controls:* replace the page-load auto-mark-read (documented below) with click-to-mark-read + a mark-unread action — **touches the mark-read write trigger; needs its own reviewed PR**.
+  - *Phase 4 — realtime updates:* live inbound message refresh (polling first, Supabase realtime later) — **gated (realtime subscriptions)**.
+  - *Phase 5 — multi-channel timeline:* render calls/notes/emails from `communication_logs` alongside SMS in the thread pane (read-only additions), multi-channel composer only where real send paths exist — after Twilio is live and Phase 3/4 are settled.
+  - **Standing caution (verified again in PR C):** the first thread auto-opens on page load and, if it had unread, is marked read without a click (`markThreadRead` fires from the mount effect). Left byte-identical in PR C; fixing it is Phase 3's reviewed PR.
 
 **Suggested next prompt:** run the 10-minute repro with Jason on all three
 pages (exact symptom + console screenshot each), then "Begin PR A only:
