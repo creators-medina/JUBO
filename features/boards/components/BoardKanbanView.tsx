@@ -9,13 +9,15 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ListChecks, Plus } from 'lucide-react'
+import { ArrowUpRight, Copy, ListChecks, MessageSquare, MoreHorizontal, Phone, Plus, StickyNote } from 'lucide-react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { type VisibilityIndex } from '@/features/fields/visibility'
 import { updateBoardGroup } from '@/features/boards/actions'
+import { useToast } from '@/features/feedback/ToastProvider'
 import { InlineRenameText } from '@/components/primitives/InlineRenameText'
-import { buildKanbanFace, KanbanCardFace } from './KanbanCardFace'
+import { buildKanbanFace, KanbanCardFace, type KanbanFace } from './KanbanCardFace'
 import { stageColor } from './BoardStageSummary'
 import { StageChecklistModal } from './StageChecklistModal'
 import { useHoverCard, BorrowerPreviewPanel } from './BoardHoverCard'
@@ -271,8 +273,14 @@ function KanbanCard({
           target while another card hovers over it; never on the card being dragged. */}
       <div
         ref={drop.setNodeRef}
-        className={cn('flex-shrink-0 rounded-xl', drop.isOver && !isDragging && 'ring-2 ring-jubo-navy/40')}
+        className={cn('group/card relative flex-shrink-0 rounded-xl', drop.isOver && !isDragging && 'ring-2 ring-jubo-navy/40')}
       >
+      {/* Safe quick actions (tester feedback) — a SIBLING of the card button,
+          so opening the menu can never click-open the card or start a drag.
+          Every action routes through existing behavior: onClick (the same
+          openWorkspace the card uses), plain tel:, or client-side copy.
+          No writes, no delete/archive — destructive actions stay gated. */}
+      {!renaming && !isDragging && <CardActionMenu face={face} onOpen={onClick} />}
       {renaming ? (
         // Rename shell — same visual card, but NOT a button and NOT draggable
         // (an input can't live inside a button, and drag must not start mid-type).
@@ -304,7 +312,7 @@ function KanbanCard({
         className={cn(
           // Warm LOS card — condensed: tight, uniform padding (no left-rail offset).
           // block (not flex) so the face's rows stay full-width; height fits content.
-          'relative block w-full flex-shrink-0 cursor-grab overflow-hidden rounded-xl border border-jubo-border bg-jubo-card px-3 py-2.5 text-left shadow-sm transition-[transform,opacity,border-color,box-shadow] duration-150 ease-out hover:border-jubo-border-strong hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
+          'relative block w-full flex-shrink-0 cursor-grab overflow-hidden rounded-xl border border-jubo-border bg-jubo-card py-2.5 pl-3 pr-8 text-left shadow-sm transition-[transform,opacity,border-color,box-shadow] duration-150 ease-out hover:border-jubo-border-strong hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
           isDragging && 'opacity-40',
         )}
       >
@@ -327,5 +335,69 @@ function KanbanCard({
         />
       )}
     </>
+  )
+}
+
+// ── Safe card quick-actions menu (tester feedback — non-destructive only) ──
+// Phone/email come from the SAME already-built card face data (no queries).
+// "Text / Add note / Add task" open the contact card via the existing
+// handler — the trifold lands with the composer and Notes/Tasks wings in
+// view; deep-linking to a specific mode/tab is a documented follow-up.
+function CardActionMenu({ face, onOpen }: { face: KanbanFace; onOpen: () => void }) {
+  const toast = useToast()
+  const phone = face.common.find((c) => c.type === 'phone')?.value ?? null
+  const email = face.common.find((c) => c.type === 'email')?.value ?? null
+  const copy = (label: string, value: string) => {
+    navigator.clipboard?.writeText(value)
+    toast.success(`${label} copied`)
+  }
+  const item = 'cursor-pointer gap-2 text-xs'
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        aria-label="Card actions"
+        title="Card actions"
+        className="absolute right-1.5 top-1.5 z-10 rounded-md border border-jubo-border bg-jubo-card p-1 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/card:opacity-100 data-[state=open]:opacity-100"
+      >
+        <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56 border-border bg-card">
+        <DropdownMenuItem className={item} onClick={onOpen}>
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden /> Open contact
+        </DropdownMenuItem>
+        {phone ? (
+          <DropdownMenuItem className={item} onClick={() => { window.location.href = `tel:${phone}` }}>
+            <Phone className="h-3.5 w-3.5" aria-hidden /> Call {phone}
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem disabled className="gap-2 text-xs">
+            <Phone className="h-3.5 w-3.5" aria-hidden /> Call — no phone on file
+          </DropdownMenuItem>
+        )}
+        {phone && (
+          <DropdownMenuItem className={item} onClick={onOpen}>
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden /> Text <span className="ml-auto text-muted-foreground">opens contact</span>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem className={item} onClick={onOpen}>
+          <StickyNote className="h-3.5 w-3.5" aria-hidden /> Add note <span className="ml-auto text-muted-foreground">opens contact</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem className={item} onClick={onOpen}>
+          <ListChecks className="h-3.5 w-3.5" aria-hidden /> Add task <span className="ml-auto text-muted-foreground">opens contact</span>
+        </DropdownMenuItem>
+        {phone && (
+          <DropdownMenuItem className={item} onClick={() => copy('Phone', phone)}>
+            <Copy className="h-3.5 w-3.5" aria-hidden /> Copy phone
+          </DropdownMenuItem>
+        )}
+        {email && (
+          <DropdownMenuItem className={item} onClick={() => copy('Email', email)}>
+            <Copy className="h-3.5 w-3.5" aria-hidden /> Copy email
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
