@@ -11,6 +11,12 @@ SMS/Twilio paths, onboarding, billing search) plus the existing docs
 File:line evidence cited throughout. Items that could not be verified from this
 environment (production Supabase settings, live grants) are marked **verify**.
 
+> **PR 1 in progress (T1 + T2):** the two critical multi-tenancy blockers
+> (`move_record` cross-tenant primitive, `field_values` Realtime DELETE leak)
+> have a written, locally-rehearsed migration + production runbook in
+> `docs/JUBO_PR1_MULTITENANCY_HARDENING.md`. Not yet applied to production —
+> gated on review + Jason running the runbook.
+
 ---
 
 ## 1. Executive summary
