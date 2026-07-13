@@ -129,8 +129,11 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
     fields: [...LEAD_FIELDS, NOTES_FIELD],
   },
   {
+    // Named "Loan In Process" so it satisfies the Daily Call Log Tuesday
+    // (Status Calls) source; key stays `pipeline` so dashboards/imports/goals
+    // that reference it by key are unaffected. board_type stays 'pipeline'.
     key: 'pipeline',
-    name: 'Loan Pipeline',
+    name: 'Loan In Process',
     board_type: 'pipeline',
     icon: 'GitBranch',
     color: C.violet,
@@ -142,6 +145,38 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
       { name: 'Funded',          color: C.green },
     ],
     fields: [...PIPELINE_FIELDS, NOTES_FIELD],
+  },
+  {
+    // Daily Call Log — Tuesday (Status Calls) inactive source; revival
+    // opportunities per the locked product decision (not a success metric).
+    key: 'inactive_loans',
+    name: 'Inactive Loans',
+    board_type: 'crm',
+    icon: 'Archive',
+    color: C.slate,
+    description: 'Stalled or dormant files — revival and re-engagement.',
+    groups: [
+      { name: 'Needs Follow-Up', color: C.amber },
+      { name: 'Re-Engaging',     color: C.blue },
+      { name: 'Dormant',         color: C.slate },
+    ],
+    fields: [...LEAD_FIELDS, NOTES_FIELD],
+  },
+  {
+    // Daily Call Log — Wednesday (Pre-Apps) source.
+    key: 'pre_approved',
+    name: 'Pre-Approved',
+    board_type: 'crm',
+    icon: 'BadgeCheck',
+    color: C.teal,
+    description: 'Pre-approved buyers — keep them active and shopping.',
+    groups: [
+      { name: 'Newly Pre-Approved', color: C.green },
+      { name: 'House Hunting',      color: C.blue },
+      { name: 'Offer Made',         color: C.violet },
+      { name: 'Expiring Soon',      color: C.amber },
+    ],
+    fields: [...LEAD_FIELDS, NOTES_FIELD],
   },
   {
     key: 'past_clients',
@@ -171,6 +206,21 @@ export const BOARD_TEMPLATES: BoardTemplate[] = [
       { name: 'Nurture',         color: C.slate },
     ],
     fields: [...PARTNER_FIELDS, NOTES_FIELD],
+  },
+  {
+    // Daily Call Log — Friday (VIPs) source: your highest-value relationships.
+    key: 'vips',
+    name: 'VIPs',
+    board_type: 'crm',
+    icon: 'Star',
+    color: C.amber,
+    description: 'Your highest-value relationships — clients, referrers, sphere.',
+    groups: [
+      { name: 'Top Referrers', color: C.violet },
+      { name: 'Key Clients',   color: C.green },
+      { name: 'Sphere',        color: C.slate },
+    ],
+    fields: [...LEAD_FIELDS, NOTES_FIELD],
   },
 ]
 

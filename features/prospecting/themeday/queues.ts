@@ -18,9 +18,9 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { mondayOf } from '@/features/metrics/shared'
+import { DAY_BOARD_SPECS, squashBoardName as squash, type ThemeBoardKind } from './matchers'
 
-/** Tuesday distinguishes active files from inactive ones for the "play" text. */
-export type ThemeBoardKind = 'default' | 'active' | 'inactive'
+export type { ThemeBoardKind }
 
 export type ThemeSourceBoard = { id: string; name: string; kind: ThemeBoardKind }
 
@@ -55,27 +55,8 @@ export type ThemeDayData = {
   weekLogs: ThemeWeekLog[]
 }
 
-// Board matchers per weekday — squashed-name keywords + the canonical names
-// reported when nothing matches. Matching is by real board name only.
-const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
-
-type BoardSpec = { canonical: string; kind: ThemeBoardKind; match: (squashedName: string) => boolean }
-
-const DAY_BOARD_SPECS: Record<number, BoardSpec[]> = {
-  // Monday pulls ONLY Realtor boards (e.g. "Realtors (Top 40)") — partner/
-  // referral boards are intentionally excluded per Medina's call rhythm.
-  1: [
-    { canonical: 'Realtors (Top 40)', kind: 'default', match: (n) => n.includes('realtor') },
-  ],
-  2: [
-    { canonical: 'Loan In Process', kind: 'active', match: (n) => n.includes('inprocess') },
-    { canonical: 'Inactive Loans', kind: 'inactive', match: (n) => n.includes('inactive') },
-  ],
-  3: [{ canonical: 'Pre-Approved', kind: 'default', match: (n) => n.includes('preapp') }],
-  4: [{ canonical: 'Past Clients', kind: 'default', match: (n) => n.includes('pastclient') }],
-  5: [{ canonical: 'VIPs', kind: 'default', match: (n) => n.includes('vip') }],
-}
-
+// Board matchers per weekday live in ./matchers (pure, unit-tested). Matching is
+// by real board name only; DAY_BOARD_SPECS + squash are imported above.
 const MAX_RECORDS = 500
 
 function startOfWeekISO(): string {
