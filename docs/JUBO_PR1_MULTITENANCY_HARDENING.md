@@ -4,8 +4,14 @@ Fixes the two critical multi-tenancy blockers from
 `docs/JUBO_MARKET_READINESS_AUDIT.md` (§9 T1 + T2) before any external beta.
 One migration, no app-code changes, no user-facing behavior change.
 
-**Status: migration written and rehearsed locally. NOT applied to production.
-Production SQL is gated — apply via the runbook in §4 after review.**
+**Status: APPLIED AND VERIFIED IN PRODUCTION** (Supabase project
+`sbkfnsfmwrfussufimzs`, 2026-07-13; PR #104 merged as `c14f38e`). Post-migration
+verification confirmed: `move_record` EXECUTE revoked from anon/PUBLIC and
+retained for authenticated (§4C C1), `field_values` REPLICA IDENTITY = DEFAULT
+and still published (C2/C3), membership guard present (C4). App smoke tests
+passed: Kanban drag, contact-card Move to Stage, mortgage milestone advance,
+same-board workflow move, and cross-window field-edit realtime refresh all
+work, no new console errors. The runbook in §4 is retained for reference.
 
 ---
 
@@ -295,9 +301,8 @@ passed:
 
 ## 8. Is the PR 1 blocker resolved?
 
-**After the §4 production SQL is applied and §4C verifies**, the two critical
-blockers (T1 `move_record`, T2 `field_values` DELETE leak) are **resolved**.
-Until then, the repo migration is written and rehearsed but production remains
-exposed — this file's status line stays "not applied" until Jason runs the
-runbook and pastes back the §4C results. The broader Realtime DELETE class on
-the filtered tables (§7) remains open by design and needs its own approved PR.
+**Resolved.** The §4 production SQL was applied to project
+`sbkfnsfmwrfussufimzs` on 2026-07-13 and §4C verification passed, so the two
+critical blockers (T1 `move_record` cross-tenant primitive, T2 `field_values`
+DELETE leak) are closed in production. The broader Realtime DELETE class on the
+filtered tables (§7) remains open by design and needs its own approved PR.

@@ -11,11 +11,14 @@ SMS/Twilio paths, onboarding, billing search) plus the existing docs
 File:line evidence cited throughout. Items that could not be verified from this
 environment (production Supabase settings, live grants) are marked **verify**.
 
-> **PR 1 in progress (T1 + T2):** the two critical multi-tenancy blockers
-> (`move_record` cross-tenant primitive, `field_values` Realtime DELETE leak)
-> have a written, locally-rehearsed migration + production runbook in
-> `docs/JUBO_PR1_MULTITENANCY_HARDENING.md`. Not yet applied to production —
-> gated on review + Jason running the runbook.
+> **PR 1 done (T1 + T2) — applied and verified in production 2026-07-13:** the
+> two critical multi-tenancy blockers (`move_record` cross-tenant primitive,
+> `field_values` Realtime DELETE leak) are closed. Migration
+> `20260713000000_pr1_multitenancy_hardening.sql` (PR #104, `c14f38e`); details
+> and runbook in `docs/JUBO_PR1_MULTITENANCY_HARDENING.md`. The other critical
+> blockers in §6 remain open. The broader Realtime DELETE class on the filtered
+> tables (records/tasks/board_groups/fields/activities) is a documented
+> fast-follow.
 
 ---
 
@@ -496,7 +499,7 @@ Sequence set by Jason (owner priority order, 2026-07-13):
 
 | # | PR | Contents | Gate |
 |---|---|---|---|
-| 1 | **Multi-tenancy/RLS critical blockers** | Migration batch: `move_record` hardening (B1), realtime DELETE verify + unpublish `field_values` (B2), admin-gating of credentials + destructive ops (B6), `common_field_backfill_audit` policy fix, prod verification queries (B8) | **Schema/migration + auth/permission-gated** — explicit approval per `JUBO_SAFETY_RULES.md`; rehearse locally, Jason applies via dashboard |
+| 1 | **Multi-tenancy/RLS critical blockers** | ✅ **Part 1 done (PR #104, `c14f38e`, applied+verified in prod):** `move_record` hardening (B1) + `field_values` REPLICA IDENTITY DEFAULT (B2). **Still open in this workstream:** admin-gating of credentials + destructive ops (B6), `common_field_backfill_audit` policy fix, and the filtered-tables Realtime DELETE class — a follow-up gated migration | **Schema/migration + auth/permission-gated** — explicit approval per `JUBO_SAFETY_RULES.md`; rehearse locally, Jason applies via dashboard |
 | 2 | **SMS/Twilio safety and consent blockers** | E.164 normalization (S1), consent capture + send gate (S2), Messaging-Service inbound fix (S3), status-webhook signature fix (S6) first; then S4/S5/S7/S8 in the 60-day window | **SMS-behavior-gated** |
 | 3 | **Theme-day provisioning fix for new orgs** | Make template-provisioned boards satisfy the Daily Call Log matchers (B3) — product decision: rename/add template boards vs template-key-aware matching; slug-collision copy fix rides along | Safe code; product decision on approach |
 | 4 | **Invite email flow** | Send invitation emails (provider decision needed), verify production auth SMTP, keep copy-link fallback | Email provider = **external integration — gated** |
