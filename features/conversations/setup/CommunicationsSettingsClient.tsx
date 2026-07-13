@@ -36,7 +36,10 @@ export function CommunicationsSettingsClient({ initial, connected }: { initial: 
         inbound_enabled: inbound, outbound_enabled: outbound,
       })
       if ('error' in res) {
-        toast.error(res.error === 'missing_credentials' ? 'Account SID and Auth Token are required.' : 'Could not save connection.')
+        toast.error(
+          res.error === 'missing_credentials' ? 'Account SID and Auth Token are required.'
+          : res.error === 'forbidden' ? 'Only an organization admin can change the Twilio connection.'
+          : 'Could not save connection.')
         return
       }
       setAuthToken('')
@@ -78,6 +81,17 @@ export function CommunicationsSettingsClient({ initial, connected }: { initial: 
         <Mono label="Inbound (A message comes in)" url={`${origin}/api/webhooks/twilio/inbound`} />
         <Mono label="Status callback" url={`${origin}/api/webhooks/twilio/status`} />
         <p className="text-2xs text-muted-foreground">Secrets are stored server-side only and never sent back to the browser.</p>
+        <p className="text-2xs text-muted-foreground">Using a Messaging Service? Set the same two webhooks on the Messaging Service&apos;s Integration settings. Inbound and STOP are matched by your number or your Messaging Service SID.</p>
+      </section>
+
+      <section className="space-y-2 rounded-xl border border-jubo-gold/40 bg-jubo-gold-soft/40 p-5">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Before you text — compliance</h2>
+        <ul className="list-disc space-y-1 pl-4 text-2xs text-muted-foreground">
+          <li><span className="font-medium text-foreground">A2P 10DLC registration is required.</span> US carriers filter unregistered application-to-person SMS. Register your Brand and Campaign in Twilio (or with your provider) before texting contacts — Jubo does not register on your behalf.</li>
+          <li><span className="font-medium text-foreground">Only text contacts who have consented.</span> Jubo sends one-to-one messages you initiate; you are responsible for having prior express consent to text each contact.</li>
+          <li><span className="font-medium text-foreground">Opt-outs are honored automatically.</span> A contact who replies STOP is suppressed and Jubo will block further sends to that number (across phone formats). Include opt-out language in your outreach.</li>
+          <li>This is product guidance, not legal advice — confirm your SMS program with your compliance/legal counsel.</li>
+        </ul>
       </section>
     </div>
   )

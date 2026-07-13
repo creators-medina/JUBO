@@ -4,7 +4,7 @@ import { createAdminClient, hasAdminCredentials } from '@/lib/supabase/admin'
 import { dispatchWorkflowEvent } from '@/features/workflows/engine/dispatch'
 import { validateTwilioSignature } from '@/features/conversations/twilio/signature'
 import { recordSmsMessage } from '@/features/conversations/sms/logSMS'
-import { findOrgByTwilioNumber, matchRecordByPhone } from '@/features/conversations/queries'
+import { findOrgByTwilioNumber, findOrgByMessagingServiceSid, matchRecordByPhone } from '@/features/conversations/queries'
 import { isOptOutMessage } from '@/features/conversations/types'
 
 const TWIML_OK = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
@@ -28,8 +28,11 @@ export async function POST(req: NextRequest) {
 
   // Identify the org by the inbound Twilio number, then validate the signature
   // with THAT org's auth token (Twilio signs with the account auth token).
-  const match = await findOrgByTwilioNumber(admin, to)
-  if (!match) return xml() // unknown number — ack, nothing to do
+  // Fallback to the Messaging Service SID so orgs configured with only a
+  // Messaging Service (no twilio_phone) don't silently drop inbound + STOP.
+  const match = (await findOrgByTwilioNumber(admin, to))
+    ?? (await findOrgByMessagingServiceSid(admin, params.MessagingServiceSid))
+  if (!match) return xml() // unknown number/service — ack, nothing to do
   const { organizationId, config } = match
   if (config.inbound_enabled === false) return xml()
 
