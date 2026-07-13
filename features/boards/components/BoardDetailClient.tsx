@@ -184,11 +184,15 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
 
   // Phase 37B-1 — Kanban stages (columns). Modeled as Stage{boardId,groupId} even
   // though V1 is single-board, so 37B-2's board-aware drag dispatcher drops in.
-  // Kanban is the default board view; the user's LAST-USED view per board is
-  // remembered per-browser (localStorage, keyed by user + board). Stored values
-  // are strictly validated — anything unknown/stale falls back to the default.
+  // View resolution (lead-inbox pass): the user's LAST-USED view per board
+  // always wins (localStorage, keyed by user + board, strictly validated);
+  // with no saved preference the board's OWN default_view (an optional
+  // display_settings key, set in Board Settings) applies; kanban remains the
+  // final fallback. Boards without the setting behave exactly as before.
   const { user: authUser } = useAuth()
-  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('kanban')
+  const boardDefaultView: 'table' | 'kanban' =
+    ((board.display_settings as Record<string, unknown> | null)?.default_view === 'table' ? 'table' : 'kanban')
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>(boardDefaultView)
   const viewModeStorageKey = LOCAL_KEYS.boardViewMode(authUser?.id, board.id)
   useEffect(() => {
     try {
@@ -754,6 +758,15 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
               {topLevelRecords.length} {topLevelRecords.length === 1 ? 'contact' : 'contacts'}
             </span>
           </div>
+          {/* Lead-inbox purpose line — the PROSPECTING board only (matched by
+              slug/name): says what this board is for vs the Daily Call Log.
+              Copy only; no data, stages, or behavior change. */}
+          {(board.slug === 'prospecting' || (board.name ?? '').trim().toLowerCase() === 'prospecting') && (
+            <p className="w-full text-xs text-muted-foreground sm:w-auto sm:flex-1 sm:truncate" title="Raw lead inbox for new, unworked, and early-stage leads. Use Daily Call Log for your daily calling workflow.">
+              Raw lead inbox — new &amp; unworked leads land here. Daily calling lives in the{' '}
+              <Link href="/prospecting" className="font-medium text-jubo-red hover:underline">Daily Call Log</Link>.
+            </p>
+          )}
           <div className="ml-auto flex flex-wrap items-center gap-1.5">
 
           {/* Kanban | Table toggle — the chosen view is remembered per board

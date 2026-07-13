@@ -92,6 +92,26 @@ export async function updateBoardDisplaySettings(boardId: string, settings: Reco
   revalidatePath(`/boards/${boardId}`)
 }
 
+/** Lead-inbox pass — persist a board's DEFAULT VIEW (kanban/table) inside the
+ *  existing display_settings JSONB. Server-side read-merge-write so the Top
+ *  Phase Summary prefs sharing the column are never clobbered. Presentation
+ *  only: which view a board opens in for users with no saved preference. */
+export async function updateBoardDefaultView(boardId: string, view: 'kanban' | 'table') {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { data: row, error: readErr } = await supabase
+    .from('boards').select('display_settings').eq('id', boardId).single()
+  if (readErr) throw new Error(readErr.message)
+  const current = ((row as { display_settings: Record<string, unknown> | null }).display_settings) ?? {}
+  const { error } = await supabase
+    .from('boards')
+    .update({ display_settings: { ...current, default_view: view } })
+    .eq('id', boardId)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/boards/${boardId}`)
+}
+
 /**
  * Phase 35B — archive a board (soft delete). Sets is_archived = true so it
  * disappears from the sidebar, board lists, move destinations, and search,
