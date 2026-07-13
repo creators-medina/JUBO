@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { updateBoard, archiveBoard } from '@/features/boards/actions'
+import { updateBoard, archiveBoard, updateBoardDefaultView } from '@/features/boards/actions'
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#64748b', '#0ea5e9', '#f97316']
 
@@ -20,6 +20,11 @@ export function BoardSettingsModal({ open, onClose, board }: Props) {
   const [name, setName] = useState(board.name ?? '')
   const [description, setDescription] = useState(board.description ?? '')
   const [color, setColor] = useState(board.color ?? '')
+  // Lead-inbox pass — the board's default view for users with no saved view
+  // preference (their own last-used view always wins over this).
+  const initialDefaultView: 'kanban' | 'table' =
+    (board.display_settings?.default_view === 'table' ? 'table' : 'kanban')
+  const [defaultView, setDefaultView] = useState<'kanban' | 'table'>(initialDefaultView)
   const [error, setError] = useState<string | null>(null)
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [isArchiving, startArchive] = useTransition()
@@ -44,6 +49,11 @@ export function BoardSettingsModal({ open, onClose, board }: Props) {
     startTransition(async () => {
       try {
         await updateBoard(board.id, { name: name.trim(), description: description.trim() || undefined, color: color || undefined })
+        // Merge-writes ONLY the default_view key inside display_settings;
+        // the summary display prefs sharing the column are untouched.
+        if (defaultView !== initialDefaultView) {
+          await updateBoardDefaultView(board.id, defaultView)
+        }
         onClose()
         router.refresh()
       } catch (err: unknown) {
@@ -96,6 +106,22 @@ export function BoardSettingsModal({ open, onClose, board }: Props) {
                 />
               ))}
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-foreground">Default view</label>
+            <div className="flex gap-1.5">
+              {(['kanban', 'table'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setDefaultView(v)}
+                  className={`rounded-md border px-3 py-1.5 text-xs font-medium capitalize transition-colors ${defaultView === v ? 'border-jubo-navy bg-jubo-navy text-white' : 'border-border bg-surface-1 text-foreground hover:bg-surface-2'}`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground">How this board opens for anyone who hasn&apos;t picked a view yet — each person&apos;s own last-used view always wins.</p>
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
           <div className="flex justify-between items-center pt-1">
