@@ -28,8 +28,10 @@ export function computePersonalization(
   if (primary === 'pipeline') defaultDashboard = 'pipeline'
   else if (primary === 'conversion' || primary === 'recruiting') defaultDashboard = 'production'
 
-  // Board ordering — lead with what the LO cares about most.
-  const baseOrder = ['prospecting', 'active_leads', 'pipeline', 'past_clients', 'partners']
+  // Board ordering — lead with what the LO cares about most. Includes the
+  // Daily Call Log theme-day sources (pre_approved / inactive_loans / vips);
+  // any template key omitted here is still provisioned (appended by orderBoards).
+  const baseOrder = ['prospecting', 'active_leads', 'pre_approved', 'pipeline', 'inactive_loans', 'past_clients', 'partners', 'vips']
   const order = [...baseOrder]
   const pin = (key: string) => {
     const i = order.indexOf(key)
