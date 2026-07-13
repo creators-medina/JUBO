@@ -86,15 +86,27 @@ export async function getUnreadConversationCount(organizationId: string): Promis
 
 // ── Webhook / send helpers (client injected so webhooks can use admin) ──────
 
+/**
+ * True when `phone` has opted out — matched by NORMALIZED last-10 digits, not
+ * by exact string. Suppressions are stored as Twilio's E.164 `From`
+ * (e.g. +12125551234) but a record's phone field may be `(212) 555-1234` or
+ * `212-555-1234`; an exact match would let an opted-out contact be texted. We
+ * compare the way the rest of the SMS layer already matches phones
+ * (`findOrgByTwilioNumber` / `matchRecordByPhone`): normalize to digits, take
+ * the last 10. opt_out_suppressions holds only opted-out numbers for the org,
+ * so the org-scoped fetch is small.
+ */
 export async function isPhoneOptedOut(client: AnyClient, organizationId: string, phone: string): Promise<boolean> {
+  const target = normalizePhoneDigits(phone).slice(-10)
+  if (target.length < 7) return false
   const { data } = await client
     .from('opt_out_suppressions')
-    .select('id')
+    .select('phone')
     .eq('organization_id', organizationId)
-    .eq('phone', phone)
-    .limit(1)
-    .maybeSingle()
-  return !!data
+  for (const row of (data as { phone: string }[] | null) ?? []) {
+    if (normalizePhoneDigits(row.phone).slice(-10) === target) return true
+  }
+  return false
 }
 
 export async function getTwilioConfig(client: AnyClient, organizationId: string): Promise<TwilioConfig | null> {
@@ -121,6 +133,26 @@ export async function findOrgByTwilioNumber(client: AnyClient, toNumber: string)
   for (const c of (data as Array<{ organization_id: string; config: TwilioConfig }> | null) ?? []) {
     const num = normalizePhoneDigits(c.config?.twilio_phone ?? '').slice(-10)
     if (num && num === tail) return { organizationId: c.organization_id, config: c.config }
+  }
+  return null
+}
+
+/**
+ * Find the org whose active Twilio connection uses the given Messaging Service
+ * SID. Fallback for inbound routing when an org configured ONLY a Messaging
+ * Service (no `twilio_phone`) — otherwise `findOrgByTwilioNumber` can't match
+ * the inbound `To` number and the message (including STOP) is silently dropped.
+ */
+export async function findOrgByMessagingServiceSid(client: AnyClient, messagingServiceSid: string | null | undefined): Promise<{ organizationId: string; config: TwilioConfig } | null> {
+  const sid = (messagingServiceSid ?? '').trim()
+  if (!sid) return null
+  const { data } = await client
+    .from('integration_connections')
+    .select('organization_id, config')
+    .eq('provider', 'twilio')
+    .eq('status', 'active')
+  for (const c of (data as Array<{ organization_id: string; config: TwilioConfig }> | null) ?? []) {
+    if ((c.config?.messaging_service_sid ?? '') === sid) return { organizationId: c.organization_id, config: c.config }
   }
   return null
 }

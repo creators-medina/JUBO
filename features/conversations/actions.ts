@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
+import { requireOrgRole } from '@/features/auth/guards'
 import { dispatchWorkflowEvent } from '@/features/workflows/engine/dispatch'
 import { sendTwilioSms } from './twilio/client'
 import { recordSmsMessage } from './sms/logSMS'
@@ -107,9 +108,22 @@ export async function archiveThread(threadId: string, archived = true): Promise<
   return { ok: true }
 }
 
-/** Save / update the org's Twilio connection (secrets server-side only). */
+/**
+ * Save / update the org's Twilio connection (secrets server-side only).
+ * Admin-only: Twilio credentials are org-level secrets, so a regular member
+ * can no longer change the connection (they can still send/receive on an
+ * already-configured connection). Read exposure of the stored auth_token via
+ * direct RLS SELECT is a separate, gated follow-up (see PR 2 doc).
+ */
 export async function saveTwilioConnection(config: TwilioConfig): Promise<{ ok: true } | { error: string }> {
-  const { supabase, orgId } = await requireUserOrg()
+  let orgId: string, supabase: Awaited<ReturnType<typeof createClient>>
+  try {
+    const ctx = await requireOrgRole('admin')
+    orgId = ctx.orgId
+    supabase = ctx.supabase as unknown as Awaited<ReturnType<typeof createClient>>
+  } catch {
+    return { error: 'forbidden' }
+  }
   if (!config.account_sid) return { error: 'missing_credentials' }
 
   const { data: existing } = await supabase
