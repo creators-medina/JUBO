@@ -64,6 +64,7 @@ export function TeamClient({
   canManage,
   currentRole,
   currentUserId,
+  emailConfigured = false,
 }: {
   members: TeamMember[]
   pendingInvites?: PendingInvite[]
@@ -71,6 +72,7 @@ export function TeamClient({
   canManage: boolean
   currentRole: string
   currentUserId: string
+  emailConfigured?: boolean
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -121,20 +123,23 @@ export function TeamClient({
         )}
       </div>
 
-      {/* Email-delivery note: invites are link-only for now. */}
+      {/* Invite-delivery note: emailed when a provider is configured, else link-only. */}
       {canManage && (
         <div className="flex items-start gap-2.5 rounded-xl border border-border bg-surface-1 px-4 py-3">
           <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground" />
           <p className="text-xs text-muted-foreground">
-            Email delivery isn&apos;t set up yet, so invites are <span className="font-medium text-foreground">link-based</span>:
-            create one, copy its link, and send it to your teammate. Links expire in 7 days and are single-use.
+            {emailConfigured ? (
+              <>Invites are <span className="font-medium text-foreground">emailed automatically</span> to your teammate, with a copy-link fallback. Links expire in 7 days and are single-use.</>
+            ) : (
+              <>Email delivery isn&apos;t configured yet, so invites are <span className="font-medium text-foreground">link-based</span>: create one, copy its link, and send it to your teammate. Links expire in 7 days and are single-use.</>
+            )}
           </p>
         </div>
       )}
 
       {/* Pending invitations */}
       {canManage && pendingInvites.length > 0 && (
-        <PendingInvites invites={pendingInvites} pending={pending} run={run} />
+        <PendingInvites invites={pendingInvites} pending={pending} run={run} emailConfigured={emailConfigured} />
       )}
 
       {soloMember ? (
@@ -216,7 +221,7 @@ export function TeamClient({
         />
       )}
 
-      {inviteOpen && <InviteModal toast={toast} onClose={() => setInviteOpen(false)} onDone={() => router.refresh()} />}
+      {inviteOpen && <InviteModal toast={toast} emailConfigured={emailConfigured} onClose={() => setInviteOpen(false)} onDone={() => router.refresh()} />}
 
       {manageLinksFor && (
         <SupportLinksModal
@@ -233,21 +238,28 @@ export function TeamClient({
 }
 
 function PendingInvites({
-  invites, pending, run,
+  invites, pending, run, emailConfigured,
 }: {
   invites: PendingInvite[]
   pending: boolean
   run: (p: Promise<{ ok: true } | { error: string }>, success: string) => void
+  emailConfigured: boolean
 }) {
   const toast = useToast()
   const [busy, startBusy] = useTransition()
 
+  // Rotate the token (invalidating the old link) and copy the fresh one. When a
+  // provider is configured this also re-emails the invite, so message accordingly.
   const copyLink = (id: string) => {
     startBusy(async () => {
       const res = await refreshInviteLink(id)
       if ('error' in res) { toast.error(INVITE_ERRORS[res.error] ?? 'Could not generate a link.'); return }
       const ok = await copy(inviteLink(res.token))
-      toast[ok ? 'success' : 'error'](ok ? 'Fresh invite link copied to clipboard' : 'Copy failed — try again')
+      if (res.emailSent) {
+        toast.success(ok ? 'Invite re-sent by email · fresh link copied' : 'Invite re-sent by email')
+      } else {
+        toast[ok ? 'success' : 'error'](ok ? 'Fresh invite link copied to clipboard' : 'Copy failed — try again')
+      }
     })
   }
 
@@ -266,9 +278,10 @@ function PendingInvites({
             <button
               onClick={() => copyLink(inv.id)}
               disabled={busy || pending}
+              title={emailConfigured ? 'Rotate the link and re-send the invite email' : 'Rotate and copy a fresh invite link'}
               className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-2xs text-muted-foreground hover:bg-surface-1 hover:text-foreground disabled:opacity-50"
             >
-              <Link2 className="h-3 w-3" /> Copy link
+              <Link2 className="h-3 w-3" /> {emailConfigured ? 'Resend' : 'Copy link'}
             </button>
             <button
               onClick={() => run(revokeInvitation(inv.id), 'Invitation revoked')}
@@ -285,9 +298,10 @@ function PendingInvites({
 }
 
 function InviteModal({
-  toast, onClose, onDone,
+  toast, emailConfigured, onClose, onDone,
 }: {
   toast: ReturnType<typeof useToast>
+  emailConfigured: boolean
   onClose: () => void
   onDone: () => void
 }) {
@@ -296,16 +310,23 @@ function InviteModal({
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<string>('member')
   const [link, setLink] = useState<string | null>(null)
+  const [sent, setSent] = useState(false)
   const [pending, startTransition] = useTransition()
 
   const submit = () => {
+    const to = email.trim()
     startTransition(async () => {
       const res = await inviteMember({ firstName: first, lastName: last, email, role })
       if ('error' in res) { toast.error(INVITE_ERRORS[res.error] ?? 'Could not create the invite.'); return }
       const l = inviteLink(res.token)
       setLink(l)
-      await copy(l)
-      toast.success('Invite created — link copied to clipboard')
+      setSent(res.emailSent)
+      if (res.emailSent) {
+        toast.success(`Invite email sent to ${to}`)
+      } else {
+        await copy(l)
+        toast.success(emailConfigured ? 'Invite created — email didn’t send, link copied' : 'Invite created — link copied to clipboard')
+      }
       onDone()
     })
   }
@@ -320,7 +341,17 @@ function InviteModal({
 
         {link ? (
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">Send this single-use link to your teammate. It expires in 7 days.</p>
+            {sent ? (
+              <p className="inline-flex items-start gap-1.5 text-xs text-jubo-green">
+                <CircleCheck className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                <span className="text-muted-foreground">Invite email sent. Here&apos;s the same single-use link as a backup — it expires in 7 days.</span>
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {emailConfigured ? 'The email didn’t send — copy this single-use link and send it manually. ' : 'Send this single-use link to your teammate. '}
+                It expires in 7 days.
+              </p>
+            )}
             <div className="flex items-center gap-2">
               <code className="block flex-1 truncate rounded-md border border-border bg-surface-1 px-2 py-1.5 text-2xs text-foreground">{link}</code>
               <button onClick={async () => { const ok = await copy(link); toast[ok ? 'success' : 'error'](ok ? 'Copied' : 'Copy failed') }} className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-2xs font-medium text-primary-foreground hover:bg-primary/90">
