@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Loader2, MessageSquare, Phone, Mail, Plug, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
 import { getCommunicateContext, type CommunicateContext } from '../communicate'
 import { SMSComposeBox } from '@/features/conversations/compose/SMSComposeBox'
+import { EmailComposeBox } from '@/features/communications/email/EmailComposeBox'
 import { CommunicationActions } from './CommunicationActions'
 import { NoteList } from '@/features/workspace/notes/NoteList'
 import { cn } from '@/lib/utils'
@@ -78,20 +79,35 @@ export function CommunicateView({ recordId, organizationId }: { recordId: string
         )}
       </div>
 
+      {/* Email — real send via Resend */}
+      <div className="rounded-xl border border-border bg-card p-3">
+        <p className="mb-2 flex items-center gap-1.5 jubo-los-section-label">
+          <Mail className="h-3 w-3" /> Email
+        </p>
+        {!ctx.emailConnected ? (
+          <Link href="/settings/communications" className="flex items-center gap-2 rounded-lg border border-dashed border-border px-3 py-3 text-xs text-muted-foreground hover:bg-surface-1">
+            <Plug className="h-3.5 w-3.5" /> Connect email (Resend) to enable sending →
+          </Link>
+        ) : !ctx.email ? (
+          <div className="rounded-lg border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">Add an email address to this record to enable email.</div>
+        ) : (
+          <EmailComposeBox recordId={recordId} toEmail={ctx.email} onSent={load} />
+        )}
+      </div>
+
       {/* Notes + @mentions (real) */}
       <div className="rounded-xl border border-border bg-card p-3">
         <p className="mb-2 jubo-los-section-label">Notes</p>
         <NoteList organizationId={organizationId} recordId={recordId} notes={ctx.notes} currentUserId={ctx.currentUserId} members={ctx.members} />
       </div>
 
-      {/* Call / Email — honest log-only */}
+      {/* Call — honest log-only (no Voice integration) */}
       <div className="rounded-xl border border-border bg-card p-3">
-        <p className="mb-2 jubo-los-section-label">Log call / email</p>
+        <p className="mb-2 jubo-los-section-label">Log call</p>
         <div className="mb-2 flex flex-wrap gap-2 text-xs">
           {ctx.phone && <a href={`tel:${ctx.phone}`} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 hover:bg-surface-1"><Phone className="h-3 w-3" /> Call {ctx.phone}</a>}
-          {ctx.email && <a href={`mailto:${ctx.email}`} className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 hover:bg-surface-1"><Mail className="h-3 w-3" /> Email {ctx.email}</a>}
         </div>
-        {/* Existing real logger — records call outcomes / email / meeting (logging only). */}
+        {/* Existing real logger — records call outcomes (logging only). */}
         <CommunicationActions recordId={recordId} onChanged={load} />
       </div>
     </div>
