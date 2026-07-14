@@ -32,6 +32,7 @@ import { ChevronDown, Columns3, MessageSquare, Plus, UserPlus, FileText } from '
 import { createClient } from '@/lib/supabase/client'
 import { useOrganization } from '@/providers/OrganizationProvider'
 import { reorderBoards, updateBoard } from '@/features/boards/actions'
+import { isWorkLoansBoard } from '@/features/boards/workLoans'
 import { useSidebarSectionCollapsed } from '@/hooks/useSidebarSectionCollapsed'
 import { useSidebarSectionLabel } from '@/hooks/useSidebarSectionLabel'
 import { useSidebarSlot } from '@/hooks/useSidebarSlot'
@@ -58,18 +59,9 @@ interface Board {
 
 type RecordRow = { id: string; board_id: string | null; group_id: string | null; status: string | null; value: number | null; parent_record_id: string | null }
 
-// Work Loans = the active loan pipeline. Primary signal is the STORED
-// board_type ('pipeline'); the name matchers only catch journey boards that
-// were created under another type. Everything else reads as Generate.
-const WORK_LOAN_NAME_MATCHERS = [
-  'phase', 'lead capture', 'post closing', 'post-closing', 'in process', 'underwrit', 'initial consult',
-]
-
-export function isWorkLoansBoard(b: { name: string; board_type: string }): boolean {
-  if (b.board_type === 'pipeline') return true
-  const n = b.name.toLowerCase()
-  return WORK_LOAN_NAME_MATCHERS.some((m) => n.includes(m))
-}
+// isWorkLoansBoard lives in the server-safe '@/features/boards/workLoans' util
+// (imported above) so server code — the dashboard overview queries — can call it
+// without crossing the client boundary. boardSectionKey stays here (client-only).
 
 /** Display group for a board: the per-browser override (drag between groups)
  *  first, then the derived classification. Shared by the sidebar and the All

@@ -24,7 +24,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { pickLoanAmountFieldId, loanAmountForSum } from '@/features/fields/loanAmount'
-import { isWorkLoansBoard } from '@/features/boards/components/DynamicBoardsSidebarSection'
+import { isWorkLoansBoard } from '@/features/boards/workLoans'
 import { getFollowUpsDue, type FollowUpDueItem } from '@/features/communications/queries'
 import { getProductionGoals } from '@/features/goals/queries'
 import { buildThemeDayData } from '@/features/prospecting/themeday/queues'
