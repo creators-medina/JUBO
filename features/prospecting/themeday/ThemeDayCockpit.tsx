@@ -367,6 +367,11 @@ export function ThemeDayCockpit({ data, streak, organizationId, goal: goalProp, 
               {name} — not found
             </span>
           ))}
+          {/* Phase Hybrid — the day→board mapping is now editable. */}
+          <Link href="/prospecting/settings"
+            className="inline-flex items-center gap-1 rounded-full border border-white/20 px-2.5 py-1 text-xs font-medium text-white/70 transition-colors hover:bg-white/10 hover:text-white">
+            Edit call days
+          </Link>
         </div>
 
         {/* Today's playbook */}
