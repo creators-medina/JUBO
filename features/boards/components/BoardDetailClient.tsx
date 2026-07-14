@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useCallback, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark, Zap, MoreVertical, Copy, Archive, Pencil, Loader2, Rows3, LayoutGrid, StickyNote } from 'lucide-react'
+import { Plus, Settings, ChevronLeft, Search, X, SlidersHorizontal, Columns3, Bookmark, Zap, MoreVertical, Copy, Archive, Pencil, Loader2, Rows3, LayoutGrid, CalendarDays, StickyNote } from 'lucide-react'
 import Link from 'next/link'
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, defaultDropAnimationSideEffects, useDndContext } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent, DropAnimation } from '@dnd-kit/core'
@@ -14,6 +14,7 @@ import { CreateRecordModal } from '@/features/records/components/CreateRecordMod
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import { BoardGroupTable } from './BoardGroupTable'
 import { BoardKanbanView, type Stage } from './BoardKanbanView'
+import { BoardCalendarView } from './BoardCalendarView'
 import { KanbanCardFace, formatCellValue } from './KanbanCardFace'
 import { BoardPhaseSummaryGraph } from './BoardPhaseSummaryGraph'
 import { BoardSettingsModal } from './BoardSettingsModal'
@@ -189,19 +190,20 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   // with no saved preference the board's OWN default_view (an optional
   // display_settings key, set in Board Settings) applies; kanban remains the
   // final fallback. Boards without the setting behave exactly as before.
+  // Phase F — 'calendar' joins the union as a read-only third view.
   const { user: authUser } = useAuth()
   const boardDefaultView: 'table' | 'kanban' =
     ((board.display_settings as Record<string, unknown> | null)?.default_view === 'table' ? 'table' : 'kanban')
-  const [viewMode, setViewMode] = useState<'table' | 'kanban'>(boardDefaultView)
+  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'calendar'>(boardDefaultView)
   const viewModeStorageKey = LOCAL_KEYS.boardViewMode(authUser?.id, board.id)
   useEffect(() => {
     try {
       const v = window.localStorage.getItem(viewModeStorageKey)
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (v === 'table' || v === 'kanban') setViewMode(v)
+      if (v === 'table' || v === 'kanban' || v === 'calendar') setViewMode(v)
     } catch { /* default stands */ }
   }, [viewModeStorageKey])
-  const changeViewMode = (m: 'table' | 'kanban') => {
+  const changeViewMode = (m: 'table' | 'kanban' | 'calendar') => {
     setViewMode(m)
     try { window.localStorage.setItem(viewModeStorageKey, m) } catch { /* view-only */ }
   }
@@ -786,6 +788,13 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
             >
               <Rows3 className="w-3 h-3" /> Table
             </button>
+            <button
+              onClick={() => changeViewMode('calendar')}
+              className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs transition-colors', viewMode === 'calendar' ? 'bg-jubo-navy text-white' : 'text-jubo-text-soft hover:text-jubo-text')}
+              title="Calendar view"
+            >
+              <CalendarDays className="w-3 h-3" /> Calendar
+            </button>
           </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
@@ -951,6 +960,14 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                 onSelectRecord={(id, title) => openWorkspace({ recordId: id, title })}
                 onAddRecord={(groupId) => setShowCreateRecord(groupId)}
                 onRenameRecord={handleRenameRecord}
+              />
+            ) : viewMode === 'calendar' ? (
+              <BoardCalendarView
+                records={filteredRecords}
+                stages={stages}
+                fields={localFields}
+                fieldValuesIndex={fieldValuesIndex}
+                onSelectRecord={(id, title) => openWorkspace({ recordId: id, title })}
               />
             ) : (
               <div className="min-w-max">
