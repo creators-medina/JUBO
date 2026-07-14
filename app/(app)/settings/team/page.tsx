@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getTeamMembers, getPendingInvitations, getSupportLinks } from '@/features/organizations/queries'
 import { isOrgAdmin } from '@/features/auth/guards'
+import { isEmailConfigured } from '@/lib/email/provider'
 import { TeamClient } from '@/features/organizations/TeamClient'
 
 export const dynamic = 'force-dynamic'
@@ -37,6 +38,7 @@ export default async function TeamSettingsPage() {
       canManage={canManage}
       currentRole={m.role}
       currentUserId={user.id}
+      emailConfigured={isEmailConfigured()}
     />
   )
 }
