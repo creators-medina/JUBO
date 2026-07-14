@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Check, Lock } from 'lucide-react'
+import { Building2, Check, Lock, Download } from 'lucide-react'
 import { useToast } from '@/features/feedback/ToastProvider'
 import { updateOrganizationSettings } from './actions'
+import { exportRecordsCsv, exportRecordFieldsCsv, exportNotesTasksCsv, type ExportResult } from './exportData'
 import type { OrganizationSettings } from './queries'
 
 // A pragmatic shortlist — full IANA picker can come later. Covers US mortgage teams.
@@ -63,6 +64,28 @@ export function OrganizationSettingsClient({
 
   const disabled = !canEdit || pending
   const initials = (name || org.slug || 'O').trim().slice(0, 2).toUpperCase()
+
+  const [exporting, setExporting] = useState<string | null>(null)
+  const runExport = (key: string, fn: () => Promise<ExportResult>) => {
+    setExporting(key)
+    fn()
+      .then((res) => {
+        if ('error' in res) {
+          toast.error(res.error === 'forbidden' ? 'Only an owner or admin can export data.' : 'Could not export.')
+          return
+        }
+        const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = res.filename
+        a.click()
+        URL.revokeObjectURL(url)
+        toast.success('Export ready — check your downloads')
+      })
+      .catch(() => toast.error('Could not export.'))
+      .finally(() => setExporting(null))
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">
@@ -124,7 +147,37 @@ export function OrganizationSettingsClient({
           </button>
         )}
       </section>
+
+      {/* Data export — owner/admin only. Downloads current-org CSVs; read-only. */}
+      {canEdit && (
+        <section className="space-y-3 rounded-xl border border-border bg-card p-5">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Export your data</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Download your organization&apos;s CRM data as CSV — your data is yours. Exports are read-only and scoped to this
+              workspace. Message/SMS bodies are not included (see the offboarding guide).
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ExportButton label="Records" busy={exporting === 'records'} onClick={() => runExport('records', exportRecordsCsv)} />
+            <ExportButton label="Record fields" busy={exporting === 'fields'} onClick={() => runExport('fields', exportRecordFieldsCsv)} />
+            <ExportButton label="Notes & tasks" busy={exporting === 'notes'} onClick={() => runExport('notes', exportNotesTasksCsv)} />
+          </div>
+        </section>
+      )}
     </div>
+  )
+}
+
+function ExportButton({ label, busy, onClick }: { label: string; busy: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={busy}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-1 px-3 py-2 text-xs font-medium text-foreground hover:bg-surface-2 disabled:opacity-50"
+    >
+      <Download className="h-3.5 w-3.5" /> {busy ? 'Exporting…' : label}
+    </button>
   )
 }
 
