@@ -2,8 +2,19 @@
 
 The 30-day production-ops blocker slice from the market-readiness audit: error
 monitoring, app-level error boundaries, a password-reset flow, and the setup
-docs. **Held for review** — it adds a monitoring provider integration, touches
-auth (password reset), and adds optional env + a session-routing allow-list.
+docs. **Held for review.**
+
+> ## ✅ Safe to merge with ZERO configuration
+> - **No Vercel changes required.** No env var is needed; nothing must be set.
+> - **No Supabase Dashboard changes required.** No redirect URL, no email/SMTP,
+>   no auth-setting change.
+> - **Monitoring is INACTIVE** until DSNs are added later (fully inert without
+>   them — no throw, no log, no network).
+> - **Password reset is NOT exposed to users** — the code ships dormant
+>   (unlinked and not routed) until the Supabase reset redirect URL is
+>   configured later.
+> - **The only immediately active user-facing improvement is the error
+>   boundaries** (friendly crash pages), which need no external setup.
 
 ---
 
@@ -91,60 +102,64 @@ keeps dev/local from sending events. (Local dev has no DSN ⇒ no-op.)
   app; **Try again** (reset) + report. No stack trace shown.
 - Existing `app/invite/error.tsx` and `app/not-found.tsx` unchanged.
 
-## 8. Password reset flow (Supabase Auth standard)
+## 8. Password reset flow (implemented, shipped DORMANT)
 
-1. **Login page** now has a **"Forgot password?"** link.
-2. **`/forgot-password`** — collects an email and calls
-   `supabase.auth.resetPasswordForEmail(email, { redirectTo: <site>/reset-password })`.
-   Always shows the same generic "if an account exists, we sent a link"
-   confirmation (no account-enumeration signal).
-3. Supabase sends the reset email; the link returns the user to
-   **`/reset-password`**, which exchanges the PKCE `code` for a recovery session
-   (`exchangeCodeForSession`), confirms a session exists, then calls
-   `supabase.auth.updateUser({ password })` (min 8 chars, confirm match). On
-   success it routes to `/dashboard`. Invalid/expired/used link ⇒ a safe
-   "request a new link" state.
-4. **`proxy.ts`** allows `/forgot-password` and `/reset-password` while logged
-   out, and (crucially) does **not** treat them as auth routes, so a recovery
-   session reaching `/reset-password` is not bounced to `/dashboard` before the
-   password is set.
+The full Supabase-standard flow is implemented, but **intentionally not exposed
+or activated in this PR** — it is safe to merge and does nothing until the
+one-time activation (§9) is done later.
 
-No custom password storage, no token exposure, no weakening of auth — this is
-Supabase's own recovery flow. Auth remains email+password via `@supabase/ssr`.
+- **Dormant now:** the "Forgot password?" link is **not** rendered on the login
+  page, and `proxy.ts` does **not** allow-list the reset routes — so logged-out
+  users are redirected to `/login` if they try to reach them. No user is routed
+  into an unconfigured flow.
+- **The code that exists** (ready for later activation):
+  - **`/forgot-password`** — calls
+    `supabase.auth.resetPasswordForEmail(email, { redirectTo: <site>/reset-password })`
+    with a generic "if an account exists, we sent a link" confirmation (no
+    account-enumeration signal).
+  - **`/reset-password`** — exchanges the PKCE `code` for the recovery session
+    (`exchangeCodeForSession`), confirms a session, then
+    `supabase.auth.updateUser({ password })` (min 8, confirm match) → `/dashboard`;
+    invalid/expired/used link ⇒ safe "request a new link" state.
+- No custom password storage, no token exposure, no auth weakening. Auth remains
+  email+password via `@supabase/ssr` — **unchanged** by this PR.
 
-## 9. Supabase / Vercel setup steps
+## 9. Later activation (NOT required for this PR — no setup needed to merge)
 
-**Monitoring (optional):**
+Nothing here is needed to merge or to keep the app safe. These are the steps to
+turn each capability on **later, when you choose**.
+
+**Monitoring (optional, later):**
 1. Create a Sentry project (platform: JavaScript/Next.js).
-2. In Vercel → Project → Settings → Environment Variables, set `SENTRY_DSN` and
-   `NEXT_PUBLIC_SENTRY_DSN` to the project DSN (Production/Preview only).
-3. Redeploy. Errors will flow to Sentry; local dev stays silent.
+2. In Vercel → Settings → Environment Variables, set `SENTRY_DSN` +
+   `NEXT_PUBLIC_SENTRY_DSN` (Production/Preview). Redeploy. Until then the
+   reporter is fully inert.
 
-**Password reset (required for it to actually email):**
-1. Supabase → Authentication → **URL Configuration**: add
-   `https://<your-domain>/reset-password` (and the preview domains) to the
-   **Redirect URLs** allowlist.
-2. Ensure `NEXT_PUBLIC_SITE_URL` is set to the production origin.
-3. Supabase → Authentication → **Email**: confirm the "Reset Password" template
-   is enabled and SMTP/email delivery is configured (Supabase's built-in email
-   has low rate limits — configure a custom SMTP sender for production volume).
-4. Recommended (separate, not in this PR): raise the minimum password length and
-   confirm email-confirmation policy in Supabase Auth settings.
+**Password reset (later — Supabase + one small code change):**
+1. Supabase → Authentication → **URL Configuration** → add
+   `https://<your-domain>/reset-password` (+ preview domains) to **Redirect URLs**.
+2. Confirm the "Reset Password" email template is enabled (and, for volume, a
+   custom SMTP sender); ensure `NEXT_PUBLIC_SITE_URL` is the production origin.
+3. Re-expose the flow in code: render the "Forgot password?" link on the login
+   page and re-add the `/forgot-password` + `/reset-password` allow-list to
+   `proxy.ts` (both marked with a NOTE comment where they were removed). This is
+   a tiny follow-up PR — no schema, no migration.
 
 ## 10. Manual test checklist
 
-- [ ] App builds and the login page loads.
-- [ ] "Forgot password?" link appears on login.
-- [ ] `/forgot-password` submits without crashing; shows the generic confirmation.
-- [ ] With Supabase redirect URL configured: the email arrives and its link opens
-  `/reset-password`, which lets you set a new password and lands on `/dashboard`.
-- [ ] Logging in with the new password works.
-- [ ] An expired/used reset link shows the "request a new link" state (no crash).
+**Active now (no setup):**
+- [ ] App builds and the login page loads normally.
+- [ ] The login page shows **no** "Forgot password?" link (dormant).
 - [ ] Force an error in a page → `app/(app)/error.tsx` shows the friendly card
   with **Try again**; no stack trace.
-- [ ] With a Sentry DSN set in a deployed env, a thrown error appears in Sentry;
-  with no DSN (local), nothing is sent.
+- [ ] With no Sentry DSN (default), nothing is sent and nothing errors/logs.
 - [ ] No CRM/SMS/billing/invite behavior changed.
+
+**Later, after activation (§9):**
+- [ ] With DSNs set in a deployed env, a thrown error appears in Sentry.
+- [ ] After re-exposing the link + allow-list + Supabase redirect URL:
+  `/forgot-password` → email → `/reset-password` → new password → `/dashboard`;
+  expired/used link shows the safe "request a new link" state.
 
 ## 11. Remaining ops gaps
 
@@ -159,10 +174,12 @@ Supabase's own recovery flow. Auth remains email+password via `@supabase/ssr`.
 
 ## 12. External beta readiness after this PR
 
-**Materially improved.** Once the DSNs are set, production errors are visible
-and alertable instead of silent; users hit friendly error pages instead of a
-blank crash; and account recovery works end-to-end via Supabase's standard
-flow (pending the one-time Supabase redirect-URL + email-template setup).
-Combined with the earlier hardening PRs, this clears the operational blockers
-for a restricted private beta. Remaining items (§11) are refinements, not
-blockers.
+**Improved immediately, with more available on demand.** Right now — with zero
+config — users hit **friendly error pages instead of a blank crash**, which is
+the one active user-facing win. The monitoring reporter and the full
+password-reset flow ship **ready but dormant**: flip monitoring on by setting
+the DSNs, and turn reset on with the small §9 activation — neither is required
+for this PR to be safe, and neither depends on anything for the app to keep
+working today. Combined with the earlier hardening PRs, the error-visibility and
+recovery foundation is in place for a restricted private beta; activating it is
+a later, low-risk toggle.
