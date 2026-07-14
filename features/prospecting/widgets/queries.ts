@@ -3,6 +3,7 @@
 // dashboard's bulk widget fetch (which runs in an authenticated session).
 // ─────────────────────────────────────────────────────────────────────────
 
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { getProspectingMetrics } from '../metrics'
 import { getActiveSession, getLiveSessionStats } from '../sessions/queries'
@@ -14,8 +15,12 @@ import type {
   FollowupsDueData, ActiveCallSessionData, HotLeadsWidgetConfig, FollowupsDueWidgetConfig,
 } from './types'
 
-/** Resolve the calling user, but only if they belong to the dashboard's org. */
-async function currentUser(orgId: string): Promise<string | null> {
+/**
+ * Resolve the calling user, but only if they belong to the dashboard's org.
+ * cache()d so the dashboard's several prospecting widgets share ONE auth +
+ * membership lookup per request instead of one each.
+ */
+const currentUser = cache(async (orgId: string): Promise<string | null> => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
@@ -27,7 +32,7 @@ async function currentUser(orgId: string): Promise<string | null> {
     .limit(1)
     .maybeSingle()
   return membership ? user.id : null
-}
+})
 
 export async function getProspectingSummaryData(orgId: string): Promise<ProspectingSummaryData | null> {
   const userId = await currentUser(orgId)

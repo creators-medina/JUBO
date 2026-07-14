@@ -3,6 +3,7 @@
 // bulk widget fetch. Each maps the live CoachingSnapshot to a widget shape.
 // ─────────────────────────────────────────────────────────────────────────
 
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { isConnect } from '@/features/communications/outcomes'
 import { getCoachingSnapshot } from '../queries'
@@ -12,7 +13,9 @@ import type {
   TalkToPaceWidgetConfig, PartnerGrowthWidgetConfig,
 } from '../types'
 
-async function currentUser(orgId: string): Promise<string | null> {
+// Wrapped in React cache() so the dashboard's many coaching widgets share ONE
+// auth + membership lookup per request instead of one each.
+const currentUser = cache(async (orgId: string): Promise<string | null> => {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
@@ -20,7 +23,7 @@ async function currentUser(orgId: string): Promise<string | null> {
     .from('organization_members').select('organization_id')
     .eq('user_id', user.id).eq('organization_id', orgId).limit(1).maybeSingle()
   return m ? user.id : null
-}
+})
 
 export async function getExecutionScoreData(orgId: string): Promise<ExecutionScoreData | null> {
   const userId = await currentUser(orgId)
