@@ -3,7 +3,7 @@
 import * as Icons from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
-  textValue, numberValue, dateValue, rawValue, formatCurrency, formatDate, daysUntil, currentGroupName,
+  textValue, numberValue, dateValue, rawValue, formatCurrency, formatDate, daysUntil, currentGroupName, loanAmountValue,
 } from '../data'
 import { DEFAULT_BASELINES } from '@/features/coaching/calculations/baselines'
 import type { MortgageData, OpportunitySignal } from '../types'
@@ -55,7 +55,7 @@ export function LeadOverview({ data }: { data: MortgageData }) {
   return (
     <SectionCard title="Lead Overview" icon="UserPlus" accent="text-blue-400">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <Fact label="Loan Amount" value={formatCurrency(numberValue(data, 'loan_amount'))} emphasis />
+        <Fact label="Loan Amount" value={formatCurrency(loanAmountValue(data))} emphasis />
         <Fact label="Stage" value={currentGroupName(data)} />
         <Fact label="Lead Source" value={textValue(data, 'lead_source')} />
         <Fact label="Loan Purpose" value={textValue(data, 'loan_purpose')} />
@@ -74,7 +74,7 @@ export function LoanSummary({ data }: { data: MortgageData }) {
   return (
     <SectionCard title="Loan Summary" icon="GitBranch" accent="text-violet-400">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <Fact label="Loan Amount" value={formatCurrency(numberValue(data, 'loan_amount'))} emphasis />
+        <Fact label="Loan Amount" value={formatCurrency(loanAmountValue(data))} emphasis />
         <Fact label="Loan Type" value={textValue(data, 'loan_type')} />
         <Fact label="Purpose" value={textValue(data, 'loan_purpose')} />
         <Fact label="Est. Closing" value={formatDate(dateValue(data, 'target_close_date'))} />
@@ -148,7 +148,7 @@ export function PartnerCoachingPanel({ data }: { data: MortgageData }) {
 
 // ── Loan contribution toward goals (Phase 24) ───────────────────────────────
 export function LoanContributionPanel({ data }: { data: MortgageData }) {
-  const loanAmount = numberValue(data, 'loan_amount') ?? 0
+  const loanAmount = loanAmountValue(data) ?? 0
   const commission = DEFAULT_BASELINES.avgCommission
   return (
     <SectionCard title="Goal Impact" icon="Zap" accent="text-purple-400">
@@ -180,7 +180,7 @@ export function PastClientOverview({ data }: { data: MortgageData }) {
         <Fact label="Closed" value={formatDate(closed)} />
         <Fact label="Loan Anniversary" value={anniversary} />
         <Fact label="Current Rate" value={numberValue(data, 'current_rate') != null ? `${numberValue(data, 'current_rate')}%` : '—'} />
-        <Fact label="Loan Amount" value={formatCurrency(numberValue(data, 'loan_amount'))} />
+        <Fact label="Loan Amount" value={formatCurrency(loanAmountValue(data))} />
         <Fact label="Refi Opportunity" value={rawValue(data, 'refi_opportunity') ? 'Yes' : '—'} />
       </div>
     </SectionCard>

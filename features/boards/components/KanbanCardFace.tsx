@@ -11,6 +11,7 @@
 
 import { Building2, Clock, Mail, Phone, User } from 'lucide-react'
 import { parseOptions } from '@/features/fields/status'
+import { pickLoanAmountFieldId } from '@/features/fields/loanAmount'
 import { computeGroupChecklist } from '@/features/fields/checklist'
 import { type VisibilityIndex } from '@/features/fields/visibility'
 import { cn } from '@/lib/utils'
@@ -21,7 +22,8 @@ const COMMON_PRIORITY: Record<string, number> = { email: 0, phone: 1, currency: 
 export function formatCellValue(field: any, fv: any): string {
   if (!fv) return ''
   switch (field.field_type) {
-    case 'currency': return fv.value_number != null ? `$${Number(fv.value_number).toLocaleString()}` : ''
+    // Whole dollars — matches the contact card / tracker currency formatting.
+    case 'currency': return fv.value_number != null ? `$${Number(fv.value_number).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : ''
     case 'number': case 'rating': return fv.value_number != null ? String(fv.value_number) : ''
     case 'boolean': case 'checklist': return fv.value_boolean === true ? 'Yes' : fv.value_boolean === false ? 'No' : ''
     case 'date': case 'datetime': return fv.value_date ? fv.value_date.split('T')[0] : (fv.value_text ?? '')
@@ -76,9 +78,11 @@ export function buildKanbanFace(opts: {
   const statusColor = statusLabel && dsf
     ? (parseOptions(dsf.config).find((o) => o.label === statusLabel)?.color || STATUS_EMPTY)
     : STATUS_EMPTY
-  // Loan amount / value → surfaced on the top-right (the one card accent value),
-  // so it isn't buried in the detail rows.
-  const currencyField = groupFields.find((f) => f.common_field_key_id && f.field_type === 'currency' && !f.is_default_status)
+  // Loan amount → surfaced on the top-right (the one card accent value). Resolve
+  // the loan_amount field PRECISELY (not "the first currency field") so
+  // appraised_value / property_value are never shown as the loan amount.
+  const loanFieldId = pickLoanAmountFieldId(groupFields)
+  const currencyField = loanFieldId ? groupFields.find((f) => f.id === loanFieldId) : undefined
   const amount = currencyField ? formatCellValue(currencyField, fvMap[currencyField.id]) : ''
   // Contact details (email / phone / other) — currency excluded, kept compact.
   const common = groupFields
@@ -104,16 +108,26 @@ function commonIcon(type?: string) {
 // Condensed, uniform card: cream shell (from the card button), navy name, one
 // muted-green loan amount, taupe details, a subtle status dot, and a slim
 // checklist bar. Missing fields collapse their row entirely (no empty gaps).
-export function KanbanCardFace({ title, statusLabel, statusColor, amount, common, hasOwner, updatedAt, checklist }: KanbanFace) {
+// Optional rename hooks: onTitleRenameStart arms right-click on the name;
+// renameEditor swaps the name for a host-provided inline editor.
+export function KanbanCardFace({
+  title, statusLabel, statusColor, amount, common, hasOwner, updatedAt, checklist, onTitleRenameStart, renameEditor,
+}: KanbanFace & { onTitleRenameStart?: () => void; renameEditor?: React.ReactNode }) {
   const updatedLabel = formatRelativeTime(updatedAt)
   const checklistDone = checklist.hasChecklist && checklist.percentage === 100
   return (
     <>
       {/* Top — borrower name (left) + loan amount (right). */}
       <div className="flex items-baseline justify-between gap-2">
-        <span className="min-w-0 truncate text-sm font-semibold leading-snug tracking-tight text-jubo-navy">
-          {title || 'Untitled'}
-        </span>
+        {renameEditor ?? (
+          <span
+            className="min-w-0 truncate text-sm font-semibold leading-snug tracking-tight text-jubo-navy"
+            title={onTitleRenameStart ? 'Right-click to rename' : undefined}
+            onContextMenu={onTitleRenameStart ? (e) => { e.preventDefault(); e.stopPropagation(); onTitleRenameStart() } : undefined}
+          >
+            {title || 'Untitled'}
+          </span>
+        )}
         {amount && (
           <span className="flex-shrink-0 text-sm font-semibold tabular-nums text-jubo-green">{amount}</span>
         )}

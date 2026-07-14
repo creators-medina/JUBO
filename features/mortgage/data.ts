@@ -4,9 +4,28 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import type { MortgageData } from './types'
+import { pickLoanAmountFieldId, resolveLoanAmount } from '@/features/fields/loanAmount'
 
 function fieldBySlug(data: MortgageData, slug: string) {
   return data.fields.find((f) => f.slug === slug)
+}
+
+/**
+ * The record's BASE loan amount as a number (or null when no source exists).
+ *
+ * Resolves the loan-amount field PRECISELY (by common key / name allowlist /
+ * slug — not "the first currency field", so appraised_value/property_value are
+ * never mistaken for it), reads its value_number, then falls back to the legacy
+ * records.value column. Shared with the board header + sidebar totals so every
+ * surface agrees. Prefer this over `numberValue(data, 'loan_amount')`, which
+ * only matches the literal slug and shows "—" for `amount`/`preapproved_amount`
+ * fields that are common-keyed to loan_amount under a different slug.
+ */
+export function loanAmountValue(data: MortgageData): number | null {
+  const fieldId = pickLoanAmountFieldId(data.fields as Parameters<typeof pickLoanAmountFieldId>[0])
+  const fv = fieldId ? data.fieldValues.find((v) => v.field_id === fieldId) : undefined
+  const legacy = (data.record as { value?: number | string | null } | undefined)?.value ?? null
+  return resolveLoanAmount(fv?.value_number ?? null, legacy)
 }
 
 /** Raw value for a field slug (text/number/date/json/bool), or null. */

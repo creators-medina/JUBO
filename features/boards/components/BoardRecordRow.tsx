@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, D
 import { EditableCell } from './EditableCell'
 import { NotesCell } from './NotesCell'
 import { useHoverCard, BorrowerPreviewPanel } from './BoardHoverCard'
+import { InlineRenameText } from '@/components/primitives/InlineRenameText'
 import { isNotesField } from '../notes'
 import { moveRecord, createSubitem } from '@/features/records/actions'
 import { parseOptions } from '@/features/fields/status'
@@ -41,9 +42,11 @@ interface Props {
   onOptimisticMove?: (recordId: string, toGroupId: string) => void
   notesSummary?: NotesSummary
   onOpenNotes?: (recordId: string) => void
+  /** Inline title rename (records.title via the existing updateRecord). */
+  onRename?: (title: string) => Promise<void>
 }
 
-export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId, subitems = [], fieldValuesIndex, isSelected, onToggleSelect, onClick, onOpenSubitem, onOptimisticMove, notesSummary, onOpenNotes }: Props) {
+export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId, subitems = [], fieldValuesIndex, isSelected, onToggleSelect, onClick, onOpenSubitem, onOptimisticMove, notesSummary, onOpenNotes, onRename }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [expanded, setExpanded] = useState(false)
@@ -162,7 +165,19 @@ export function BoardRecordRow({ record, fields, fieldValueMap, groups, boardId,
           {record.priority !== 'none' && PRIORITY_COLORS[record.priority] && (
             <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', PRIORITY_COLORS[record.priority])} />
           )}
-          <span className="text-sm font-medium text-foreground truncate">{record.title}</span>
+          {/* Right-click / two-finger click to rename (single click opens the
+              record, so double-click is disabled here by design). */}
+          {onRename ? (
+            <InlineRenameText
+              value={record.title ?? ''}
+              doubleClick={false}
+              className="min-w-0 truncate text-sm font-medium text-foreground"
+              inputClassName="text-sm font-medium"
+              onSave={onRename}
+            />
+          ) : (
+            <span className="text-sm font-medium text-foreground truncate">{record.title}</span>
+          )}
           {hasSubitems && (
             <span className="ml-1 rounded-full bg-surface-2 px-1.5 text-2xs text-muted-foreground">{subitems.length}</span>
           )}

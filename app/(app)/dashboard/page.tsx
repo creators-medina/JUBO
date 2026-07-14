@@ -1,7 +1,23 @@
 import { redirect } from 'next/navigation'
+import { Archivo, IBM_Plex_Sans } from 'next/font/google'
 import { createClient } from '@/lib/supabase/server'
-import { getDashboards } from '@/features/dashboards/queries'
-import { DashboardHubClient } from './DashboardHubClient'
+import { buildDashboardOverview } from '@/features/dashboards/overview/queries'
+import { DashboardOverview } from '@/features/dashboards/overview/DashboardOverview'
+
+export const dynamic = 'force-dynamic'
+
+// Design-handoff type (Dashboard.dc.html): Archivo for numbers/headings,
+// IBM Plex Sans for body — scoped to this page via CSS variables.
+const archivo = Archivo({ subsets: ['latin'], weight: ['500', '600', '700', '800'], variable: '--font-archivo' })
+const plex = IBM_Plex_Sans({ subsets: ['latin'], weight: ['400', '500', '600', '700'], variable: '--font-plex' })
+
+// ─────────────────────────────────────────────────────────────────────────
+// /dashboard — the business-overview home screen (Claude Design handoff):
+// KPIs with period deltas, active pipeline, today's theme day, upcoming
+// closings, monthly goal, recent activity, and follow-ups — all live data.
+// (Previously this route redirected to the first widget dashboard; those
+// remain available under Insights → /dashboards/[id].)
+// ─────────────────────────────────────────────────────────────────────────
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -10,23 +26,18 @@ export default async function DashboardPage() {
 
   const { data: membership } = await supabase
     .from('organization_members')
-    .select('organization_id, role, organizations(name)')
+    .select('organization_id')
     .eq('user_id', user.id)
     .limit(1)
     .single()
 
   if (!membership) redirect('/onboarding')
 
-  const orgId = membership.organization_id
-  const dashboards = await getDashboards(orgId)
+  const data = await buildDashboardOverview(membership.organization_id, user.id)
 
-  // Redirect to the first dashboard if one exists
-  if (dashboards.length > 0) {
-    const defaultDash = dashboards.find(d => d.is_default) ?? dashboards[0]
-    redirect(`/dashboards/${defaultDash.id}`)
-  }
-
-  // No dashboards yet — show create-first-dashboard hub
-  const org = membership.organizations as any
-  return <DashboardHubClient organizationId={orgId} orgName={org?.name ?? 'Your workspace'} />
+  return (
+    <div className={`${archivo.variable} ${plex.variable} h-full`}>
+      <DashboardOverview data={data} />
+    </div>
+  )
 }

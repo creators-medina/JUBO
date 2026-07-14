@@ -29,14 +29,17 @@ export async function POST(req: NextRequest) {
   if (!log) return new NextResponse(null, { status: 204 })
 
   const row = log as { id: string; organization_id: string; record_id: string | null; thread_id: string | null; metadata: Record<string, unknown> }
+  // Always validate the Twilio signature before touching delivery status. If the
+  // org's Twilio config is gone (deleted/paused) we cannot validate, so reject —
+  // never apply an unauthenticated status/error update (previously this block was
+  // skipped when config was null, letting a guessed MessageSid spoof statuses).
   const config = await getTwilioConfig(admin, row.organization_id)
-  if (config) {
-    const proto = req.headers.get('x-forwarded-proto') ?? 'https'
-    const host = req.headers.get('host') ?? ''
-    const url = `${proto}://${host}${req.nextUrl.pathname}${req.nextUrl.search}`
-    const valid = validateTwilioSignature({ signature: req.headers.get('x-twilio-signature'), url, params, authToken: config.auth_token })
-    if (!valid) return NextResponse.json({ error: 'invalid_signature' }, { status: 403 })
-  }
+  if (!config) return NextResponse.json({ error: 'twilio_not_configured' }, { status: 403 })
+  const proto = req.headers.get('x-forwarded-proto') ?? 'https'
+  const host = req.headers.get('host') ?? ''
+  const url = `${proto}://${host}${req.nextUrl.pathname}${req.nextUrl.search}`
+  const valid = validateTwilioSignature({ signature: req.headers.get('x-twilio-signature'), url, params, authToken: config.auth_token })
+  if (!valid) return NextResponse.json({ error: 'invalid_signature' }, { status: 403 })
 
   await admin
     .from('communication_logs')

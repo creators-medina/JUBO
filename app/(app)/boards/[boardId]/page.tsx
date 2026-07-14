@@ -47,6 +47,29 @@ export default async function BoardDetailPage({
   const hasNotesColumn = (fields as any[]).some((f) => isNotesField(f))
   const notesByRecord = hasNotesColumn ? await getNotesSummaryForRecords(recordIds) : undefined
 
+  // "This week" outreach progress (header redesign) — READ-ONLY: distinct
+  // records on this board with a non-internal communication logged since
+  // Monday. Powers the week ring + per-stage progress; failure degrades to
+  // hiding the card, never blocking the board.
+  const weekStart = new Date()
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7))
+  weekStart.setHours(0, 0, 0, 0)
+  const { data: weekLogs } = await supabase
+    .from('communication_logs')
+    .select('record_id')
+    .eq('organization_id', membership.organization_id)
+    .neq('channel', 'internal')
+    .gte('occurred_at', weekStart.toISOString())
+    .limit(5000)
+  const contactedIds = new Set((weekLogs ?? []).map((l: { record_id: string | null }) => l.record_id).filter(Boolean))
+  const contactedByGroup: Record<string, number> = {}
+  let contactedTotal = 0
+  for (const r of records as { id: string; group_id: string | null; parent_record_id?: string | null }[]) {
+    if (r.parent_record_id || !contactedIds.has(r.id)) continue
+    contactedTotal += 1
+    if (r.group_id) contactedByGroup[r.group_id] = (contactedByGroup[r.group_id] ?? 0) + 1
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <BoardDetailClient
@@ -58,6 +81,7 @@ export default async function BoardDetailPage({
         fieldValues={fieldValues ?? []}
         organizationId={membership.organization_id}
         notesByRecord={notesByRecord}
+        contactedThisWeek={{ total: contactedTotal, byGroup: contactedByGroup }}
       />
     </div>
   )

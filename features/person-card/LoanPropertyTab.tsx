@@ -37,6 +37,8 @@ export function LoanPropertyTab({ recordId, boardId, organizationId }: { recordI
   const [subtab, setSubtab] = useState<LoanSubtab>('loan')
   const [loading, setLoading] = useState(true)
   const [savingSlug, setSavingSlug] = useState<string | null>(null)
+  // Save failures are NEVER silent — shown in a banner until the next save succeeds.
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!boardId) { setLoading(false); return }
@@ -73,16 +75,39 @@ export function LoanPropertyTab({ recordId, boardId, organizationId }: { recordI
   }, [boardId, organizationId, load])
 
   // Live write-through. Optimistic local update + persist; computed cells re-derive.
+  // A missing field id (earlier provisioning failed) self-heals: re-provision,
+  // reload the id map, and retry once. Any failure reverts the optimistic value
+  // and surfaces a banner — an edit is never dropped silently.
   const save = useCallback(async (slug: string, patch: Partial<Vals[string]>) => {
+    const prevVal = vals[slug] ?? { value_text: null, value_number: null, value_boolean: null, value_date: null }
     setVals((prev) => {
       const cur = prev[slug] ?? { value_text: null, value_number: null, value_boolean: null, value_date: null }
       return { ...prev, [slug]: { ...cur, ...patch } }
     })
-    const fieldId = fieldIdBySlug[slug]
-    if (!fieldId || !boardId) return
+    if (!boardId) return
     setSavingSlug(slug)
-    try { await upsertFieldValue(fieldId, recordId, boardId, patch) } finally { setSavingSlug(null) }
-  }, [fieldIdBySlug, recordId, boardId])
+    try {
+      let fieldId = fieldIdBySlug[slug]
+      if (!fieldId) {
+        await ensureLoanPropertyFields(boardId, organizationId)
+        const supabase = createClient()
+        const { data: fields, error } = await supabase.from('fields').select('id, slug').eq('board_id', boardId)
+        if (error) throw new Error(error.message)
+        const idBySlug: Record<string, string> = {}
+        for (const f of fields ?? []) idBySlug[(f as { slug: string }).slug] = (f as { id: string }).id
+        setFieldIdBySlug(idBySlug)
+        fieldId = idBySlug[slug]
+        if (!fieldId) throw new Error('this field is not set up on this board yet')
+      }
+      await upsertFieldValue(fieldId, recordId, boardId, patch)
+      setSaveError(null)
+    } catch (e) {
+      setVals((prev) => ({ ...prev, [slug]: prevVal })) // revert — server didn't take it
+      setSaveError(`Couldn't save — ${e instanceof Error ? e.message : 'please try again'}`)
+    } finally {
+      setSavingSlug(null)
+    }
+  }, [fieldIdBySlug, recordId, boardId, organizationId, vals])
 
   const num = (slug: string): number | null => vals[slug]?.value_number ?? null
   const isRefi = (vals['loan_purpose']?.value_text ?? 'Purchase') === 'Refinance'
@@ -134,6 +159,14 @@ export function LoanPropertyTab({ recordId, boardId, organizationId }: { recordI
         ))}
         {savingSlug && <span className="ml-auto flex items-center gap-1 text-2xs text-jubo-muted"><Loader2 className="h-3 w-3 animate-spin" /> Saving…</span>}
       </div>
+
+      {/* Save-failure banner — the last edit was reverted; retype to retry. */}
+      {saveError && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-jubo-red/40 bg-jubo-red/10 px-3 py-1.5 text-xs text-jubo-red">
+          <span>{saveError}</span>
+          <button onClick={() => setSaveError(null)} className="flex-shrink-0 font-semibold hover:underline">Dismiss</button>
+        </div>
+      )}
 
       {subtab === 'loan' ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">

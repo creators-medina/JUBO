@@ -13,6 +13,7 @@ export type OnboardingStepKey =
   | 'welcome'
   | 'production'
   | 'goals'
+  | 'plan'
   | 'workflow'
   | 'focus'
   | 'imports'
@@ -56,6 +57,30 @@ export type OnboardingAnswers = {
   buys_leads?: boolean
   recruiting?: boolean
   team_or_solo?: 'team' | 'solo'
+
+  // Daily Call Log (Phase 1) — editable daily outbound-call goal; read by the
+  // call-target resolver (features/prospecting/target) as 'daily_call_goal'.
+  daily_call_goal?: number
+
+  // Production Plan (Phase 3) — Business Plan Math assumptions, all editable
+  // by the LO (features/production-plan/calc). These keys are the CANONICAL
+  // planning-assumption source; `production_goals` continues to power the
+  // legacy Business Plan / Goals pages until a later consolidation phase.
+  production_plan_annual_net_income_goal?: number
+  production_plan_average_loan_amount?: number
+  production_plan_gross_comp_bps?: number
+  production_plan_lo_split_percent?: number
+  production_plan_net_comp_bps_override?: number | null
+  production_plan_lead_source_mix?: Record<string, number>
+  production_plan_conversion_rates?: Record<string, number>
+
+  // Business-plan intake (Phase 4) — capacity/database context collected in
+  // the onboarding "Plan" step. Planning inputs only; no record-level fields.
+  realtor_partner_count?: number
+  past_client_count?: number
+  online_leads_per_month?: number
+  target_markets?: string
+  support_capacity?: 'just_me' | 'shared_assistant' | 'dedicated_assistant' | 'full_team'
 }
 
 /** Derived tailoring summary, persisted so the rest of the app can read it. */
@@ -138,7 +163,7 @@ export type OnboardingUploadRow = {
 
 // ── Question schema (data-driven wizard) ────────────────────────────────────
 
-export type QuestionType = 'number' | 'currency' | 'text' | 'select' | 'boolean' | 'weighted'
+export type QuestionType = 'number' | 'currency' | 'text' | 'select' | 'boolean' | 'weighted' | 'source_mix'
 
 export type QuestionOption = { value: string; label: string }
 

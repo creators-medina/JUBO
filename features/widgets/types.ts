@@ -242,12 +242,13 @@ export const WIDGET_ICON_NAMES: WidgetIconName[] = [
 
 // ── Color accents usable in metric widgets ────────────────────────────────────
 
-export type WidgetColor = 'blue' | 'green' | 'violet' | 'amber' | 'red' | 'pink'
+export type WidgetColor = 'blue' | 'green' | 'violet' | 'indigo' | 'amber' | 'red' | 'pink'
 
 export const WIDGET_COLORS: Record<WidgetColor, { bg: string; text: string }> = {
   blue:   { bg: 'bg-blue-500/15',   text: 'text-blue-400' },
   green:  { bg: 'bg-emerald-500/15', text: 'text-emerald-400' },
   violet: { bg: 'bg-violet-500/15', text: 'text-violet-400' },
+  indigo: { bg: 'bg-indigo-500/15', text: 'text-indigo-400' },
   amber:  { bg: 'bg-amber-500/15',  text: 'text-amber-400' },
   red:    { bg: 'bg-red-500/15',    text: 'text-red-400' },
   pink:   { bg: 'bg-pink-500/15',   text: 'text-pink-400' },

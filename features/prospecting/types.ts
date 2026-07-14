@@ -13,6 +13,7 @@ export type CandidateSignal = {
   title: string
   boardId: string | null
   boardSlug: string | null
+  boardName: string | null
   recordType: string | null
   groupName: string | null
   value: number | null
@@ -33,6 +34,8 @@ export type ScoredLead = {
   title: string
   boardId: string | null
   boardSlug: string | null
+  boardName: string | null
+  recordType: string | null
   groupName: string | null
   temperature: LeadTemperature
   score: number
@@ -130,4 +133,5 @@ export type LiveSessionStats = {
   meetings: number
 }
 
-export const DEFAULT_DAILY_CALL_GOAL = 25
+// Phase 1 (Daily Call Log): the product's daily outbound-call goal is 10.
+export const DEFAULT_DAILY_CALL_GOAL = 10
