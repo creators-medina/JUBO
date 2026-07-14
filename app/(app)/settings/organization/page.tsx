@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getOrganizationSettings } from '@/features/organizations/queries'
+import { getOrganizationSettings, getOrgBilling } from '@/features/organizations/queries'
 import { isOrgAdmin } from '@/features/auth/guards'
 import { OrganizationSettingsClient } from '@/features/organizations/OrganizationSettingsClient'
 
@@ -21,9 +21,13 @@ export default async function OrganizationSettingsPage() {
   if (!membership) redirect('/onboarding')
 
   const m = membership as { organization_id: string; role: string }
-  const org = await getOrganizationSettings(m.organization_id)
+  const canEdit = isOrgAdmin(m.role)
+  const [org, billing] = await Promise.all([
+    getOrganizationSettings(m.organization_id),
+    canEdit ? getOrgBilling(m.organization_id) : Promise.resolve(null),
+  ])
   if (!org) redirect('/settings')
 
-  // Owner/Admin can edit; everyone else views read-only.
-  return <OrganizationSettingsClient org={org} canEdit={isOrgAdmin(m.role)} role={m.role} />
+  // Owner/Admin can edit + see billing; everyone else views read-only.
+  return <OrganizationSettingsClient org={org} billing={billing} canEdit={canEdit} role={m.role} />
 }

@@ -22,6 +22,7 @@ const INVITE_ERRORS: Record<string, string> = {
   already_member: 'That person is already in this workspace.',
   already_invited: 'There’s already a pending invite for that email. Revoke it first to start over.',
   not_found: 'That invitation no longer exists.',
+  seat_limit_reached: 'Seat limit reached. Increase seats before inviting another user.',
 }
 
 function inviteLink(token: string): string {

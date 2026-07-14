@@ -96,6 +96,20 @@ export async function inviteMember(input: {
     if (existing) return { error: 'already_member' }
   }
 
+  // Seat check — inert unless a seat_limit is configured (NULL = unlimited). We
+  // count active members + still-pending invites so seats aren't over-committed.
+  // The DB-side accept_invitation() check is the hard backstop; this is the
+  // friendly early block at invite time. Never affects existing members.
+  const { data: orgSeat } = await ctx.supabase.from('organizations').select('seat_limit').eq('id', ctx.orgId).maybeSingle()
+  const seatLimit = (orgSeat as { seat_limit: number | null } | null)?.seat_limit ?? null
+  if (seatLimit != null) {
+    const [{ count: memberCount }, { count: pendingCount }] = await Promise.all([
+      ctx.supabase.from('organization_members').select('id', { count: 'exact', head: true }).eq('organization_id', ctx.orgId).eq('status', 'active'),
+      ctx.supabase.from('organization_invitations').select('id', { count: 'exact', head: true }).eq('organization_id', ctx.orgId).eq('status', 'pending'),
+    ])
+    if ((memberCount ?? 0) + (pendingCount ?? 0) >= seatLimit) return { error: 'seat_limit_reached' }
+  }
+
   const token = generateToken()
   const { error } = await ctx.supabase.from('organization_invitations').insert({
     organization_id: ctx.orgId,
