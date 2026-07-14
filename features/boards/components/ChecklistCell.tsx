@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckSquare, Square, Loader2 } from 'lucide-react'
 import { upsertFieldValue } from '@/features/records/actions'
+import { useToast } from '@/features/feedback/ToastProvider'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -20,6 +21,7 @@ interface Props {
  */
 export function ChecklistCell({ field, fieldValue, recordId, boardId }: Props) {
   const router = useRouter()
+  const toast = useToast()
   const [checked, setChecked] = useState(fieldValue?.value_boolean === true)
   const [pending, startTransition] = useTransition()
 
@@ -32,8 +34,9 @@ export function ChecklistCell({ field, fieldValue, recordId, boardId }: Props) {
       try {
         await upsertFieldValue(field.id, recordId, boardId, { value_boolean: next })
         router.refresh()
-      } catch {
+      } catch (e) {
         setChecked(!next) // rollback
+        toast.error(`Couldn't save checklist item — ${e instanceof Error ? e.message : 'please try again'}`)
       }
     })
   }

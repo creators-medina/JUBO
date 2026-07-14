@@ -52,32 +52,36 @@ export default async function TodayPage() {
 
   const today = todayISO()
 
-  // Drain any pending integration events (async runtime) + run scheduled jobs
-  // (stale scans, preapproval expiration) in this authenticated session. The
-  // worker is idempotent and only touches pending work, so this is cheap.
-  try {
-    const { runIntegrationWorker } = await import('@/features/integrations/runtime/worker')
-    const { runScheduledJobs } = await import('@/features/integrations/runtime/scheduler')
-    const ctx = { organizationId: orgId, userId: user.id, actorType: 'user' as const, source: 'scheduler' as const }
-    await runIntegrationWorker(supabase as never, ctx, { limit: 25 })
-    await runScheduledJobs(supabase as never, ctx)
-  } catch { /* silent — runtime is best-effort */ }
-
-  // Run workflow scans (throttled to ~30min) so stale/overdue records surface
-  // attention before we generate the day's actions. Best-effort.
-  try {
-    await runWorkflowScans(orgId, { throttleMinutes: 30 })
-  } catch { /* silent */ }
+  // Speed pass (core-nav audit PR A): the same best-effort jobs run with the
+  // same fail-soft semantics and the same ordering GUARANTEES — only the
+  // waiting is restructured. Integrations and workflow scans are independent
+  // of each other, so they run in PARALLEL; both still complete before
+  // action generation (scans surface attention that generation reads).
+  await Promise.allSettled([
+    // Drain pending integration events + scheduled jobs (idempotent,
+    // pending-work-only; worker → scheduler order kept within the lane).
+    (async () => {
+      const { runIntegrationWorker } = await import('@/features/integrations/runtime/worker')
+      const { runScheduledJobs } = await import('@/features/integrations/runtime/scheduler')
+      const ctx = { organizationId: orgId, userId: user.id, actorType: 'user' as const, source: 'scheduler' as const }
+      await runIntegrationWorker(supabase as never, ctx, { limit: 25 })
+      await runScheduledJobs(supabase as never, ctx)
+    })(),
+    // Workflow scans (throttled to ~30min) — best-effort, as before.
+    runWorkflowScans(orgId, { throttleMinutes: 30 }),
+  ])
 
   // Generate (idempotent — partial UNIQUE indexes guard against duplicates).
+  // Still blocks: getTodayActions below must see today's generated actions.
   try {
     await generateDailyActionsForUser({ organizationId: orgId, userId: user.id })
   } catch { /* silent — generation is best-effort */ }
 
-  // Snapshot today's progress before reading streak history (so today's row exists)
-  try {
-    await snapshotDailyProgress({ organizationId: orgId, userId: user.id })
-  } catch { /* silent */ }
+  // Snapshot today's progress (so today's row exists before the streak read).
+  // Runs AFTER generation as before, but now OVERLAPS the reads below — it is
+  // awaited right before getStreakData, preserving the original ordering.
+  const snapshotPromise = snapshotDailyProgress({ organizationId: orgId, userId: user.id })
+    .then(() => undefined, () => undefined) /* silent — best-effort, as before */
 
   // Phase 33B — producers see their own plan; support/unknown fall back to
   // legacy org-wide goals (producerId null).
@@ -91,16 +95,17 @@ export default async function TodayPage() {
     getAttentionViewsWithCounts(orgId),
   ])
 
-  // Build per-goal pacing for the right column
-  const paces: DailyMetricPace[] = []
-  for (const goal of goals) {
-    if (!goal.target_units || !goal.funnel_id) continue
+  // Build per-goal pacing for the right column — identical queries and math
+  // per goal (speed pass: goals are paced concurrently instead of one after
+  // another; result order still follows the goals list).
+  const paceResults = await Promise.all(goals.map(async (goal): Promise<DailyMetricPace | null> => {
+    if (!goal.target_units || !goal.funnel_id) return null
     const [stages, assumptions, targets] = await Promise.all([
       getFunnelStages(goal.funnel_id),
       getConversionAssumptions(orgId, goal.funnel_id),
       getGoalTargets(goal.id),
     ])
-    if (stages.length === 0) continue
+    if (stages.length === 0) return null
     const final = stages[stages.length - 1]
 
     // Current units = count of records in the final stage's board group since start.
@@ -135,7 +140,7 @@ export default async function TodayPage() {
       }
     }
 
-    paces.push({
+    return {
       production_goal_id: goal.id,
       goal_name: goal.name,
       metric_key: 'units',
@@ -148,8 +153,9 @@ export default async function TodayPage() {
       expected_at_now: pacing.expected_at_now,
       pace_percent: pacing.pace_percent,
       status: paceStatus(pacing.pace_percent, pacing.target > 0 && pacing.days_elapsed > 0),
-    })
-  }
+    }
+  }))
+  const paces: DailyMetricPace[] = paceResults.filter((p): p is DailyMetricPace => p !== null)
 
   const summary = summarizeDay(actions, overallPaceStatus(paces), today)
 
@@ -164,34 +170,44 @@ export default async function TodayPage() {
     recordBoardMap = Object.fromEntries((recs ?? []).map((r: { id: string; board_id: string }) => [r.id, r.board_id]))
   }
 
-  const streak = await getStreakData(user.id, today)
-  const setupChecklist = await getSetupChecklist(orgId)
-  const followUpsDue = await getFollowUpsDueCount(orgId)
-  const prospectingMetrics = await getProspectingMetrics(orgId, user.id)
-  const prospectingSession = await getActiveSession(orgId, user.id)
-  const callTarget = await getDailyCallTarget(orgId, user.id, prospectingSession)
+  // Snapshot must land before the streak read (original ordering) — it has
+  // been running in the background since before the main reads.
+  await snapshotPromise
 
-  // Business-coach insights (reverse-engineered targets, partner gap, projections).
-  let coachInsights: { text: string; tone: 'good' | 'warn' | 'urgent' | 'info'; icon: string }[] = []
-  let planSummary: PlanSummary | null = null
-  try {
-    const insights = await getCoachInsights(orgId, user.id)
-    coachInsights = insights.slice(0, 3).map((i) => ({ text: i.body, tone: i.tone, icon: i.icon }))
-    // getCoachingSnapshot is React-cached, so this reuses the snapshot above.
-    const snap = await getCoachingSnapshot(orgId, user.id)
-    if (snap.plan) {
-      planSummary = {
-        incomeGoal: snap.plan.incomeGoal,
-        dailyConversations: snap.plan.dailyConversations,
-        weeklyConversations: snap.plan.weeklyConversations,
-        partnersNeeded: snap.plan.partnersNeeded,
-        closingTarget: snap.plan.closingTarget,
-        notes: snap.plan.notes,
-        executionScore: snap.execution.overall,
-        talkTosToday: snap.talkTosToday,
-      }
-    }
-  } catch { /* coaching is best-effort */ }
+  const [streak, setupChecklist, followUpsDue, prospectingMetrics, prospectingSession, coaching] = await Promise.all([
+    getStreakData(user.id, today),
+    getSetupChecklist(orgId),
+    getFollowUpsDueCount(orgId),
+    getProspectingMetrics(orgId, user.id),
+    getActiveSession(orgId, user.id),
+    // Business-coach insights (reverse-engineered targets, partner gap,
+    // projections) — same try/catch fallbacks, now fetched in the batch.
+    (async () => {
+      let coachInsights: { text: string; tone: 'good' | 'warn' | 'urgent' | 'info'; icon: string }[] = []
+      let planSummary: PlanSummary | null = null
+      try {
+        const insights = await getCoachInsights(orgId, user.id)
+        coachInsights = insights.slice(0, 3).map((i) => ({ text: i.body, tone: i.tone, icon: i.icon }))
+        // getCoachingSnapshot is React-cached, so this reuses the snapshot above.
+        const snap = await getCoachingSnapshot(orgId, user.id)
+        if (snap.plan) {
+          planSummary = {
+            incomeGoal: snap.plan.incomeGoal,
+            dailyConversations: snap.plan.dailyConversations,
+            weeklyConversations: snap.plan.weeklyConversations,
+            partnersNeeded: snap.plan.partnersNeeded,
+            closingTarget: snap.plan.closingTarget,
+            notes: snap.plan.notes,
+            executionScore: snap.execution.overall,
+            talkTosToday: snap.talkTosToday,
+          }
+        }
+      } catch { /* coaching is best-effort */ }
+      return { coachInsights, planSummary }
+    })(),
+  ])
+  const { coachInsights, planSummary } = coaching
+  const callTarget = await getDailyCallTarget(orgId, user.id, prospectingSession)
 
   return (
     <TodayPageClient

@@ -17,6 +17,7 @@ import { getGroupChecklistFields } from '@/features/fields/actions'
 import { valueIsEmpty } from '@/features/fields/conversion'
 import { resolveTemplateKey } from '@/features/mortgage/templates/resolve'
 import { getTwilioConfig, getThreadForRecord } from '@/features/conversations/queries'
+import { getEmailConfig } from '@/features/communications/email/queries'
 import { loadThreadMessages } from '@/features/conversations/actions'
 import type { CommunicateContext } from '@/features/communications/communicate'
 import type { MortgageData, WorkspaceTemplateKey } from '@/features/mortgage/types'
@@ -383,7 +384,7 @@ export async function getFileCardData(recordId: string): Promise<FileCardData | 
   // card. [ALL OPTIONAL]
   const [
     groupsR, keysR, tasksR, activitiesR, movementsR, notesR, communicationsR, memsR,
-    checklist, twilioConfig, thread,
+    checklist, twilioConfig, emailConfig, thread,
   ] = await Promise.all([
     safe(boardId ? supabase.from('board_groups').select('*').eq('board_id', boardId).eq('is_archived', false).order('position') : Promise.resolve(EMPTY), EMPTY),
     safe(supabase.from('common_field_keys').select('id, key, label, scope, data_type').eq('organization_id', orgId), EMPTY),
@@ -395,6 +396,7 @@ export async function getFileCardData(recordId: string): Promise<FileCardData | 
     safe(supabase.from('organization_members').select('user_id, status, profiles:user_id(first_name, last_name, email)').eq('organization_id', orgId), EMPTY),
     safe(boardId ? getGroupChecklistFields(boardId, (rec.group_id as string | null)) : Promise.resolve({ fields: [] as { id: string; name: string }[] }), { fields: [] as { id: string; name: string }[] }),
     safe(getTwilioConfig(supabase as never, orgId), null),
+    safe(getEmailConfig(supabase as never, orgId), null),
     safe(getThreadForRecord(recordId), null),
   ])
   const groups = groupsR.data
@@ -461,6 +463,7 @@ export async function getFileCardData(recordId: string): Promise<FileCardData | 
     })
   const comms: CommsBundle = {
     twilioConnected: !!twilioConfig,
+    emailConnected: !!emailConfig,
     phone: pickContact(phoneKeyId, 'phone'),
     email: pickContact(emailKeyId, 'email'),
     threadId,

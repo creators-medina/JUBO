@@ -38,7 +38,7 @@ export async function buildCallQueue(organizationId: string): Promise<ScoredLead
 
   // 2. Batched lookups: boards, groups, last contact, key field values.
   const [boardsRes, groupsRes, commRes, fieldsRes] = await Promise.all([
-    supabase.from('boards').select('id, slug, board_type').in('id', boardIds),
+    supabase.from('boards').select('id, name, slug, board_type').in('id', boardIds),
     supabase.from('board_groups').select('id, name').in('board_id', boardIds),
     supabase.from('communication_logs').select('record_id, occurred_at, channel').in('record_id', recordIds).neq('channel', 'internal').order('occurred_at', { ascending: false }),
     supabase.from('fields').select('id, slug, board_id, field_type').in('board_id', boardIds).or('slug.in.(preapproval_expiration,loan_amount),field_type.eq.phone'),
@@ -78,6 +78,7 @@ export async function buildCallQueue(organizationId: string): Promise<ScoredLead
     const preExp = preapprovalByRecord.get(r.id) ?? null
     const sig: CandidateSignal = {
       recordId: r.id, title: r.title, boardId: r.board_id, boardSlug: board?.slug ?? null,
+      boardName: (board as { name?: string } | undefined)?.name ?? null,
       recordType: r.record_type, groupName: r.group_id ? (groupName.get(r.group_id) ?? null) : null,
       value: r.value, priority: r.priority, nextAction: r.next_action,
       nextActionDueAt: r.next_action_due_at, nextActionCompletedAt: r.next_action_completed_at,

@@ -14,7 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { MapPin, Zap } from 'lucide-react'
-import { textValue, numberValue, dateValue, formatCurrency, formatDate } from '@/features/mortgage/data'
+import { textValue, numberValue, dateValue, formatCurrency, formatDate, loanAmountValue } from '@/features/mortgage/data'
 import { isChecklistFieldType, isChecklistChecked } from '@/features/fields/checklist'
 import type { MortgageData } from '@/features/mortgage/types'
 import type { ContactHealth } from '@/features/communications/types'
@@ -44,7 +44,7 @@ export function BorrowerIntelligenceHeader({
   const loanType = textValue(data, 'loan_type')
   const purpose = textValue(data, 'loan_purpose')
   const subtitle = [loanType, purpose].filter(Boolean).join(' · ') || roleLabel
-  const amount = numberValue(data, 'loan_amount')
+  const amount = loanAmountValue(data)
 
   // ── Property ──
   const address = textValue(data, 'property_address')

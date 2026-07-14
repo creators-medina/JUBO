@@ -22,6 +22,7 @@ export function SidebarItem({
   return (
     <Link
       href={href}
+      draggable={false}
       className={cn(
         "relative flex items-center gap-2.5 px-2 py-1.5 rounded-md text-[15px] transition-colors group",
         collapsed ? "justify-center" : "",

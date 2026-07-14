@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils'
 import { resolveWorkspaceTemplate } from '../templates/resolve'
 import { computeOpportunitySignals } from '../scoring/opportunities'
-import { numberValue, formatCurrency, daysUntil, daysSinceLastTouch, currentGroupName } from '../data'
+import { formatCurrency, daysUntil, daysSinceLastTouch, currentGroupName, loanAmountValue } from '../data'
 import type { MortgageData } from '../types'
 
 function Badge({ tone, children }: { tone: 'neutral' | 'accent' | 'amber' | 'red' | 'emerald'; children: React.ReactNode }) {
@@ -24,7 +24,7 @@ export function WorkspaceHeaderMeta({ data }: { data: MortgageData }) {
 
   const signals = computeOpportunitySignals(data, template.key)
   const urgent = signals.filter((s) => s.level === 'urgent').length
-  const amount = numberValue(data, 'loan_amount')
+  const amount = loanAmountValue(data)
   const stage = currentGroupName(data)
 
   // Next-action status.

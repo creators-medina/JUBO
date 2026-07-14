@@ -1,17 +1,24 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { buildCallQueue } from '@/features/prospecting/queues'
-import { getActiveSession, getLiveSessionStats, getRecentSessions } from '@/features/prospecting/sessions/queries'
-import { getProspectingMetrics } from '@/features/prospecting/metrics'
-import { getCallTargets } from '@/features/prospecting/target'
+import { buildThemeDayData } from '@/features/prospecting/themeday/queues'
 import { getProspectingStreak } from '@/features/prospecting/streak'
-import { getContactedToday } from '@/features/prospecting/contacted'
-import { getThemeDay } from '@/features/prospecting/coaching/themeDay'
-import { buildProspectingCoaching } from '@/features/prospecting/coaching'
-import { getFollowUpsDueCount } from '@/features/communications/queries'
-import { ProspectingCockpit } from '@/features/prospecting/cockpit/ProspectingCockpit'
+import { getDailyCallTarget } from '@/features/prospecting/target'
+import { buildGreatnessData } from '@/features/prospecting/greatness/queries'
+import { GreatnessTracker } from '@/features/prospecting/greatness/GreatnessTracker'
+import { TrackView } from '@/features/analytics/TrackView'
+import { ThemeDayCockpit } from '@/features/prospecting/themeday/ThemeDayCockpit'
 
 export const dynamic = 'force-dynamic'
+
+// ─────────────────────────────────────────────────────────────────────────
+// Prospecting Dashboard — the daily theme-day call cockpit (Prospecting
+// Redesign reference): navy hero → Mon–Fri week strip → today's list, in a
+// centered, width-constrained column on the warm cream background. The
+// former dashboard extras (sessions, momentum, pace, contacted-today, the
+// scored queue, and the side stats rail) are deferred from this page for
+// visual parity with the reference; their modules remain for a future
+// secondary view.
+// ─────────────────────────────────────────────────────────────────────────
 
 export default async function ProspectingPage() {
   const supabase = await createClient()
@@ -23,36 +30,34 @@ export default async function ProspectingPage() {
   if (!membership) redirect('/onboarding')
   const orgId = membership.organization_id
 
-  const [queue, session, metrics, followUpsDue, sessions, streak, contactedToday] = await Promise.all([
-    buildCallQueue(orgId),
-    getActiveSession(orgId, user.id),
-    getProspectingMetrics(orgId, user.id),
-    getFollowUpsDueCount(orgId),
-    getRecentSessions(orgId, user.id),
+  const [themeData, streak, dailyGoal, greatness] = await Promise.all([
+    buildThemeDayData(orgId, user.id),
     getProspectingStreak(orgId, user.id),
-    getContactedToday(orgId, user.id),
+    // Daily Call Log goal — session > profile (daily_call_goal) > goal > 10.
+    getDailyCallTarget(orgId, user.id),
+    // Greatness Tracker (Phase 2) — read-only scoreboard aggregation.
+    buildGreatnessData(orgId, user.id),
   ])
-  const liveStats = session ? await getLiveSessionStats(session) : null
-  const themeDay = getThemeDay()
-  const targets = await getCallTargets(orgId, user.id, session)
-  const coaching = buildProspectingCoaching({ metrics, callGoal: targets.daily, themeDay, queueSize: queue.length, followUpsDue })
 
   return (
-    <ProspectingCockpit
-      organizationId={orgId}
-      queue={queue}
-      metrics={metrics}
-      session={session}
-      liveStats={liveStats}
-      themeDay={themeDay}
-      coaching={coaching}
-      callGoal={targets.daily}
-      targetLabel={targets.label}
-      targets={targets}
-      streak={streak}
-      contactedToday={contactedToday}
-      followUpsDue={followUpsDue}
-      sessions={sessions}
-    />
+    <div className="h-full overflow-y-auto">
+      <TrackView surface="prospecting" />
+      <div className="w-full px-4 py-6 sm:px-8 lg:px-10">
+        <ThemeDayCockpit
+          data={themeData}
+          streak={streak}
+          organizationId={orgId}
+          goal={dailyGoal.target}
+          goalSource={dailyGoal.label}
+          userId={user.id}
+        />
+        {/* Verified Results reporting — below the Daily Call Log's action
+            area, collapsed by default (Roadmap Step 3) so today's call list
+            stays the page's focus. */}
+        <div className="mt-6">
+          <GreatnessTracker data={greatness} userId={user.id} />
+        </div>
+      </div>
+    </div>
   )
 }
