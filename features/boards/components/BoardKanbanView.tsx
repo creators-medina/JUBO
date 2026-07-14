@@ -8,11 +8,16 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import { useState } from 'react'
-import { ListChecks, Plus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { ArrowUpRight, Copy, ListChecks, MessageSquare, MoreHorizontal, Phone, Plus, StickyNote } from 'lucide-react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { type VisibilityIndex } from '@/features/fields/visibility'
-import { buildKanbanFace, KanbanCardFace } from './KanbanCardFace'
+import { updateBoardGroup } from '@/features/boards/actions'
+import { useToast } from '@/features/feedback/ToastProvider'
+import { InlineRenameText } from '@/components/primitives/InlineRenameText'
+import { buildKanbanFace, KanbanCardFace, type KanbanFace } from './KanbanCardFace'
 import { stageColor } from './BoardStageSummary'
 import { StageChecklistModal } from './StageChecklistModal'
 import { useHoverCard, BorrowerPreviewPanel } from './BoardHoverCard'
@@ -31,10 +36,12 @@ interface Props {
   pendingMoveIds?: Set<string>
   onSelectRecord: (recordId: string, title: string) => void
   onAddRecord?: (groupId: string) => void
+  /** Inline card-title rename (records.title via the existing updateRecord). */
+  onRenameRecord?: (recordId: string, title: string) => Promise<void>
 }
 
 export function BoardKanbanView({
-  stages, recordsByGroup, totalByGroup, fieldsByGroup, fieldValuesIndex, fields, visibilityIndex, pendingMoveIds, onSelectRecord, onAddRecord,
+  stages, recordsByGroup, totalByGroup, fieldsByGroup, fieldValuesIndex, fields, visibilityIndex, pendingMoveIds, onSelectRecord, onAddRecord, onRenameRecord,
 }: Props) {
   // Stage-stepper data for the hover preview (id = group id so it matches each
   // record's group_id; position preserves lane order). Built once for all cards.
@@ -56,6 +63,7 @@ export function BoardKanbanView({
           pendingMoveIds={pendingMoveIds}
           onSelectRecord={onSelectRecord}
           onAddRecord={onAddRecord}
+          onRenameRecord={onRenameRecord}
         />
       ))}
     </div>
@@ -63,7 +71,7 @@ export function BoardKanbanView({
 }
 
 function KanbanColumn({
-  stage, accent, count, records, groupFields, fields, fieldValuesIndex, visibilityIndex, previewGroups, pendingMoveIds, onSelectRecord, onAddRecord,
+  stage, accent, count, records, groupFields, fields, fieldValuesIndex, visibilityIndex, previewGroups, pendingMoveIds, onSelectRecord, onAddRecord, onRenameRecord,
 }: {
   stage: Stage
   accent: string
@@ -77,7 +85,9 @@ function KanbanColumn({
   pendingMoveIds?: Set<string>
   onSelectRecord: (recordId: string, title: string) => void
   onAddRecord?: (groupId: string) => void
+  onRenameRecord?: (recordId: string, title: string) => Promise<void>
 }) {
+  const router = useRouter()
   // Phase 37B-2 — column is a drop target. Distinct ID space ('kanban-stage:').
   const { setNodeRef, isOver } = useDroppable({
     id: `kanban-stage:${stage.id}`,
@@ -106,7 +116,18 @@ function KanbanColumn({
       <div className="flex flex-shrink-0 flex-col gap-1 border-b border-jubo-border px-3.5 py-3">
         <div className="flex items-center gap-2">
           <span aria-hidden className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: accent }} />
-          <span className="truncate text-sm font-semibold tracking-tight text-jubo-text">{stage.label}</span>
+          {/* Inline stage rename — existing updateBoardGroup action (name only);
+              position, color, checklist, and records are untouched. */}
+          <InlineRenameText
+            value={stage.label}
+            pencil
+            className="min-w-0 truncate text-sm font-semibold tracking-tight text-jubo-text"
+            inputClassName="text-sm font-semibold"
+            onSave={async (next) => {
+              await updateBoardGroup(stage.groupId, stage.boardId, { name: next })
+              router.refresh()
+            }}
+          />
           <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-jubo-gold-soft px-1.5 text-2xs font-semibold tabular-nums text-jubo-gold">{count}</span>
           {/* Subtle role/owner hint (e.g. "LO" / "LP1") — guidance, not assignment. */}
           {stage.roleLabel && (
@@ -172,6 +193,7 @@ function KanbanColumn({
               previewGroups={previewGroups}
               pending={pendingMoveIds?.has(record.id) ?? false}
               onClick={() => onSelectRecord(record.id, record.title ?? 'Record')}
+              onRename={onRenameRecord ? (title) => onRenameRecord(record.id, title) : undefined}
             />
           ))
         )}
@@ -200,7 +222,7 @@ function KanbanColumn({
 }
 
 function KanbanCard({
-  stage, record, groupFields, fields, fieldValueMap, visibilityIndex, previewGroups, pending, onClick,
+  stage, record, groupFields, fields, fieldValueMap, visibilityIndex, previewGroups, pending, onClick, onRename,
 }: {
   stage: Stage
   record: any
@@ -211,7 +233,12 @@ function KanbanCard({
   previewGroups: { id: string; name: string; position: number }[]
   pending: boolean
   onClick: () => void
+  onRename?: (title: string) => Promise<void>
 }) {
+  // While the title is being renamed inline, the card renders as a plain <div>
+  // (no drag listeners, no click-to-open) so typing can't start a drag or open
+  // the record — restored the moment editing ends.
+  const [renaming, setRenaming] = useState(false)
   // Phase 37B-2 — draggable card. Distinct ID space ('kanban-card:'); payload is
   // addressed by FULL (boardId, groupId) via `stage` for the board-aware dispatcher.
   // Face is computed ONCE here for the real card; the overlay reuses this exact
@@ -246,8 +273,35 @@ function KanbanCard({
           target while another card hovers over it; never on the card being dragged. */}
       <div
         ref={drop.setNodeRef}
-        className={cn('flex-shrink-0 rounded-xl', drop.isOver && !isDragging && 'ring-2 ring-jubo-navy/40')}
+        className={cn('group/card relative flex-shrink-0 rounded-xl', drop.isOver && !isDragging && 'ring-2 ring-jubo-navy/40')}
       >
+      {/* Safe quick actions (tester feedback) — a SIBLING of the card button,
+          so opening the menu can never click-open the card or start a drag.
+          Every action routes through existing behavior: onClick (the same
+          openWorkspace the card uses), plain tel:, or client-side copy.
+          No writes, no delete/archive — destructive actions stay gated. */}
+      {!renaming && !isDragging && <CardActionMenu face={face} onOpen={onClick} />}
+      {renaming ? (
+        // Rename shell — same visual card, but NOT a button and NOT draggable
+        // (an input can't live inside a button, and drag must not start mid-type).
+        // The editor mounts straight into edit mode; closing it restores the card.
+        <div className="relative block w-full flex-shrink-0 overflow-hidden rounded-xl border border-jubo-border-strong bg-jubo-card px-3 py-2.5 text-left shadow-md">
+          <KanbanCardFace
+            {...face}
+            renameEditor={
+              <InlineRenameText
+                value={record.title ?? ''}
+                defaultEditing
+                doubleClick={false}
+                className="min-w-0 flex-1 text-sm font-semibold text-jubo-navy"
+                inputClassName="text-sm font-semibold"
+                onSave={(next) => onRename?.(next)}
+                onEditingChange={(ed) => { if (!ed) setRenaming(false) }}
+              />
+            }
+          />
+        </div>
+      ) : (
       <button
         ref={setNodeRef}
         style={style}
@@ -258,16 +312,17 @@ function KanbanCard({
         className={cn(
           // Warm LOS card — condensed: tight, uniform padding (no left-rail offset).
           // block (not flex) so the face's rows stay full-width; height fits content.
-          'relative block w-full flex-shrink-0 cursor-grab overflow-hidden rounded-xl border border-jubo-border bg-jubo-card px-3 py-2.5 text-left shadow-sm transition-[transform,opacity,border-color,box-shadow] duration-150 ease-out hover:border-jubo-border-strong hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
+          'relative block w-full flex-shrink-0 cursor-grab overflow-hidden rounded-xl border border-jubo-border bg-jubo-card py-2.5 pl-3 pr-8 text-left shadow-sm transition-[transform,opacity,border-color,box-shadow] duration-150 ease-out hover:border-jubo-border-strong hover:shadow-md active:cursor-grabbing motion-reduce:transition-none',
           isDragging && 'opacity-40',
         )}
       >
         {/* tabIndex −1: the card button is already the tab stop; we only want the
             div's pointer handlers, not a nested focusable inside the button. */}
         <div ref={hover.ref} {...hover.triggerProps} tabIndex={-1} className="outline-none">
-          <KanbanCardFace {...face} />
+          <KanbanCardFace {...face} onTitleRenameStart={onRename ? () => setRenaming(true) : undefined} />
         </div>
       </button>
+      )}
       </div>
       {hover.open && hover.rect && (
         <BorrowerPreviewPanel
@@ -280,5 +335,69 @@ function KanbanCard({
         />
       )}
     </>
+  )
+}
+
+// ── Safe card quick-actions menu (tester feedback — non-destructive only) ──
+// Phone/email come from the SAME already-built card face data (no queries).
+// "Text / Add note / Add task" open the contact card via the existing
+// handler — the trifold lands with the composer and Notes/Tasks wings in
+// view; deep-linking to a specific mode/tab is a documented follow-up.
+function CardActionMenu({ face, onOpen }: { face: KanbanFace; onOpen: () => void }) {
+  const toast = useToast()
+  const phone = face.common.find((c) => c.type === 'phone')?.value ?? null
+  const email = face.common.find((c) => c.type === 'email')?.value ?? null
+  const copy = (label: string, value: string) => {
+    navigator.clipboard?.writeText(value)
+    toast.success(`${label} copied`)
+  }
+  const item = 'cursor-pointer gap-2 text-xs'
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        aria-label="Card actions"
+        title="Card actions"
+        className="absolute right-1.5 top-1.5 z-10 rounded-md border border-jubo-border bg-jubo-card p-1 text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/card:opacity-100 data-[state=open]:opacity-100"
+      >
+        <MoreHorizontal className="h-3.5 w-3.5" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56 border-border bg-card">
+        <DropdownMenuItem className={item} onClick={onOpen}>
+          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden /> Open contact
+        </DropdownMenuItem>
+        {phone ? (
+          <DropdownMenuItem className={item} onClick={() => { window.location.href = `tel:${phone}` }}>
+            <Phone className="h-3.5 w-3.5" aria-hidden /> Call {phone}
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem disabled className="gap-2 text-xs">
+            <Phone className="h-3.5 w-3.5" aria-hidden /> Call — no phone on file
+          </DropdownMenuItem>
+        )}
+        {phone && (
+          <DropdownMenuItem className={item} onClick={onOpen}>
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden /> Text <span className="ml-auto text-muted-foreground">opens contact</span>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem className={item} onClick={onOpen}>
+          <StickyNote className="h-3.5 w-3.5" aria-hidden /> Add note <span className="ml-auto text-muted-foreground">opens contact</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem className={item} onClick={onOpen}>
+          <ListChecks className="h-3.5 w-3.5" aria-hidden /> Add task <span className="ml-auto text-muted-foreground">opens contact</span>
+        </DropdownMenuItem>
+        {phone && (
+          <DropdownMenuItem className={item} onClick={() => copy('Phone', phone)}>
+            <Copy className="h-3.5 w-3.5" aria-hidden /> Copy phone
+          </DropdownMenuItem>
+        )}
+        {email && (
+          <DropdownMenuItem className={item} onClick={() => copy('Email', email)}>
+            <Copy className="h-3.5 w-3.5" aria-hidden /> Copy email
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

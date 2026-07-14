@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { X, Maximize2, ArrowRightLeft, Phone, Mail } from 'lucide-react'
 import { MoveToBoardDialog } from '@/features/boards/components/MoveToBoardDialog'
+import { InlineRenameText } from '@/components/primitives/InlineRenameText'
+import { deriveContactTags } from '@/features/prospecting/themeBuckets'
+import { updateRecord } from '@/features/records/actions'
 import { createClient } from '@/lib/supabase/client'
 import { useWorkspaceTabs } from '../providers/WorkspaceTabsProvider'
 import { PersonFileCard } from '@/features/person-card/PersonFileCard'
@@ -163,39 +166,53 @@ function WorkspaceContent({
   const roleLabel = data ? (resolveWorkspaceTemplate(data as unknown as MortgageData)?.label ?? '') : ''
   const ownerName = data?.record?.owner_user_id ? (data.profiles[data.record.owner_user_id] ?? null) : null
   const boardName = data?.board?.name ?? null
-  const fieldValBySlug = useCallback((slug: string): string | null => {
+  // Contact lookup — slug first, then field_type, matching how the borrower
+  // mirror and the card's comms context resolve the record's phone/email, so a
+  // board whose phone/email field uses a different slug still shows here.
+  const fieldValBySlug = useCallback((slug: string, fieldType?: string): string | null => {
     if (!data) return null
-    const f = data.fields.find((x) => x.slug === slug)
+    const bySlug = data.fields.find((x) => x.slug === slug)
+    const f = bySlug ?? (fieldType ? data.fields.find((x) => x.field_type === fieldType) : undefined)
     if (!f) return null
     return data.fieldValues.find((v) => v.field_id === f.id)?.value_text ?? null
   }, [data])
-  const phone = useMemo(() => fieldValBySlug('phone'), [fieldValBySlug])
-  const email = useMemo(() => fieldValBySlug('email'), [fieldValBySlug])
+  const phone = useMemo(() => fieldValBySlug('phone', 'phone'), [fieldValBySlug])
+  const email = useMemo(() => fieldValBySlug('email', 'email'), [fieldValBySlug])
   const subline = [roleLabel, boardName, ownerName].filter(Boolean).join(' · ')
+  // Derived category chips (Realtor/Agent · Active File · Pre-App · Past
+  // Client · VIP) — read-only, from existing board/stage/type data. A true
+  // editable tag model is a future backend phase.
+  const contactTags = useMemo(() => {
+    if (!data) return []
+    const group = data.groups.find((g) => g.id === data.record.group_id)
+    return deriveContactTags({
+      boardName: data.board?.name ?? null,
+      boardSlug: data.board?.slug ?? null,
+      groupName: group?.name ?? null,
+      recordType: (data.record as { record_type?: string | null }).record_type ?? null,
+    })
+  }, [data])
 
-  return (
-    // Phase C-LAYOUT — the record file is a CENTERED floating modal over a dimmed,
-    // blurred board (was a right-side drawer). Click-outside still closes.
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6">
-      <div className="absolute inset-0 bg-jubo-navy/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative flex max-h-[92vh] w-full max-w-[80rem] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
-        {/* Window chrome — borrower identity (left) + panel controls (right). The
-            record's four-tab File Card (Overview / Loan & Property / Borrower /
-            Financial) is the entire body below. */}
-        <header className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-jubo-navy2 bg-jubo-navy flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
+  // Layout 4a — the command header + stage stepper render INSIDE the hub
+  // card (PersonFileCard's middle column) via this slot. Same JSX/data/
+  // handlers; the 2.0 pass slims it into a compact navy identity strip
+  // (smaller avatar, tighter rows) so the hub stops feeling top-heavy.
+  const headerSlot = (
+    <>
+        <header className="flex items-center justify-between gap-3 px-4 py-1.5 border-b border-jubo-navy2 bg-jubo-navy flex-shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             {loading ? (
-              <div className="h-10 w-10 rounded-lg bg-white/10 animate-pulse flex-shrink-0" />
+              <div className="h-8 w-8 rounded-md bg-white/10 animate-pulse flex-shrink-0" />
             ) : (
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-jubo-red text-sm font-semibold text-white shadow-sm">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-jubo-red text-xs font-semibold text-white shadow-sm">
                 {initials(data?.record?.title)}
               </div>
             )}
             <div className="min-w-0">
               {loading ? (
-                <div className="h-6 w-56 bg-white/10 rounded animate-pulse" />
+                <div className="h-5 w-56 bg-white/10 rounded animate-pulse" />
               ) : (
-                <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-white">
+                <h2 className="flex items-center gap-2 text-base font-bold tracking-tight text-white">
                   {data && (
                     <span
                       className="h-2 w-2 flex-shrink-0 rounded-full"
@@ -204,13 +221,38 @@ function WorkspaceContent({
                       aria-hidden
                     />
                   )}
-                  <span className="truncate">{data?.record?.title ?? 'Record'}</span>
+                  {/* Inline contact rename — records.title is the canonical
+                      display name (the common-field registry never binds a
+                      field to `name` by design); saves through the existing
+                      updateRecord write path only. */}
+                  {data?.record ? (
+                    <InlineRenameText
+                      value={data.record.title ?? 'Record'}
+                      pencil
+                      className="min-w-0 truncate"
+                      inputClassName="text-base font-bold tracking-tight bg-white/10 border-white/30 text-white focus:ring-white/50"
+                      onSave={async (next) => {
+                        await updateRecord(recordId, data.record.board_id ?? '', { title: next })
+                        openWorkspace({ recordId, title: next }) // keep the tab label in sync
+                        load()
+                        router.refresh()
+                      }}
+                    />
+                  ) : (
+                    <span className="truncate">Record</span>
+                  )}
                 </h2>
               )}
               {data && (
-                <p className="mt-0.5 truncate text-2xs text-jubo-gold-soft/70">
+                <p className="truncate text-2xs leading-tight text-jubo-gold-soft/70">
                   {subline}
                   {phone ? <>{subline ? ' · ' : ''}<span className="tabular-nums text-white/80">{phone}</span></> : null}
+                  {/* Tags inline on the compact strip — same derived chips. */}
+                  {contactTags.map((t) => (
+                    <span key={t.key} className="ml-1.5 rounded-full bg-white/10 px-1.5 py-px text-[9px] font-semibold text-white/85">
+                      {t.label}
+                    </span>
+                  ))}
                 </p>
               )}
             </div>
@@ -221,47 +263,62 @@ function WorkspaceContent({
               <a
                 href={`tel:${phone}`}
                 title="Call"
-                className="rounded-lg bg-jubo-red p-2 text-white shadow-sm transition-colors hover:bg-jubo-red-dark"
+                className="rounded-md bg-jubo-red p-1.5 text-white shadow-sm transition-colors hover:bg-jubo-red-dark"
               >
-                <Phone className="h-4 w-4" />
+                <Phone className="h-3.5 w-3.5" />
               </a>
             )}
             {email && (
               <a
                 href={`mailto:${email}`}
                 title="Email"
-                className="rounded-lg border border-white/10 bg-jubo-navy2 p-2 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+                className="rounded-md border border-white/10 bg-jubo-navy2 p-1.5 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
               >
-                <Mail className="h-4 w-4" />
+                <Mail className="h-3.5 w-3.5" />
               </a>
             )}
 
             {data?.record?.board_id && (
               <button onClick={() => setShowMove(true)} title="Move to another board"
-                className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
-                <ArrowRightLeft className="h-4 w-4" />
+                className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+                <ArrowRightLeft className="h-3.5 w-3.5" />
               </button>
             )}
             {data?.record?.board_id && (
               <Link href={`/boards/${data.record.board_id}`} title="Open in board"
-                className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
-                <Maximize2 className="h-4 w-4" />
+                className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+                <Maximize2 className="h-3.5 w-3.5" />
               </Link>
             )}
             <button onClick={onClose} title="Close (esc)"
-              className="rounded-lg p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
-              <X className="h-4 w-4" />
+              className="rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
         </header>
 
-        {/* Pipeline stage indicator (NOT tabs) — continues the navy header. */}
-        {data && (
-          <div className="flex flex-shrink-0 justify-start border-b border-jubo-navy2 bg-jubo-navy px-5 py-3 sm:justify-center">
+        {/* Pipeline stage indicator (NOT tabs) — a slim navy strip. The strip
+            renders during load too (pulse placeholder) so the header never
+            grows a row mid-open. */}
+        <div className="flex flex-shrink-0 justify-start border-b border-jubo-navy2 bg-jubo-navy px-4 pb-1.5 pt-0.5 sm:justify-center">
+          {data ? (
             <StageTracker groups={data.groups} currentGroupId={data.record.group_id ?? null} />
-          </div>
-        )}
+          ) : (
+            <div className="h-5 w-64 max-w-full animate-pulse rounded bg-white/10" aria-hidden />
+          )}
+        </div>
+    </>
+  )
 
+  return (
+    // Phase C-LAYOUT — the record file is a CENTERED floating workspace over
+    // a dimmed, blurred board. Click-outside still closes. Contact Card 2.0:
+    // there is NO enclosing shell anymore — the three panels float directly
+    // over the blurred app, which stays visible through the gaps between
+    // them (the negative space is the real backdrop, not a desk surface).
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-2 sm:p-4">
+      <div className="absolute inset-0 bg-jubo-navy/40 backdrop-blur-md" onClick={onClose} />
+      <div className="relative h-[min(940px,calc(100vh-32px))] w-full max-w-[104rem]">
         {showMove && data?.record?.board_id && (
           <MoveToBoardDialog
             recordIds={[recordId]}
@@ -271,18 +328,12 @@ function WorkspaceContent({
           />
         )}
 
-        {/* Body — the four-tab File Card owns its own header + tab strip. */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-5">
-          {loading && !data ? (
-            <div className="space-y-3">
-              {[0, 1, 2, 3].map(i => (
-                <div key={i} className="h-8 bg-surface-1 rounded animate-pulse" style={{ opacity: 1 - i * 0.15 }} />
-              ))}
-            </div>
-          ) : (
-            <PersonFileCard recordId={recordId} />
-          )}
-        </div>
+        {/* Direct-open (tester triage): PersonFileCard mounts IMMEDIATELY —
+            its data load runs in parallel with this panel's header bundle
+            (they were sequential before, which stacked two loading states),
+            and its own loading state is trifold-shaped, so the workspace
+            opens straight into the final composition and fills in. */}
+        <PersonFileCard recordId={recordId} onRequestClose={onClose} headerSlot={headerSlot} />
       </div>
     </div>
   )

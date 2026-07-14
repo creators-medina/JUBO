@@ -38,7 +38,9 @@ export default async function BusinessPlanPage() {
     <div className="mx-auto w-full max-w-3xl px-6 py-10 sm:py-12">
       <header className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Business Plan</h1>
+          {/* IA consolidation: this page is coaching over the goals engine; the
+              canonical planning-math page is /production-plan (see banner). */}
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Business Coaching</h1>
           <p className="mt-1 text-sm text-muted-foreground">Your income goal, reverse-engineered into a daily number.</p>
         </div>
         <Link
@@ -48,6 +50,16 @@ export default async function BusinessPlanPage() {
           <Pencil className="h-3.5 w-3.5" /> Edit plan
         </Link>
       </header>
+
+      {/* Pointer to the canonical planning page — non-invasive, no behavior
+          or calculation changes here. */}
+      <div className="mb-6 rounded-xl border border-jubo-gold/30 bg-jubo-gold-soft/40 px-4 py-3 text-sm text-foreground">
+        Looking for planning math? Use{' '}
+        <Link href="/production-plan" className="font-semibold text-jubo-navy underline-offset-2 hover:underline">
+          Production Plan
+        </Link>{' '}
+        for income goals, lead-source mix, and activity targets. Business Coaching remains here for execution insights and coaching notes.
+      </div>
 
       <BusinessPlanOverview
         plan={plan}

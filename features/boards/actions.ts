@@ -12,11 +12,15 @@ export async function reorderBoards(orderedBoardIds: string[]) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  await Promise.all(
+  const results = await Promise.all(
     orderedBoardIds.map((id, idx) =>
       supabase.from('boards').update({ position: idx }).eq('id', id),
     ),
   )
+  // supabase-js reports failures via { error } without throwing — surface them so
+  // the caller's optimistic-UI rollback actually fires instead of silently reverting.
+  const failed = results.find((r) => r.error)
+  if (failed?.error) throw new Error(failed.error.message)
   // Sidebar lives in the app layout; revalidate broadly so any server render picks it up.
   revalidatePath('/', 'layout')
 }
@@ -84,6 +88,26 @@ export async function updateBoardDisplaySettings(boardId: string, settings: Reco
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
   const { error } = await supabase.from('boards').update({ display_settings: settings }).eq('id', boardId)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/boards/${boardId}`)
+}
+
+/** Lead-inbox pass — persist a board's DEFAULT VIEW (kanban/table) inside the
+ *  existing display_settings JSONB. Server-side read-merge-write so the Top
+ *  Phase Summary prefs sharing the column are never clobbered. Presentation
+ *  only: which view a board opens in for users with no saved preference. */
+export async function updateBoardDefaultView(boardId: string, view: 'kanban' | 'table') {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+  const { data: row, error: readErr } = await supabase
+    .from('boards').select('display_settings').eq('id', boardId).single()
+  if (readErr) throw new Error(readErr.message)
+  const current = ((row as { display_settings: Record<string, unknown> | null }).display_settings) ?? {}
+  const { error } = await supabase
+    .from('boards')
+    .update({ display_settings: { ...current, default_view: view } })
+    .eq('id', boardId)
   if (error) throw new Error(error.message)
   revalidatePath(`/boards/${boardId}`)
 }
@@ -161,11 +185,13 @@ export async function reorderBoardGroups(boardId: string, orderedGroupIds: strin
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
-  await Promise.all(
+  const results = await Promise.all(
     orderedGroupIds.map((id, idx) =>
       supabase.from('board_groups').update({ position: idx }).eq('id', id).eq('board_id', boardId),
     ),
   )
+  const failed = results.find((r) => r.error)
+  if (failed?.error) throw new Error(failed.error.message)
   revalidatePath(`/boards/${boardId}`)
 }
 

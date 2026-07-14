@@ -22,14 +22,21 @@ import { AutomationsModal } from '@/features/workflows/components/AutomationsMod
 import { BulkActionBar } from './BulkActionBar'
 import { DragOverlayRow } from './DragOverlayRow'
 import { useBoardRealtime } from '@/hooks/useBoardRealtime'
-import { moveRecord, reorderRecords } from '@/features/records/actions'
+import { moveRecord, reorderRecords, updateRecord, moveRecordToBoard, getMoveTargets } from '@/features/records/actions'
+import { startRecordDrag, setRecordDragHover, endRecordDrag, useRecordDrag } from '../dnd/recordDragBridge'
+import { useToast } from '@/features/feedback/ToastProvider'
 import { buildVisibilityIndex, resolveVisibleFields, commonFieldIds, isFieldVisibleInGroup, type FieldVisibilityRow } from '@/features/fields/visibility'
 import { computeGroupChecklist } from '@/features/fields/checklist'
+import { pickLoanAmountFieldId, loanAmountForSum } from '@/features/fields/loanAmount'
 import { reorderFields } from '@/features/fields/actions'
-import { createSavedView, reorderBoardGroups, duplicateBoardStructure, archiveBoard, updateBoardDisplaySettings } from '../actions'
+import { createSavedView, reorderBoardGroups, duplicateBoardStructure, archiveBoard, updateBoard, updateBoardDisplaySettings } from '../actions'
+import { BOARD_RENAMED_EVENT } from './DynamicBoardsSidebarSection'
+import { InlineRenameText } from '@/components/primitives/InlineRenameText'
 import { addNotesColumn } from '@/features/fields/actions'
 import { isNotesField } from '../notes'
 import { updateSavedViewAttention } from '@/features/daily-actions/attention/actions'
+import { useAuth } from '@/providers/AuthProvider'
+import { LOCAL_KEYS } from '@/lib/localKeys'
 import { cn } from '@/lib/utils'
 import type { RecordPriority, RecordStatus } from '@/types/database'
 
@@ -40,6 +47,9 @@ interface Props {
   fieldVisibility?: FieldVisibilityRow[]
   records: any[]
   fieldValues: any[]
+  /** Distinct records with a non-internal communication logged since Monday
+   *  (read-only; powers the week ring + per-stage progress). */
+  contactedThisWeek?: { total: number; byGroup: Record<string, number> }
   organizationId: string
   notesByRecord?: Record<string, import('@/features/workspace/notes/queries').NotesSummary>
 }
@@ -61,7 +71,7 @@ const STATUS_OPTIONS: { value: RecordStatus | ''; label: string }[] = [
   { value: 'on_hold', label: 'On Hold' },
 ]
 
-export function BoardDetailClient({ board, groups, fields, fieldVisibility, records: serverRecords, fieldValues, organizationId, notesByRecord }: Props) {
+export function BoardDetailClient({ board, groups, fields, fieldVisibility, records: serverRecords, fieldValues, organizationId, notesByRecord, contactedThisWeek }: Props) {
   const router = useRouter()
   const isMutating = useRef(false)
 
@@ -175,8 +185,28 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
 
   // Phase 37B-1 — Kanban stages (columns). Modeled as Stage{boardId,groupId} even
   // though V1 is single-board, so 37B-2's board-aware drag dispatcher drops in.
-  // Kanban is the default/primary board view (client-only state, no persistence).
-  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'calendar'>('kanban')
+  // View resolution (lead-inbox pass): the user's LAST-USED view per board
+  // always wins (localStorage, keyed by user + board, strictly validated);
+  // with no saved preference the board's OWN default_view (an optional
+  // display_settings key, set in Board Settings) applies; kanban remains the
+  // final fallback. Boards without the setting behave exactly as before.
+  // Phase F — 'calendar' joins the union as a read-only third view.
+  const { user: authUser } = useAuth()
+  const boardDefaultView: 'table' | 'kanban' =
+    ((board.display_settings as Record<string, unknown> | null)?.default_view === 'table' ? 'table' : 'kanban')
+  const [viewMode, setViewMode] = useState<'table' | 'kanban' | 'calendar'>(boardDefaultView)
+  const viewModeStorageKey = LOCAL_KEYS.boardViewMode(authUser?.id, board.id)
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem(viewModeStorageKey)
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (v === 'table' || v === 'kanban' || v === 'calendar') setViewMode(v)
+    } catch { /* default stands */ }
+  }, [viewModeStorageKey])
+  const changeViewMode = (m: 'table' | 'kanban' | 'calendar') => {
+    setViewMode(m)
+    try { window.localStorage.setItem(viewModeStorageKey, m) } catch { /* view-only */ }
+  }
   const stages = useMemo<Stage[]>(
     () => groups.map((g: any) => ({ id: g.id, boardId: board.id, groupId: g.id, label: g.name, color: g.color ?? null, roleLabel: g.role_label ?? null, guidanceNote: g.guidance_note ?? null })),
     [groups, board.id],
@@ -200,9 +230,9 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   // Realtime
   useBoardRealtime(board.id, isMutating)
 
-  // DnD
-  const [activeRecord, setActiveRecord] = useState<any>(null)
-  // 37B-2E — full drag payload (record + precomputed face / row refs) for the overlay.
+  // DnD — 37B-2E: the full drag payload (record + precomputed face / row
+  // refs) drives the overlay; a separate activeRecord state was never read
+  // and was removed (Step 9 lint burn-down).
   const [activeData, setActiveData] = useState<any>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -223,15 +253,144 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.4' } } }),
   }
 
+  // ── Cross-board drop via the sidebar (record-drag bridge) ──
+  // dnd-kit drags are pointer-based, so the drag survives crossing into the
+  // sidebar (outside this DndContext) on its own. While a record drag is
+  // live we hit-test the pointer against sidebar board rows and publish the
+  // hovered target; on drop, that target wins over any dnd-kit `over`.
+  const toast = useToast()
+  const recordDragCleanup = useRef<(() => void) | null>(null)
+  const stopRecordDragBridge = useCallback(() => {
+    recordDragCleanup.current?.()
+    recordDragCleanup.current = null
+    return endRecordDrag()
+  }, [])
+
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveRecord(event.active.data.current?.record ?? null)
     setActiveData(event.active.data.current ?? null)
+    const a = event.active.data.current
+    if (a?.type === 'record') {
+      // One-time discoverability hint (operator audit): cross-board drag is
+      // invisible until tried. Shown once per browser; drag behavior itself
+      // is completely untouched.
+      try {
+        if (!window.localStorage.getItem(LOCAL_KEYS.hintCrossBoardDrag)) {
+          window.localStorage.setItem(LOCAL_KEYS.hintCrossBoardDrag, '1')
+          toast.info('Tip: drop a contact on a board in the sidebar to move it there.')
+        }
+      } catch { /* hint only */ }
+      startRecordDrag(a.recordId as string, (a.boardId ?? board.id) as string, String(a.record?.title ?? ''))
+      const onMove = (e: PointerEvent) => {
+        const el = document.elementFromPoint(e.clientX, e.clientY)
+        const boardEl = (el?.closest?.('[data-record-drop-board]') ?? null) as HTMLElement | null
+        const groupEl = (el?.closest?.('[data-record-drop-group]') ?? null) as HTMLElement | null
+        const sectionEl = (el?.closest?.('[data-record-drop-section]') ?? null) as HTMLElement | null
+        setRecordDragHover({
+          hoverBoardId: boardEl?.dataset.recordDropBoard ?? null,
+          hoverBoardName: boardEl?.dataset.recordDropName ?? null,
+          hoverGroupId: groupEl?.dataset.recordDropGroup ?? null,
+          hoverGroupName: groupEl?.dataset.recordDropGroupName ?? null,
+          hoverSectionKey: sectionEl?.dataset.recordDropSection ?? null,
+          // Over the sidebar (or its portal flyout): the drag preview goes
+          // compact so it never covers the drop targets.
+          overSidebar: !!(el?.closest?.('[data-app-sidebar]') || boardEl || groupEl || sectionEl),
+        })
+        // Edge autoscroll: nudge the sidebar's scroll container when the
+        // pointer sits near its top/bottom edge during a record drag.
+        const scroller = document.querySelector('[data-sidebar-scroll]') as HTMLElement | null
+        if (scroller) {
+          const r = scroller.getBoundingClientRect()
+          if (e.clientX >= r.left - 8 && e.clientX <= r.right + 8) {
+            if (e.clientY < r.top + 44) scroller.scrollTop -= 14
+            else if (e.clientY > r.bottom - 44) scroller.scrollTop += 14
+          }
+        }
+      }
+      window.addEventListener('pointermove', onMove)
+      recordDragCleanup.current = () => window.removeEventListener('pointermove', onMove)
+    }
   }
+
+  const handleDragCancel = useCallback(() => {
+    setActiveData(null)
+    recordDragCleanup.current?.()
+    recordDragCleanup.current = null
+    endRecordDrag()
+  }, [])
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event
-    setActiveRecord(null)
     setActiveData(null)
+    const bridge = stopRecordDragBridge()
+    const dragged = active.data.current
+
+    // ── Cross-board move: dropped on a sidebar board row (or its stage flyout). ──
+    if (dragged?.type === 'record' && bridge.hoverBoardId) {
+      const recordId = dragged.recordId as string
+      const toBoardId = bridge.hoverBoardId
+      const toBoardName = bridge.hoverBoardName ?? 'that board'
+
+      // Same board: a flyout stage drop is an INTENTIONAL stage move — route
+      // it through the same moveRecord wrapper as any in-board stage change.
+      if (toBoardId === board.id) {
+        const toGroupId = bridge.hoverGroupId
+        if (!toGroupId) { toast.info('Already on this board.'); return }
+        if (toGroupId === dragged.fromGroupId) { toast.info('Already in that stage.'); return }
+        isMutating.current = true
+        setLocalRecords(prev => prev.map(r => r.id === recordId ? { ...r, group_id: toGroupId } : r))
+        setPendingMoveIds(prev => { const n = new Set(prev); n.add(recordId); return n })
+        try {
+          await moveRecord(recordId, toGroupId, board.id)
+          toast.success(`Moved to ${bridge.hoverGroupName ?? 'stage'}`)
+          router.refresh()
+        } catch {
+          setLocalRecords(serverRecords) // rollback
+          setPendingMoveIds(new Set())
+          toast.error('Could not move the record — try again.')
+        } finally {
+          isMutating.current = false
+        }
+        return
+      }
+
+      isMutating.current = true
+      setPendingMoveIds(prev => new Set(prev).add(recordId))
+      try {
+        // Destination stage: the flyout's explicit stage when one was hovered,
+        // else the destination board's FIRST group (its own position order) —
+        // never guessed, never created. No groups → block.
+        let toGroupId = bridge.hoverGroupId
+        let destLabel = bridge.hoverGroupId ? `${toBoardName} · ${bridge.hoverGroupName ?? 'stage'}` : toBoardName
+        if (!toGroupId) {
+          const targets = await getMoveTargets()
+          const dest = targets.find((t) => t.id === toBoardId)
+          toGroupId = dest?.groups[0]?.id ?? null
+          destLabel = toBoardName
+        }
+        if (!toGroupId) {
+          toast.error(`"${toBoardName}" has no stages to receive records.`)
+          return
+        }
+        // Optimistic: the record (and its subitems) leave this board now.
+        setLocalRecords(prev => prev.filter(r => r.id !== recordId && r.parent_record_id !== recordId))
+        const res = await moveRecordToBoard(recordId, toBoardId, toGroupId)
+        if ('error' in res) {
+          setLocalRecords(serverRecords) // rollback — the card returns
+          toast.error('Could not move the record — try again.')
+          return
+        }
+        toast.success(`Moved to ${destLabel}`)
+        router.refresh()
+      } catch {
+        setLocalRecords(serverRecords) // rollback
+        toast.error('Could not move the record — try again.')
+      } finally {
+        setPendingMoveIds(prev => { const n = new Set(prev); n.delete(recordId); return n })
+        isMutating.current = false
+      }
+      return
+    }
+
     if (!over) return
 
     // Phase 37B-2 — data-driven (works for table rows AND kanban cards). Only
@@ -328,13 +487,27 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     } finally {
       isMutating.current = false
     }
-  }, [serverRecords, router, localRecords])
+  }, [serverRecords, router, localRecords, board.id, toast, stopRecordDragBridge])
 
   const handleOptimisticMove = useCallback((recordId: string, toGroupId: string) => {
     isMutating.current = true
     setLocalRecords(prev => prev.map(r => r.id === recordId ? { ...r, group_id: toGroupId } : r))
     setTimeout(() => { isMutating.current = false }, 2000)
   }, [])
+
+  // Inline record rename (Kanban card / table row titles) — the existing
+  // updateRecord write path (records.title only), optimistic with rollback.
+  const handleRenameRecord = useCallback(async (recordId: string, title: string) => {
+    const prev = localRecords
+    setLocalRecords(prev.map((r: { id: string }) => (r.id === recordId ? { ...r, title } : r)))
+    try {
+      await updateRecord(recordId, board.id, { title })
+      router.refresh()
+    } catch (e) {
+      setLocalRecords(prev) // rollback
+      throw e
+    }
+  }, [localRecords, board.id, router])
 
   // UI state
   const [showCreateGroup, setShowCreateGroup] = useState(false)
@@ -480,25 +653,37 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     }, {}),
   [filteredByGroup, groups])
 
-  // Visible (post-filter/search) loan volume per group — sum of existing record
-  // `value`, scoped to the same filtered set as the count (no new query) so the
-  // graph's amounts stay consistent with what's shown below.
+  // Cross-screen amount source of truth (data-mapping audit): a record's dollar
+  // amount is its loan_amount FIELD value — the same source the contact card,
+  // Kanban card, and hover preview display — falling back to the legacy
+  // records.value column for records that only carry that. Same resolution
+  // order the prospecting queue already uses. Read-only; no new query.
+  const amountFieldId = useMemo(() => pickLoanAmountFieldId(localFields), [localFields])
+  const recordAmount = useCallback((r: { id: string; value?: number | string | null }): number => {
+    const n = amountFieldId ? fieldValuesIndex[r.id]?.[amountFieldId]?.value_number : null
+    return loanAmountForSum(n, r.value)
+  }, [amountFieldId, fieldValuesIndex])
+
+  // Visible (post-filter/search) loan volume per group — sum of each record's
+  // amount (loan_amount field, else legacy record value), scoped to the same
+  // filtered set as the count (no new query) so the graph's amounts stay
+  // consistent with what's shown below.
   const filteredValueByGroup = useMemo(() =>
     groups.reduce<Record<string, number>>((acc, g) => {
-      acc[g.id] = (filteredByGroup[g.id] ?? []).reduce((sum: number, r: any) => sum + (Number(r.value) || 0), 0)
+      acc[g.id] = (filteredByGroup[g.id] ?? []).reduce((sum: number, r: any) => sum + recordAmount(r), 0)
       return acc
     }, {}),
-  [filteredByGroup, groups])
+  [filteredByGroup, groups, recordAmount])
 
   // Visible records that actually carry a loan value — lets the header show a
   // safe average (total value ÷ valued records), excluding $0/blank records so
   // the average isn't diluted. Same filtered set, no new query.
   const filteredValuedCountByGroup = useMemo(() =>
     groups.reduce<Record<string, number>>((acc, g) => {
-      acc[g.id] = (filteredByGroup[g.id] ?? []).filter((r: any) => (Number(r.value) || 0) > 0).length
+      acc[g.id] = (filteredByGroup[g.id] ?? []).filter((r: any) => recordAmount(r) > 0).length
       return acc
     }, {}),
-  [filteredByGroup, groups])
+  [filteredByGroup, groups, recordAmount])
 
   const totalByGroup = useMemo(() =>
     groups.reduce<Record<string, number>>((acc, g) => {
@@ -507,15 +692,16 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
     }, {}),
   [topLevelRecords, groups])
 
-  // Per-stage pipeline volume — sum of existing record `value` (no new schema/math).
+  // Per-stage pipeline volume — sum of each record's amount (loan_amount field,
+  // else legacy record value; no new schema/math).
   const valueByGroup = useMemo(() =>
     groups.reduce<Record<string, number>>((acc, g) => {
       acc[g.id] = topLevelRecords
         .filter((r: any) => r.group_id === g.id)
-        .reduce((sum: number, r: any) => sum + (Number(r.value) || 0), 0)
+        .reduce((sum: number, r: any) => sum + recordAmount(r), 0)
       return acc
     }, {}),
-  [topLevelRecords, groups])
+  [topLevelRecords, groups, recordAmount])
 
   const hasAnyValue = useMemo(() => Object.values(valueByGroup).some((v) => v > 0), [valueByGroup])
 
@@ -531,81 +717,79 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
   }, [groups, valueByGroup, totalByGroup, hasAnyValue])
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
       {/* jubo-los-scope: re-themes the board subtree to the warm LOS-light
           palette (cream surfaces / tan borders / dusty-red primary) via scoped
           token overrides; the dark app shell remains the navy frame. */}
       <div className="jubo-los-scope flex flex-col h-full min-h-0">
-        {/* Board header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border flex-shrink-0">
-          <Link href="/boards" className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
+        {/* Header redesign — Row 1: slim navy identity strip (back · name ·
+            type badge). The rename affordance lives here; the big title below
+            is display-only, matching the reference. */}
+        <div className="jubo-navy-chrome flex flex-shrink-0 items-center gap-3 bg-jubo-navy px-4 py-2">
+          <Link href="/boards" className="flex-shrink-0 text-white/60 transition-colors hover:text-white">
             <ChevronLeft className="w-4 h-4" />
           </Link>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              {board.color && <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: board.color }} />}
-              <h2 className="text-sm font-semibold text-foreground">{board.name}</h2>
-              <span className="text-2xs px-1.5 py-0.5 rounded-full bg-surface-2 text-muted-foreground capitalize border border-border">{board.board_type}</span>
-            </div>
-            {board.description && <p className="text-xs text-muted-foreground mt-0.5">{board.description}</p>}
-          </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Button size="sm" variant="ghost" className="text-xs h-7 gap-1" onClick={() => setShowCreateGroup(true)}>
-              <Plus className="w-3 h-3" />Group
-            </Button>
-            <Button size="sm" variant="ghost" className="text-xs h-7 gap-1" title="Automate" onClick={() => setShowAutomate(true)}>
-              <Zap className="w-3.5 h-3.5" />Automate
-            </Button>
-            <Button size="icon" variant="ghost" className="w-7 h-7" title="Settings" onClick={() => setShowSettings(true)}>
-              <Settings className="w-3.5 h-3.5" />
-            </Button>
-            <div className="relative" ref={boardMenuRef}>
-              <Button size="icon" variant="ghost" className="w-7 h-7" title="Board menu" onClick={() => setShowBoardMenu((o) => !o)}>
-                {boardBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MoreVertical className="w-3.5 h-3.5" />}
-              </Button>
-              {showBoardMenu && (
-                <div className="absolute right-0 top-8 z-50 w-52 rounded-lg border border-border bg-card p-1 shadow-xl">
-                  <button type="button" onClick={() => { setShowBoardMenu(false); setShowSettings(true) }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
-                    <Pencil className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Rename board
-                  </button>
-                  <button type="button" onClick={onDuplicateBoard} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
-                    <Copy className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Duplicate structure
-                  </button>
-                  {!hasNotesColumn && (
-                    <button type="button" onClick={onAddNotesColumn} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
-                      <StickyNote className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Add Notes column
-                    </button>
-                  )}
-                  <div className="my-1 border-t border-border" />
-                  <button type="button" onClick={() => { setShowBoardMenu(false); setConfirmArchiveBoard(true) }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-destructive hover:bg-surface-1">
-                    <Archive className="h-3.5 w-3.5 flex-shrink-0 text-destructive" />Archive board
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          <h2 className="flex min-w-0 items-center gap-1 text-sm font-bold leading-5 text-white">
+            {/* Inline rename — existing updateBoard action (boards.name only);
+                the sidebar picks the change up via the rename event. */}
+            <InlineRenameText
+              value={board.name}
+              pencil
+              className="truncate"
+              inputClassName="text-sm font-bold bg-white/10 border-white/30 text-white focus:ring-white/50"
+              onSave={async (next) => {
+                await updateBoard(board.id, { name: next })
+                window.dispatchEvent(new CustomEvent(BOARD_RENAMED_EVENT, { detail: { boardId: board.id, name: next } }))
+                router.refresh()
+              }}
+            />
+          </h2>
+          <span className="flex-shrink-0 whitespace-nowrap rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white/70">{board.board_type}</span>
         </div>
 
-        {/* Search + filter bar */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0 flex-wrap">
-          {/* Table | Kanban toggle — left-aligned (Phase 37B-1, client-only, no persistence). */}
+        {/* Row 2 — big title (left) + the full toolbar (right): view toggle ·
+            search · filters · + Group · Automate · settings · menu. */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 pb-2.5 pt-3 flex-shrink-0">
+          <div className="flex min-w-0 items-center gap-2.5">
+            {board.color && <div className="h-2.5 w-2.5 flex-shrink-0 rounded-sm" style={{ backgroundColor: board.color }} />}
+            <h1 className="truncate text-xl font-bold leading-tight tracking-tight text-jubo-navy" title={board.description || board.name}>
+              {board.name}
+            </h1>
+            <span className="flex-shrink-0 whitespace-nowrap rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{board.board_type}</span>
+            <span className="flex-shrink-0 whitespace-nowrap text-xs text-muted-foreground tabular-nums">
+              {topLevelRecords.length} {topLevelRecords.length === 1 ? 'contact' : 'contacts'}
+            </span>
+          </div>
+          {/* Lead-inbox purpose line — the PROSPECTING board only (matched by
+              slug/name): says what this board is for vs the Daily Call Log.
+              Copy only; no data, stages, or behavior change. */}
+          {(board.slug === 'prospecting' || (board.name ?? '').trim().toLowerCase() === 'prospecting') && (
+            <p className="w-full text-xs text-muted-foreground sm:w-auto sm:flex-1 sm:truncate" title="Raw lead inbox for new, unworked, and early-stage leads. Use Daily Call Log for your daily calling workflow.">
+              Raw lead inbox — new &amp; unworked leads land here. Daily calling lives in the{' '}
+              <Link href="/prospecting" className="font-medium text-jubo-red hover:underline">Daily Call Log</Link>.
+            </p>
+          )}
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+
+          {/* Kanban | Table toggle — the chosen view is remembered per board
+              (per-browser preference; no board data is touched). */}
           <div className="inline-flex items-center rounded-md border border-border bg-jubo-card-soft p-0.5">
             <button
-              onClick={() => setViewMode('table')}
-              className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs transition-colors', viewMode === 'table' ? 'bg-jubo-navy text-white' : 'text-jubo-text-soft hover:text-jubo-text')}
-              title="Table view"
-            >
-              <Rows3 className="w-3 h-3" /> Table
-            </button>
-            <button
-              onClick={() => setViewMode('kanban')}
+              onClick={() => changeViewMode('kanban')}
               className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs transition-colors', viewMode === 'kanban' ? 'bg-jubo-navy text-white' : 'text-jubo-text-soft hover:text-jubo-text')}
               title="Kanban view"
             >
               <LayoutGrid className="w-3 h-3" /> Kanban
             </button>
             <button
-              onClick={() => setViewMode('calendar')}
+              onClick={() => changeViewMode('table')}
+              className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs transition-colors', viewMode === 'table' ? 'bg-jubo-navy text-white' : 'text-jubo-text-soft hover:text-jubo-text')}
+              title="Table view"
+            >
+              <Rows3 className="w-3 h-3" /> Table
+            </button>
+            <button
+              onClick={() => changeViewMode('calendar')}
               className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-2xs transition-colors', viewMode === 'calendar' ? 'bg-jubo-navy text-white' : 'text-jubo-text-soft hover:text-jubo-text')}
               title="Calendar view"
             >
@@ -700,7 +884,44 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
               </select>
             </>
           )}
+            <div aria-hidden className="mx-1 hidden h-5 w-px bg-border sm:block" />
+            <Button size="sm" variant="ghost" className="text-xs h-7 gap-1 rounded-lg border border-border bg-card" onClick={() => setShowCreateGroup(true)}>
+              <Plus className="w-3 h-3" />Group
+            </Button>
+            <Button size="sm" variant="ghost" className="text-xs h-7 gap-1 rounded-lg border border-border bg-card" title="Automate" onClick={() => setShowAutomate(true)}>
+              <Zap className="w-3.5 h-3.5" />Automate
+            </Button>
+            <Button size="icon" variant="ghost" className="w-7 h-7 rounded-lg border border-border bg-card" title="Settings" onClick={() => setShowSettings(true)}>
+              <Settings className="w-3.5 h-3.5" />
+            </Button>
+            <div className="relative" ref={boardMenuRef}>
+              <Button size="icon" variant="ghost" className="w-7 h-7 rounded-lg border border-border bg-card" title="Board menu" onClick={() => setShowBoardMenu((o) => !o)}>
+                {boardBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MoreVertical className="w-3.5 h-3.5" />}
+              </Button>
+              {showBoardMenu && (
+                <div className="absolute right-0 top-8 z-50 w-52 rounded-lg border border-border bg-card p-1 shadow-xl">
+                  <button type="button" onClick={() => { setShowBoardMenu(false); setShowSettings(true) }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
+                    <Pencil className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Rename board
+                  </button>
+                  <button type="button" onClick={onDuplicateBoard} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
+                    <Copy className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Duplicate structure
+                  </button>
+                  {!hasNotesColumn && (
+                    <button type="button" onClick={onAddNotesColumn} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-foreground hover:bg-surface-1">
+                      <StickyNote className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />Add Notes column
+                    </button>
+                  )}
+                  <div className="my-1 border-t border-border" />
+                  <button type="button" onClick={() => { setShowBoardMenu(false); setConfirmArchiveBoard(true) }} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-destructive hover:bg-surface-1">
+                    <Archive className="h-3.5 w-3.5 flex-shrink-0 text-destructive" />Archive board
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
+
+
 
         {/* Board content */}
         <div className="flex flex-1 min-h-0 flex-col">
@@ -711,8 +932,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                 countByGroup={filteredCountByGroup}
                 valueByGroup={filteredValueByGroup}
                 valuedCountByGroup={filteredValuedCountByGroup}
-                phaseLabel={board.name}
-                badge={board.board_type}
+                contactedThisWeek={contactedThisWeek}
                 settings={displaySettings}
                 onChangeSettings={handleChangeDisplaySettings}
               />
@@ -739,6 +959,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                 pendingMoveIds={pendingMoveIds}
                 onSelectRecord={(id, title) => openWorkspace({ recordId: id, title })}
                 onAddRecord={(groupId) => setShowCreateRecord(groupId)}
+                onRenameRecord={handleRenameRecord}
               />
             ) : viewMode === 'calendar' ? (
               <BoardCalendarView
@@ -785,6 +1006,7 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
                     onAddRecord={() => setShowCreateRecord(group.id)}
                     onAddField={() => setShowCreateField(true)}
                     entityNoun={entityNoun}
+                    onRenameRecord={handleRenameRecord}
                     onSelectRecord={id => {
                       const r = localRecords.find((x: any) => x.id === id)
                       openWorkspace({ recordId: id, title: r?.title ?? 'Record' })
@@ -839,7 +1061,9 @@ export function BoardDetailClient({ board, groups, fields, fieldVisibility, reco
         />
       </div>
 
-      <DragOverlay dropAnimation={dropAnimation}>
+      {/* pointer-events: none keeps elementFromPoint hit-testing (the sidebar
+          cross-board bridge) seeing through the drag ghost. */}
+      <DragOverlay dropAnimation={dropAnimation} style={{ pointerEvents: 'none' }}>
         {activeData && <DragPreview data={activeData} />}
       </DragOverlay>
     </DndContext>
@@ -858,6 +1082,14 @@ function DragPreview({ data }: { data: any }) {
   const { active } = useDndContext()
   const width = active?.rect?.current?.initial?.width
   const widthStyle = width ? { width: `${width}px` } : undefined
+
+  // Over the sidebar the full card/row preview would cover the drop targets —
+  // morph to a compact pill (initials + name) so the destination boards and
+  // the stage flyout stay fully visible while "carrying" the record.
+  const recordDrag = useRecordDrag()
+  if (recordDrag.overSidebar && data.type === 'record') {
+    return <CompactDragPill title={String(data.record?.title ?? recordDrag.title ?? 'Record')} />
+  }
 
   if (data.view === 'kanban') {
     // Kanban cards are narrow. Clamp the lifted preview to a card-sized width and
@@ -879,4 +1111,20 @@ function DragPreview({ data }: { data: any }) {
   const fvMap = (data.fieldValueMap ?? {}) as Record<string, any>
   const cells = fields.map((f) => ({ name: f.name, value: formatCellValue(f, fvMap[f.id]) }))
   return <div className="jubo-los-scope"><DragOverlayRow title={data.title} cells={cells} widthStyle={widthStyle} /></div>
+}
+
+/** Compact drag preview shown while the pointer is over the sidebar: a small
+ *  pill (initials + name) that never covers the destination boards or the
+ *  stage flyout. */
+function CompactDragPill({ title }: { title: string }) {
+  const words = title.trim().split(/\s+/)
+  const initials = ((words[0]?.[0] ?? '') + (words[1]?.[0] ?? '')).toUpperCase() || '•'
+  return (
+    <div className="jubo-los-scope flex w-fit max-w-[220px] cursor-grabbing items-center gap-2 rounded-full border border-jubo-border-strong bg-jubo-card py-1 pl-1 pr-3 shadow-2xl">
+      <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-jubo-gold-soft text-[10px] font-bold text-jubo-gold">
+        {initials}
+      </span>
+      <span className="truncate text-xs font-semibold text-foreground">{title}</span>
+    </div>
+  )
 }

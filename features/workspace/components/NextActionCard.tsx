@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Zap, Check, Edit2, X, Calendar, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { setNextAction, completeNextAction } from '../notes/actions'
+import { useToast } from '@/features/feedback/ToastProvider'
 
 interface Props {
   recordId: string
@@ -38,7 +39,14 @@ function isoToLocal(iso: string | null): string {
 
 export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActionCompletedAt, compact }: Props) {
   const router = useRouter()
+  const toast = useToast()
   const [editing, setEditing] = useState(!nextAction)
+  // Focus the input ONLY when the user explicitly opens editing. The empty
+  // state also mounts in editing mode, and an autoFocus there steals focus on
+  // card open — the browser scrolls the focused input into view, which yanked
+  // the whole contact card to the bottom before anything was read.
+  const [focusRequested, setFocusRequested] = useState(false)
+  const openEdit = () => { setFocusRequested(true); setEditing(true) }
   const [text, setText] = useState(nextAction ?? '')
   const [dueLocal, setDueLocal] = useState(isoToLocal(nextActionDueAt))
   const [isPending, startTransition] = useTransition()
@@ -57,7 +65,7 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
         })
         setEditing(false)
         router.refresh()
-      } catch {}
+      } catch (e) { toast.error(`Couldn't save next step — ${e instanceof Error ? e.message : 'please try again'}`) }
     })
   }
 
@@ -67,9 +75,9 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
         await setNextAction({ record_id: recordId, next_action: null, next_action_due_at: null })
         setText('')
         setDueLocal('')
-        setEditing(true)
+        openEdit() // user-initiated (they clicked clear) — focusing is expected
         router.refresh()
-      } catch {}
+      } catch (e) { toast.error(`Couldn't save next step — ${e instanceof Error ? e.message : 'please try again'}`) }
     })
   }
 
@@ -78,7 +86,7 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
       try {
         await completeNextAction(recordId)
         router.refresh()
-      } catch {}
+      } catch (e) { toast.error(`Couldn't save next step — ${e instanceof Error ? e.message : 'please try again'}`) }
     })
   }
 
@@ -91,7 +99,7 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
           next_action_due_at: new Date(offsetISOLocal(days)).toISOString(),
         })
         router.refresh()
-      } catch {}
+      } catch (e) { toast.error(`Couldn't save next step — ${e instanceof Error ? e.message : 'please try again'}`) }
     })
   }
 
@@ -105,7 +113,7 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
         <Zap className={cn('w-3.5 h-3.5', overdue ? 'text-red-300' : completed ? 'text-jubo-green' : 'text-jubo-gold')} />
         <p className="text-2xs font-semibold uppercase tracking-wider text-jubo-gold flex-1">Next Step</p>
         {nextAction && !editing && !completed && (
-          <button onClick={() => setEditing(true)} title="Edit"
+          <button onClick={openEdit} title="Edit"
             className="p-0.5 rounded text-white/50 hover:text-white hover:bg-white/10">
             <Edit2 className="w-3 h-3" />
           </button>
@@ -120,7 +128,7 @@ export function NextActionCard({ recordId, nextAction, nextActionDueAt, nextActi
             onChange={e => setText(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setEditing(!!nextAction ? false : true); setText(nextAction ?? '') } }}
             placeholder="Set a next action…"
-            autoFocus
+            autoFocus={focusRequested}
             className="w-full px-2.5 py-1.5 rounded-md bg-jubo-navy2 border border-white/15 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-jubo-red"
           />
           <div className="flex items-center gap-1.5">

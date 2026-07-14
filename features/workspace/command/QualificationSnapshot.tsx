@@ -18,7 +18,7 @@
 
 import { Gauge, RefreshCcw, TrendingUp } from 'lucide-react'
 import {
-  textValue, numberValue, dateValue, rawValue, formatCurrency, formatDate, currentGroupName,
+  textValue, numberValue, dateValue, rawValue, formatCurrency, formatDate, currentGroupName, loanAmountValue,
 } from '@/features/mortgage/data'
 import { resolveTemplateKey } from '@/features/mortgage/templates/resolve'
 import type { MortgageData } from '@/features/mortgage/types'
@@ -38,6 +38,13 @@ function money(data: MortgageData, slug: string): string | null {
   return n != null ? formatCurrency(n) : null
 }
 
+/** Base loan amount, formatted — precise loan-amount resolution (shared), so
+ *  `amount`/`preapproved_amount` fields resolve too. Null → tile is skipped. */
+function loanMoney(data: MortgageData): string | null {
+  const n = loanAmountValue(data)
+  return n != null ? formatCurrency(n) : null
+}
+
 function dateTile(data: MortgageData, slug: string): string | null {
   const d = dateValue(data, slug)
   return d ? formatDate(d) : null
@@ -50,7 +57,7 @@ function buildTiles(data: MortgageData, key: string): { title: string; icon: Rea
 
   if (key === 'loan' || key === 'lead') {
     const tiles: Tile[] = []
-    push(tiles, 'Loan Amount', money(data, 'loan_amount'), 'var(--accent-green)')
+    push(tiles, 'Loan Amount', loanMoney(data), 'var(--accent-green)')
     push(tiles, 'Purpose', textValue(data, 'loan_purpose'))
     push(tiles, 'Loan Type', textValue(data, 'loan_type'))
     push(tiles, 'Credit', textValue(data, 'credit_score_range') ?? textValue(data, 'credit_score'))
@@ -65,7 +72,7 @@ function buildTiles(data: MortgageData, key: string): { title: string; icon: Rea
   if (key === 'past_client') {
     const tiles: Tile[] = []
     push(tiles, 'Closed Date', dateTile(data, 'closed_date'))
-    push(tiles, 'Loan Amount', money(data, 'loan_amount'), 'var(--accent-green)')
+    push(tiles, 'Loan Amount', loanMoney(data), 'var(--accent-green)')
     push(tiles, 'Current Rate', pct(data, 'current_rate'))
     const refi = textValue(data, 'refi_opportunity')
     if (refi && refi !== 'false' && refi.toLowerCase() !== 'no') push(tiles, 'Refi Opportunity', 'Yes', 'var(--accent-green)')

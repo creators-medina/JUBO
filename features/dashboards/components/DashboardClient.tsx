@@ -13,6 +13,7 @@ import { SortableWidgetCard } from './SortableWidgetCard'
 import { AddWidgetModal } from './AddWidgetModal'
 import { EditWidgetModal } from './EditWidgetModal'
 import { DashboardSettingsModal } from './DashboardSettingsModal'
+import { DashboardIcon } from './DynamicDashboardsSidebarSection'
 import { useWorkspaceTabs } from '@/features/workspace/providers/WorkspaceTabsProvider'
 import type { DashboardRow, DashboardWidgetRow, WidgetData, SavedViewRow } from '@/features/widgets/types'
 import type { ProductionGoalRow } from '@/features/goals/types'
@@ -100,11 +101,7 @@ export function DashboardClient({ dashboard, widgets: serverWidgets, widgetData,
       {/* Dashboard header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
         <div className="flex items-center gap-3">
-          {dashboard.icon ? (
-            <span className="text-2xl leading-none">{dashboard.icon}</span>
-          ) : (
-            <LayoutDashboard className="w-5 h-5 text-muted-foreground" />
-          )}
+          <DashboardIcon icon={dashboard.icon} className="h-5 w-5 text-muted-foreground" emojiClassName="text-2xl leading-none" />
           <div>
             <h1 className="text-base font-semibold text-foreground">{dashboard.name}</h1>
             {dashboard.description && (

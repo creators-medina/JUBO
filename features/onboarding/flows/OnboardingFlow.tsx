@@ -9,6 +9,7 @@ import { useOnboardingWizard } from '../state/OnboardingWizardProvider'
 import { ProgressRail } from '../components/ProgressRail'
 import { StepShell } from '../components/StepShell'
 import { QuestionField } from '../components/QuestionField'
+import { PlanPreview } from '../components/PlanPreview'
 import { ImportCenter } from '../imports/ImportCenter'
 import { IntegrationSetup } from '../integrations/IntegrationSetup'
 import { completeOnboarding } from '../actions'
@@ -43,7 +44,7 @@ export function OnboardingFlow({
         {wiz.stepKey === 'welcome' && <WelcomeStep />}
         {wiz.stepKey === 'generating' && <GeneratingStep />}
         {wiz.stepKey === 'done' && <DoneStep />}
-        {['production', 'goals', 'workflow', 'focus'].includes(wiz.stepKey) && (
+        {['production', 'goals', 'plan', 'workflow', 'focus'].includes(wiz.stepKey) && (
           <QuestionStep title={def.title} subtitle={def.subtitle} />
         )}
         {wiz.stepKey === 'imports' && (
@@ -101,6 +102,8 @@ function QuestionStep({ title, subtitle }: { title: string; subtitle: string }) 
     <StepShell title={title} subtitle={subtitle} footer={<NavFooter />}>
       <div className="space-y-4">
         {def.questions?.map((q) => <QuestionField key={String(q.key)} q={q} />)}
+        {/* Phase 4 — live plan read-out (same math as /production-plan). */}
+        {stepKey === 'plan' && <PlanPreview />}
       </div>
     </StepShell>
   )
