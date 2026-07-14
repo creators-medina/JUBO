@@ -59,6 +59,16 @@ export function ScheduleEditor({
     })
 
   const save = () => {
+    // Guard: a day in "Specific boards" mode must have at least one board picked.
+    // An empty 'boards' day is meaningless (it silently falls back to the
+    // playbook) and was how a junk schedule row got persisted before.
+    const emptyDays = Object.entries(week)
+      .filter(([, d]) => d.mode === 'boards' && d.boardIds.length === 0)
+      .map(([wd]) => WEEKDAY_LABELS[Number(wd)])
+    if (emptyDays.length > 0) {
+      toast.error(`Pick at least one board for ${emptyDays.join(', ')} — or set ${emptyDays.length > 1 ? 'those days' : 'that day'} to Any board or Off.`)
+      return
+    }
     startTransition(async () => {
       const res = await saveProspectingSchedule(organizationId, { enabled, strict, week })
       if ('error' in res) { toast.error('Could not save schedule — try again.'); return }

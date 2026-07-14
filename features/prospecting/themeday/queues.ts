@@ -183,10 +183,12 @@ export async function buildThemeDayData(organizationId: string, userId: string):
   }
 
   const lastContact = new Map<string, string>()
-  // Phase Hybrid (A2 outcome-awareness) — records whose recent history has a
-  // "don't contact" outcome are dropped from the call list (compliance + focus).
+  // Phase Hybrid (A2 outcome-awareness) — ONLY a hard "do not contact" permanently
+  // drops a record from the call list. not_interested / wrong_number are TRANSIENT
+  // (a lead can warm up, a number can be corrected), so they must NOT hide the
+  // record across all users — they stay in the roster.
   const suppressed = new Set<string>()
-  const SUPPRESS_OUTCOMES = new Set(['do_not_contact', 'not_interested', 'wrong_number'])
+  const SUPPRESS_OUTCOMES = new Set(['do_not_contact'])
   if (recordIds.length > 0) {
     const { data: lcRows } = await supabase
       .from('communication_logs')

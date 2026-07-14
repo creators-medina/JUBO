@@ -63,10 +63,13 @@ export function dayScheduleFor(schedule: ProspectingSchedule, date: Date): DaySc
 
 function normalizeDay(raw: unknown): DaySchedule {
   const r = (raw ?? {}) as Record<string, unknown>
-  const mode: DayMode = r.mode === 'boards' || r.mode === 'off' ? r.mode : 'any'
+  const rawMode: DayMode = r.mode === 'boards' || r.mode === 'off' ? r.mode : 'any'
   const boardIds = Array.isArray(r.boardIds)
     ? r.boardIds.filter((x): x is string => typeof x === 'string')
     : []
+  // A 'boards' day with no boards is meaningless → treat as 'any' (playbook
+  // fallback). Belt-and-suspenders with the ScheduleEditor save guard.
+  const mode: DayMode = rawMode === 'boards' && boardIds.length === 0 ? 'any' : rawMode
   const t = typeof r.target === 'number' && Number.isFinite(r.target) && r.target > 0
     ? Math.floor(r.target)
     : null
