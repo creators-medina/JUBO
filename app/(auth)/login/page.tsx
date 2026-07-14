@@ -89,6 +89,9 @@ export default function LoginPage() {
             {loading ? "Signing in…" : "Sign in"}
           </Button>
         </form>
+        {/* Password reset is implemented (/forgot-password, /reset-password) but
+            intentionally NOT linked yet — it activates once the Supabase reset
+            redirect URL is configured. See docs/JUBO_PR6A_MONITORING_PASSWORD_RESET.md */}
 
         <p className="text-xs text-center text-muted-foreground mt-4">
           No account?{" "}

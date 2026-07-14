@@ -43,6 +43,11 @@ export async function proxy(request: NextRequest) {
   // routes the user to sign up / log in, preserving the token.
   const isInviteRoute = request.nextUrl.pathname.startsWith("/invite");
 
+  // NOTE: the password-reset routes (/forgot-password, /reset-password) are
+  // implemented but intentionally NOT allow-listed here yet, so they stay
+  // dormant (unlinked + not reachable logged-out) until the flow is activated.
+  // Activation re-adds them to this guard — see the PR 6A doc.
+
   if (!user && !isAuthRoute && !isPublicApi && !isInviteRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
