@@ -17,6 +17,7 @@ const ACCEPT_ERRORS: Record<string, string> = {
   email_mismatch: 'This invitation is for a different email address.',
   org_missing: 'That organization no longer exists.',
   not_authenticated: 'Please sign in to accept this invitation.',
+  seat_limit_reached: 'This workspace is at its seat limit. Ask an admin to add a seat, then try again.',
 }
 
 export function InviteAcceptClient({

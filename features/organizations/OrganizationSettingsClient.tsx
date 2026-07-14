@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Check, Lock, Download } from 'lucide-react'
+import { Building2, Check, Lock, Download, CreditCard } from 'lucide-react'
 import { useToast } from '@/features/feedback/ToastProvider'
 import { updateOrganizationSettings } from './actions'
 import { exportRecordsCsv, exportRecordFieldsCsv, exportNotesTasksCsv, type ExportResult } from './exportData'
-import type { OrganizationSettings } from './queries'
+import type { OrganizationSettings, OrgBilling } from './queries'
 
 // A pragmatic shortlist — full IANA picker can come later. Covers US mortgage teams.
 const TIMEZONES = [
@@ -22,10 +22,12 @@ const TIMEZONES = [
 
 export function OrganizationSettingsClient({
   org,
+  billing,
   canEdit,
   role,
 }: {
   org: OrganizationSettings
+  billing?: OrgBilling | null
   canEdit: boolean
   role: string
 }) {
@@ -165,6 +167,47 @@ export function OrganizationSettingsClient({
           </div>
         </section>
       )}
+
+      {/* Plan & billing — owner/admin only, read-only display. Manual during private beta. */}
+      {canEdit && billing && (
+        <section className="space-y-3 rounded-xl border border-border bg-card p-5">
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-jubo-navy" />
+            <h2 className="text-sm font-semibold text-foreground">Plan &amp; billing</h2>
+          </div>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+            <Stat label="Plan" value={PLAN_LABELS[billing.plan_type] ?? billing.plan_type} />
+            <Stat label="Billing status" value={STATUS_LABELS[billing.billing_status] ?? billing.billing_status} />
+            <Stat label="Seats used" value={billing.seat_limit == null ? `${billing.seats_used} · unlimited` : `${billing.seats_used} / ${billing.seat_limit}`} />
+          </dl>
+          {billing.seat_limit != null && billing.seats_used >= billing.seat_limit && (
+            <p className="rounded-lg border border-jubo-gold/40 bg-jubo-gold-soft/40 px-3 py-2 text-2xs text-foreground">
+              You&apos;re at your seat limit. Contact us to add seats before inviting more teammates.
+            </p>
+          )}
+          <p className="text-2xs text-muted-foreground">
+            Billing is managed manually during private beta{billing.stripe_linked ? ' (Stripe linked)' : ''}. Self-serve
+            checkout and plan changes arrive later — no automatic charges are configured.
+          </p>
+        </section>
+      )}
+    </div>
+  )
+}
+
+const PLAN_LABELS: Record<string, string> = {
+  internal: 'Internal', beta: 'Beta', paid_beta: 'Paid beta', trial: 'Trial', suspended: 'Suspended',
+}
+const STATUS_LABELS: Record<string, string> = {
+  not_configured: 'Not configured', trialing: 'Trialing', active: 'Active',
+  past_due: 'Past due', canceled: 'Canceled', suspended: 'Suspended',
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-2xs uppercase tracking-wider text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 text-sm font-medium text-foreground">{value}</dd>
     </div>
   )
 }

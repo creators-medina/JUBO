@@ -83,6 +83,51 @@ export async function getOrganizationSettings(orgId: string): Promise<Organizati
   return (data as OrganizationSettings | null) ?? null
 }
 
+export type OrgBilling = {
+  plan_type: string
+  billing_status: string
+  seat_limit: number | null
+  seats_used: number
+  trial_ends_at: string | null
+  current_period_end: string | null
+  /** Whether Stripe IDs are present (never the raw ids in the UI). */
+  stripe_linked: boolean
+}
+
+/**
+ * Read-only billing/seat snapshot for the Organization settings display.
+ * Purely observational — never gates app access. `seats_used` is the live
+ * count of active members. Stripe IDs are reduced to a boolean for the UI.
+ */
+export async function getOrgBilling(orgId: string): Promise<OrgBilling | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('organizations')
+    .select('plan_type, billing_status, seat_limit, trial_ends_at, current_period_end, stripe_customer_id, stripe_subscription_id')
+    .eq('id', orgId)
+    .maybeSingle()
+  if (!data) return null
+  const o = data as {
+    plan_type: string; billing_status: string; seat_limit: number | null
+    trial_ends_at: string | null; current_period_end: string | null
+    stripe_customer_id: string | null; stripe_subscription_id: string | null
+  }
+  const { count } = await supabase
+    .from('organization_members')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId)
+    .eq('status', 'active')
+  return {
+    plan_type: o.plan_type,
+    billing_status: o.billing_status,
+    seat_limit: o.seat_limit,
+    seats_used: count ?? 0,
+    trial_ends_at: o.trial_ends_at,
+    current_period_end: o.current_period_end,
+    stripe_linked: !!(o.stripe_customer_id || o.stripe_subscription_id),
+  }
+}
+
 export type TeamMember = {
   membershipId: string
   userId: string
