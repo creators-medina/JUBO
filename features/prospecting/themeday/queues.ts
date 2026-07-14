@@ -19,6 +19,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { mondayOf } from '@/features/metrics/shared'
 import { DAY_BOARD_SPECS, squashBoardName as squash, type ThemeBoardKind } from './matchers'
+import { getProspectingSchedule } from '../schedule/queries'
 
 export type { ThemeBoardKind }
 
@@ -76,16 +77,41 @@ export async function buildThemeDayData(organizationId: string, userId: string):
 
   const days: Record<number, ThemeDayQueue> = {}
   const boardKind = new Map<string, ThemeBoardKind>()
+
+  // Phase Hybrid — the user's EDITABLE per-day board schedule overrides the
+  // playbook. Per weekday: an explicit board selection (by ID) wins; a day set
+  // to 'off' is empty; anything else falls back to the DAY_BOARD_SPECS
+  // name-matched playbook, so seeded / Medina orgs behave exactly as before.
+  const { schedule } = await getProspectingSchedule(organizationId, userId)
+  const boardById = new Map(boards.map((b) => [b.id, b]))
+
   for (const weekday of [1, 2, 3, 4, 5]) {
     const matched: ThemeSourceBoard[] = []
     const missing: string[] = []
-    for (const spec of DAY_BOARD_SPECS[weekday]) {
-      const hits = boards.filter((b) => spec.match(squash(b.name)))
-      if (hits.length === 0) missing.push(spec.canonical)
-      for (const b of hits) {
+    const daySched = schedule.enabled ? schedule.week[weekday] : undefined
+
+    if (daySched && daySched.mode === 'boards' && daySched.boardIds.length > 0) {
+      // Editable override — the user's chosen boards for this weekday.
+      for (const id of daySched.boardIds) {
+        const b = boardById.get(id)
+        if (!b) { missing.push('(a board you scheduled was removed)'); continue }
         if (!matched.some((m) => m.id === b.id)) {
-          matched.push({ id: b.id, name: b.name, kind: spec.kind })
-          boardKind.set(`${weekday}:${b.id}`, spec.kind)
+          matched.push({ id: b.id, name: b.name, kind: 'default' })
+          boardKind.set(`${weekday}:${b.id}`, 'default')
+        }
+      }
+    } else if (daySched && daySched.mode === 'off') {
+      // Day explicitly turned off — no call list.
+    } else {
+      // Fallback: the DAY_BOARD_SPECS playbook (name-matched).
+      for (const spec of DAY_BOARD_SPECS[weekday]) {
+        const hits = boards.filter((b) => spec.match(squash(b.name)))
+        if (hits.length === 0) missing.push(spec.canonical)
+        for (const b of hits) {
+          if (!matched.some((m) => m.id === b.id)) {
+            matched.push({ id: b.id, name: b.name, kind: spec.kind })
+            boardKind.set(`${weekday}:${b.id}`, spec.kind)
+          }
         }
       }
     }
@@ -157,10 +183,14 @@ export async function buildThemeDayData(organizationId: string, userId: string):
   }
 
   const lastContact = new Map<string, string>()
+  // Phase Hybrid (A2 outcome-awareness) — records whose recent history has a
+  // "don't contact" outcome are dropped from the call list (compliance + focus).
+  const suppressed = new Set<string>()
+  const SUPPRESS_OUTCOMES = new Set(['do_not_contact', 'not_interested', 'wrong_number'])
   if (recordIds.length > 0) {
     const { data: lcRows } = await supabase
       .from('communication_logs')
-      .select('record_id, occurred_at')
+      .select('record_id, occurred_at, outcome')
       .in('record_id', recordIds)
       .neq('channel', 'internal')
       .order('occurred_at', { ascending: false })
@@ -171,7 +201,9 @@ export async function buildThemeDayData(organizationId: string, userId: string):
       // predates 4000 newer logs would show "—" instead of a stale date.
       .limit(4000)
     for (const c of lcRows ?? []) {
-      if (!lastContact.has(c.record_id as string)) lastContact.set(c.record_id as string, c.occurred_at as string)
+      const rid = c.record_id as string
+      if (!lastContact.has(rid)) lastContact.set(rid, c.occurred_at as string)
+      if (c.outcome && SUPPRESS_OUTCOMES.has(c.outcome as string)) suppressed.add(rid)
     }
   }
 
@@ -180,7 +212,7 @@ export async function buildThemeDayData(organizationId: string, userId: string):
     const day = days[weekday]
     const dayBoardIds = new Set(day.boards.map((b) => b.id))
     day.items = records
-      .filter((r) => dayBoardIds.has(r.board_id))
+      .filter((r) => dayBoardIds.has(r.board_id) && !suppressed.has(r.id))
       .map((r) => ({
         recordId: r.id,
         title: r.title,
